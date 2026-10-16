@@ -221,6 +221,18 @@ Icon vật phẩm/thú cưng là **CC0 của [ORHstudio](https://itch.io/c/75300
 
 Backend bao phủ: phiên đăng nhập, ẩn danh vẫn chơi được, đăng xuất thu hồi token, đồng bộ bản lưu + xung đột `revision`, giới hạn kích thước, luồng OAuth (state giả mạo, lỗi nhà cung cấp, chuẩn hoá hồ sơ), liên kết tài khoản theo email, và cấu hình (từ chối `JWT_SECRET` mẫu/quá ngắn).
 
+## Dự án còn có thể làm
+
+- **Âm thanh / hiệu ứng đánh** — hiện chỉ có animation `shake` và floater sát thương.
+- **Tooltip chi tiết cho vật phẩm** — đang dùng thuộc tính `title`.
+- **PvP thật** — bảng xếp hạng, hoặc seed đối thủ chia sẻ được giữa người chơi.
+- **Nhiều bộ thú cưng hơn**, và lọc/tìm đồ khi kho đã nhiều món.
+- **Đa ngôn ngữ** — hiện hardcode tiếng Việt trong `items.ts`/`pets.ts`/component.
+- **Backend** — refresh token OAuth, rate limit, dọn phiên hết hạn. Bảng `oauth_identities` đã sẵn
+  sàng cho việc liên kết nhiều nhà cung cấp nhưng hiện chỉ dùng Google.
+- **`autoCodeSplitting` cho TanStack Router** — bundle hiện ~422 KB (134 KB gzip).
+- **Swagger/OpenAPI cho Fastify** — `/api/docs` của FastAPI đã mất khi chuyển sang Fastify.
+
 ## Dành cho AI agent / phiên làm việc tiếp theo
 
 Đọc **[`AGENTS.md`](AGENTS.md)** trước khi sửa: bảng tra tài liệu, lệnh chạy, bố cục mã nguồn, các bất biến bắt buộc, và công thức thêm tính năng mới.

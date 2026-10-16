@@ -118,8 +118,8 @@ Quy ước:
 - Đường dẫn `/api/*` không khớp route → **404 JSON**, ❌ không trả `index.html`.
 - Trần bản lưu **200 000 byte** (`save_too_large`), trần body 4 MB.
 
-⚠️ Khi backend còn là FastAPI thì có thêm `/api/docs` (Swagger). Fastify không có — xem
-`AGENTS.md` §8 nếu muốn thêm lại.
+⚠️ Khi backend còn là FastAPI thì có thêm `/api/docs` (Swagger). Fastify không có — muốn thêm lại
+thì xem mục *Dự án còn có thể làm* trong [`../README.md`](../README.md).
 
 ## 6. Luồng đăng nhập
 

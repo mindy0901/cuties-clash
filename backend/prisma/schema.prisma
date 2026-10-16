@@ -1,0 +1,62 @@
+// Schema Prisma — phản chiếu đúng schema Alembic cũ (tên bảng/cột đều snake_case).
+//
+// ⚠️ Database dev của người dùng đã có sẵn ba bảng này do Alembic tạo. Prisma KHÔNG
+// được phép đổi chúng: không `migrate reset`, không `db push`. Migration `0_init`
+// chỉ dùng cho database trống và đã được viết lại thành idempotent (xem file SQL).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String?  @unique(map: "ix_users_email") @db.VarChar(320)
+  displayName  String   @map("display_name") @db.VarChar(120)
+  avatarUrl    String?  @map("avatar_url") @db.Text
+  // Tăng lên mỗi lần đăng xuất để thu hồi mọi token cũ của tài khoản.
+  sessionEpoch Int      @default(0) @map("session_epoch")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(6)
+  lastLoginAt  DateTime @map("last_login_at") @db.Timestamptz(6)
+
+  identities OAuthIdentity[]
+  saves      GameSave[]
+
+  @@map("users")
+}
+
+model OAuthIdentity {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  provider  String   @db.VarChar(32)
+  // Mã định danh phía nhà cung cấp (với Google là `sub`).
+  subject   String   @db.VarChar(255)
+  email     String?  @db.VarChar(320)
+  createdAt DateTime @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "oauth_identities_user_id_fkey")
+
+  @@unique([provider, subject], map: "uq_oauth_provider_subject")
+  @@index([userId], map: "ix_oauth_identities_user_id")
+  @@map("oauth_identities")
+}
+
+model GameSave {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique(map: "game_saves_user_id_key") @map("user_id")
+  // `RunState` của frontend, lưu nguyên dạng JSON.
+  payload   String   @db.Text
+  // Số lần ghi, giúp client phát hiện ghi đè.
+  revision  Int
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "game_saves_user_id_fkey")
+
+  @@index([userId, updatedAt], map: "ix_game_saves_user_updated")
+  @@map("game_saves")
+}

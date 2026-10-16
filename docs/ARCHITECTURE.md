@@ -27,6 +27,31 @@
 
 ⚠️ `fr` và service `vite` (profile `dev`) **cùng dùng cổng 5190** → không chạy đồng thời.
 
+### Hai chế độ Docker
+
+| Chế độ | Lệnh | Nạp lại khi sửa code? |
+| --- | --- | --- |
+| Production | `docker compose up --build -d` | ❌ Không — image là bản chụp lúc build, phải build lại |
+| Dev | `docker compose --profile dev up -d db be-dev vite` | ✅ Cả hai phía: `vite` (HMR) và `be-dev` (`nodemon --legacy-watch`) |
+
+Cả hai đều phục vụ ở **5190**, nên phải tắt cái này mới chạy cái kia.
+
+Ba cạm bẫy đã gặp thật khi dựng chế độ dev — đừng "sửa lại cho gọn":
+
+1. **Bind mount của Windows KHÔNG phát sự kiện filesystem vào container.** `tsx watch` (và
+   `node --watch`) dùng `fs.watch` nên **im lặng không nạp lại** — sửa backend xong API vẫn chạy code
+   cũ. Vì vậy `be-dev` dùng `nodemon --legacy-watch` (polling), còn `vite` bật `VITE_USE_POLLING=1`.
+2. **Vite phải nghe trên `0.0.0.0`** trong container. Truyền qua CLI không được: dạng
+   `pnpm --filter frontend dev -- --host 0.0.0.0` **không** chuyển tham số tới Vite và Vite vẫn chỉ
+   nghe `127.0.0.1` — mà log vẫn ghi "ready", nên nhìn như đang chạy tốt. Dùng biến `VITE_DEV_HOST`
+   đọc trong `vite.config.ts`.
+3. **❌ Đừng mount cả `./backend` rồi che `node_modules` bằng named volume.** Docker chỉ nạp named
+   volume khi nó **rỗng**, nên thêm gói vào `package.json` là volume giữ bản cài cũ
+   (`nodemon: not found`), mà cài lại trong container thì pnpm đòi xoá `node_modules` và bỏ dở vì
+   không có TTY (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`). Cách đúng: mount **từng thư mục
+   source** (`src`, `scripts`, `prisma`) và để container dùng bản cài trong image; thêm gói thì
+   build lại image.
+
 **Điểm gọi lại OAuth** do `BE_PUBLIC_URL` quyết định (mặc định `http://localhost:5190`) vì đó là
 địa chỉ **trình duyệt** dùng để mở game, và nó phải khớp URI đã đăng ký ở Google Console. Đổi
 `FR_PORT` ⇒ đổi `BE_PUBLIC_URL` **và** đăng ký lại URI.

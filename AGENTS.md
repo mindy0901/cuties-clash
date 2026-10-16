@@ -51,13 +51,25 @@ pnpm build:be && pnpm test:be                             # backend
 
 Ba chỗ dễ sập:
 
-1. **Cổng 5190 là của container `fr`** (nginx) — đừng mở dev server khác ở đó, và xem §4.4 về
-   việc mở trình duyệt vào cổng này.
+1. **Cổng 5190 do một trong hai service giữ**: `fr` (image production) hoặc `vite` (dev). ❌ Đừng
+   chạy cả hai. Trong Docker chỉ có **một** chế độ tại một thời điểm — đang chạy cái nào thì 5190
+   phản ánh cái đó (xem §4.4 về việc mở trình duyệt).
 2. **`pnpm build` chạy `vite build` TRƯỚC `tsc -b`** (cố ý): plugin TanStack Router sinh
    `routeTree.gen.ts` trong lúc Vite build. ❌ Đừng đảo lại thứ tự.
 3. **`pnpm-workspace.yaml` phải giữ khối `allowBuilds`** — pnpm 11 chặn script cài đặt của
    Prisma/esbuild; thiếu là mọi `pnpm install`/`pnpm run` lỗi `ERR_PNPM_IGNORED_BUILDS`.
    Và `BE_PUBLIC_URL` quyết định redirect URI OAuth — đổi cổng thì đổi cả nó **và** Google Console.
+
+**Hai chế độ Docker** (sửa code xong phải biết mình đang ở chế độ nào):
+
+```bash
+docker compose up --build -d                        # production: image, KHÔNG tự nạp lại
+docker compose --profile dev up -d db be-dev vite    # dev: sửa code là tự nạp lại cả hai phía
+```
+
+⚠️ Ở chế độ dev dùng `nodemon --legacy-watch` và `VITE_USE_POLLING=1`: bind mount của Windows
+không phát sự kiện filesystem vào container, nên watcher thường (kể cả `tsx watch`) im lặng không
+chạy. Chi tiết ở [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §1.
 
 ## 3. Bố cục
 

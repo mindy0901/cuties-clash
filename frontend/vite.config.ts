@@ -50,6 +50,14 @@ export default defineConfig({
 	],
 	server: {
 		port: 5190,
+		// Trong container phải nghe trên 0.0.0.0 mới ra khỏi Docker được. Đặt qua biến
+		// môi trường thay vì truyền `--host` qua pnpm: dạng `pnpm --filter x dev -- --host`
+		// KHÔNG chuyển được tham số tới Vite (đã thử, Vite vẫn chỉ nghe 127.0.0.1).
+		host: process.env.VITE_DEV_HOST === 'true' ? true : undefined,
+		// Bind mount của Windows/Docker nhiều khi không phát sự kiện filesystem tới
+		// container, làm HMR im lặng không chạy. Service `vite` trong compose đặt
+		// VITE_USE_POLLING=1; chạy trực tiếp trên máy thì không bật (polling tốn CPU).
+		watch: process.env.VITE_USE_POLLING ? { usePolling: true, interval: 300 } : undefined,
 		proxy: {
 			// Chuyển tiếp mọi lời gọi API sang Fastify. Nhờ vậy trình duyệt luôn nói
 			// chuyện cùng origin, cookie phiên hoạt động giống hệt khi chạy production.

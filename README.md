@@ -6,12 +6,15 @@ Dự án này **tự viết lại toàn bộ luật chơi** theo mô tả công 
 
 ## Chạy nhanh
 
-### Cách 1 — Docker: 3 image riêng biệt (khuyến nghị)
+### Cách 1 — Docker production: 3 image riêng biệt (khuyến nghị để chơi)
 
 ```bash
 cp .env.example .env      # điền JWT_SECRET, và key Google nếu muốn đăng nhập
-docker compose up --build # mở http://localhost:5190
+docker compose up --build -d   # mở http://localhost:5190
 ```
+
+⚠️ Image là **bản chụp lúc build**. Sửa code xong phải chạy lại `docker compose up --build -d`
+thì 5190 mới thấy code mới. Muốn sửa code là thấy ngay thì dùng **Cách 1b** bên dưới.
 
 Ba image độc lập, mỗi cái một vai trò:
 
@@ -23,13 +26,38 @@ Ba image độc lập, mỗi cái một vai trò:
 
 Mở **http://localhost:5190**. `fr` chuyển tiếp `/api/*` sang `be` nên trình duyệt chỉ thấy một origin — cookie phiên đăng nhập hoạt động đúng và không cần CORS.
 
+### Cách 1b — Docker dev: sửa code là tự nạp lại (hot reload cả hai phía)
+
 ```bash
-docker compose up -d db                       # chỉ database
-docker compose --profile dev up db be vite    # dev trong Docker (Vite hot reload)
-docker compose down -v                        # dừng và xoá dữ liệu
+docker compose --profile dev up -d db be-dev vite   # mở http://localhost:5190
 ```
 
-⚠️ Đừng chạy `fr` và `vite` cùng lúc — cả hai đều dùng cổng 5190.
+| Service | Vai trò | Cổng ngoài |
+| ------- | ------- | ---------- |
+| `vite`   | Vite dev server + HMR (`/api` proxy → `be-dev`) | **5190** |
+| `be-dev` | Fastify chạy `nodemon --legacy-watch` — sửa file là API khởi động lại | 8001 |
+
+Sửa file trong `frontend/` hoặc `backend/` → container tự nạp lại, **không cần build lại image**.
+
+⚠️ `vite` và `fr` **tranh nhau cổng 5190** — chạy cái này thì phải tắt cái kia:
+
+```bash
+docker compose stop fr be                            # sang chế độ dev
+docker compose --profile dev up -d db be-dev vite
+# … và quay lại production:
+docker compose --profile dev stop && docker compose up --build -d
+```
+
+⚠️ Vì sao `be-dev` dùng `nodemon --legacy-watch` chứ không `tsx watch`: bind mount của Windows
+**không phát sự kiện filesystem** vào container, mà `tsx watch` không có chế độ polling → sửa file
+xong API vẫn chạy code cũ. `--legacy-watch` là polling nên chạy được mọi loại filesystem. Tương tự,
+`vite` bật `VITE_USE_POLLING=1` (đọc trong `frontend/vite.config.ts`).
+
+```bash
+docker compose up -d db                       # chỉ database
+docker compose down                           # dừng (giữ dữ liệu)
+docker compose down -v                        # dừng và XOÁ dữ liệu
+```
 
 ### Cách 2 — Dev trên máy (hot reload nhanh nhất)
 

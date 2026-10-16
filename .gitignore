@@ -45,3 +45,5 @@ _shot-*.png
 *.sln
 *.sw?
 node_modules
+# Store của pnpm rơi vào repo (bản trùng, không thuộc mã nguồn).
+.pnpm-store

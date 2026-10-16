@@ -1,5 +1,6 @@
 import { REROLL_COST, rollShop } from './economy'
 import { ITEM_BY_ID } from './items'
+import { repairKhoSlots } from './kho'
 import { PETS, getPet, petLevelStats } from './pets'
 import { FINAL_STAGE } from './stages'
 import type { ItemInstance, RunState, ShopOffer } from './types'
@@ -43,10 +44,12 @@ export function sanitizeRun(candidate: unknown): RunState {
 	const bagSize = petLevelStats(getPet(petId), pets[petId]).bagSize
 
 	// Món trang bị không còn vừa lưới hiện tại bị đẩy về kho (xem `sanitizeItems`).
-	const equippedRaw = sanitizeItems(saved.equipped, bagSize, false)
+	const equippedRaw = sanitizeItems(saved.equipped, bagSize)
 	const equipped = equippedRaw.filter((item) => item.slot >= 0)
 	const kickedToInventory = equippedRaw.filter((item) => item.slot < 0)
-	const inventory = [...sanitizeItems(saved.inventory, bagSize, true), ...kickedToInventory]
+	// Kho là **lưới tự do**: giữ nguyên vị trí người chơi đã đặt, chỉ xếp lại món thiếu ô
+	// (bản lưu cũ dùng `slot: -1`) hoặc trùng ô.
+	const inventory = repairKhoSlots([...sanitizeItems(saved.inventory, null), ...kickedToInventory])
 
 	return {
 		petId,
@@ -77,11 +80,14 @@ function isKnownTemplate(templateId: unknown): templateId is string {
 /**
  * Lọc danh sách món: bỏ món trỏ tới template không còn tồn tại và món thiếu `uid`.
  *
- * Với **trang bị**, món có ô nằm ngoài lưới hiện tại (ví dụ bản lưu của cấp thú cao
- * hơn) sẽ được trả về dạng `slot: -1` để hàm gọi chuyển nó sang kho — nếu để nguyên
- * trong `equipped` với `slot: -1` thì món vô hình ở cả hai panel.
+ * `limit` là số ô hợp lệ khi món nằm trong **lưới trang bị**; món có ô ngoài lưới (ví dụ bản
+ * lưu của cấp thú cao hơn) được trả về dạng `slot: -1` để hàm gọi chuyển nó sang kho — nếu để
+ * nguyên trong `equipped` với `slot: -1` thì món vô hình ở cả hai panel.
+ *
+ * ⚠️ `limit = null` dùng cho **kho**: kho là lưới tự do nên mọi ô không âm đều hợp lệ, và món
+ * thiếu ô được xếp lại ngay sau đó bằng `repairKhoSlots`.
  */
-function sanitizeItems(value: unknown, bagSize: number, toInventory: boolean): ItemInstance[] {
+function sanitizeItems(value: unknown, limit: number | null): ItemInstance[] {
 	if (!Array.isArray(value)) return []
 	const result: ItemInstance[] = []
 	const seen = new Set<string>()
@@ -92,7 +98,7 @@ function sanitizeItems(value: unknown, bagSize: number, toInventory: boolean): I
 		if (!isKnownTemplate(item.templateId)) continue
 		seen.add(item.uid)
 		const slot = typeof item.slot === 'number' && Number.isFinite(item.slot) ? Math.round(item.slot) : -1
-		const fits = !toInventory && slot >= 0 && slot < bagSize
+		const fits = slot >= 0 && (limit === null || slot < limit)
 		result.push({
 			uid: item.uid,
 			templateId: item.templateId,

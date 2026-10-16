@@ -38,7 +38,7 @@ describe('migrate bản lưu v1 → v2', () => {
 		expect(migrated.run.equipped).toHaveLength(12)
 		expect(migrated.run.inventory).toHaveLength(1)
 		expect(migrated.run.inventory[0].uid).toBe('i12')
-		expect(migrated.run.inventory[0].slot).toBe(-1)
+		expect(migrated.run.inventory[0].slot).toBe(0)
 	})
 
 	it('món ở khay chờ (slot -1) chuyển vào kho', () => {

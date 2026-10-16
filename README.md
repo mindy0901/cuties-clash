@@ -132,12 +132,15 @@ Game có **hai màn hình**, điều hướng bằng đường dẫn thật (nú
 | | **Trang bị** | **Kho đồ** |
 | --- | --- | --- |
 | Là gì | Đồ thú cưng **đang mang** | Đồ **dự trữ**, chưa dùng |
-| Sức chứa | Lưới **4 cột**, số hàng tăng theo cấp thú (12–20 ô) | **Không giới hạn** |
+| Sức chứa | Lưới **4 cột**, số hàng tăng theo cấp thú (12–20 ô) | Lưới **8 cột**, **không giới hạn** (tự cao thêm) |
+| Ô khoá | Có — ô vượt cấp thú bị mờ, không đặt được | Không — mọi ô đều dùng được |
 | Có tham chiến? | ✅ Có — passive, hào khí, vũ khí đều tính | ❌ Không, nằm không thì không có hiệu lực |
 | Món vào đây khi nào | Mua ở cửa hàng nếu trang bị **còn chỗ** | Mua khi trang bị **hết chỗ**, hoặc khi bạn tháo ra |
+| Xếp chỗ | Bạn tự đặt — món nằm đúng ô | **Cũng vậy** — món nằm đúng ô, kho không xếp hộ |
 
 Chuyển đồ giữa hai chỗ: **giữ chuột kéo** món sang ô khác rồi nhả, hoặc **bấm** món rồi **bấm** ô để đặt.
 Khi đang cầm, bấm **R** hoặc **chuột phải** để xoay 90° (không cần đặt xuống trước), **Esc** để bỏ.
+**Cả hai bảng đều là lưới tự do**: thả ở đâu món nằm ở đó, kéo trong kho để sắp xếp lại tuỳ ý.
 Kéo xuống **Kho đồ** để cất; kéo từ Kho lên lưới để mang. Vẫn có nút **↑** và **↓ Tháo hết**.
 
 1. **Mua đồ** ở trang Cửa hàng bằng **Paw Tally (萌主币)** kiếm được qua mỗi màn — món tự lên trang bị nếu còn chỗ.

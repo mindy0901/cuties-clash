@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { buildEnemyCombatant, buildPlayerCombatant, estimatePower } from '../game/build'
 import { REROLL_COST, STARTING_CURRENCY, rollShop } from '../game/economy'
 import { getTemplate } from '../game/items'
+import { dropInKho as moveInKho, rotateInKho as rotateKhoItem, unequipIntoKho } from '../game/kho'
 import {
 	acquireItem,
 	dropEquipped,
@@ -83,17 +84,23 @@ interface GameStore {
 	sell: (uid: string) => void
 	/** Kéo thả trong lưới trang bị. */
 	dropItem: (uid: string, slot: number, rotated?: boolean) => void
+	/** Kéo thả trong lưới **kho** (kho là lưới tự do như trang bị). */
+	dropInKho: (uid: string, slot: number | null, rotated?: boolean) => void
 	/**
 	 * Xoay một món đang mang 90° tại chỗ.
 	 * Trả `true` nếu xoay được — dùng để gợi ý khi kéo khỏi lệch với thực tế.
 	 */
 	rotate: (uid: string) => boolean
+	/** Xoay một món trong kho tại chỗ. `false` nếu hướng mới không vừa. */
+	rotateInKho: (uid: string) => boolean
 	/** Kho → trang bị (tự tìm chỗ trống). */
 	equip: (uid: string) => void
 	/** Đặt món từ kho vào đúng ô; `false` nếu hướng đó không vừa. */
 	equipAt: (uid: string, slot: number, rotated: boolean) => boolean
-	/** Trang bị → kho. */
+	/** Trang bị → kho ở chỗ trống đầu tiên. */
 	unequip: (uid: string) => void
+	/** Trang bị → kho **vào đúng ô đang trỏ** (`slot = null` thì tự tìm chỗ). */
+	unequipAt: (uid: string, slot: number | null, rotated: boolean) => void
 	/** Chuyển một món về phía còn lại, tuỳ nó đang ở đâu. */
 	transfer: (uid: string, from: ItemHome) => void
 	startBattle: (mode: 'stage' | 'pvp') => void
@@ -213,6 +220,13 @@ export const useGameStore = create<GameStore>()(
 					return { run }
 				}),
 
+			dropInKho: (uid, slot, rotated) =>
+				set((state) => {
+					const { run, result } = moveInKho(state.run, uid, slot, rotated)
+					if (result.merged) get().pushToast('Nhập thành công — món đồ lên sao!', 'good')
+					return { run }
+				}),
+
 			rotate: (uid) => {
 				const current = get().run
 				const next = rotateEquipped(current, uid)
@@ -254,6 +268,18 @@ export const useGameStore = create<GameStore>()(
 					const result = unequipToInventory(state.run, uid)
 					return result.ok ? { run: result.run } : state
 				}),
+
+			unequipAt: (uid, slot, rotated) => set((state) => ({ run: unequipIntoKho(state.run, uid, slot, rotated) })),
+
+			rotateInKho: (uid) => {
+				const next = rotateKhoItem(get().run, uid)
+				if (!next) {
+					get().pushToast('Xoay lại thì không vừa chỗ — hãy kéo món ra chỗ khác trước', 'bad')
+					return false
+				}
+				set({ run: next })
+				return true
+			},
 
 			transfer: (uid, from) => {
 				if (from === 'inventory') get().equip(uid)

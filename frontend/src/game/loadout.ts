@@ -1,4 +1,5 @@
 import { canPlace, createItemInstance, findFreePlacement, resolveDrop, rotateItem, templateFootprint } from './bag'
+import { addToKho, unequipIntoKho } from './kho'
 import { GRID_MAX_ROWS, getPet, petLevelStats } from './pets'
 import { makeUid } from './rng'
 import type { ItemInstance, RunState, Star } from './types'
@@ -21,7 +22,13 @@ export function equippedItems(run: RunState): ItemInstance[] {
 	return run.equipped.filter((item) => item.slot >= 0 && item.slot < usable)
 }
 
-/** Tạo một đồ vật mới ở kho (chưa mang). */
+/** Ô này có **khoá** không (vượt số ô dùng được theo cấp thú). */
+export function loadoutCellLocked(run: RunState, slot: number): boolean {
+	const { size, usable } = loadoutShape(run)
+	return slot >= usable && slot < size
+}
+
+/** Tạo một đồ vật mới ở kho (chưa mang) — chưa có ô, `acquireItem` sẽ xếp chỗ. */
 export function inventoryItem(run: RunState, templateId: string, star: Star, seed: number): ItemInstance {
 	return createItemInstance(templateId, star, makeUid(seed, `${templateId}-${run.inventory.length}`))
 }
@@ -42,7 +49,7 @@ export function acquireItem(
 	const { width, size, usable } = loadoutShape(run)
 	const placement = findFreePlacement(run.equipped, templateId, width, size, usable)
 	if (!placement) {
-		return { run: { ...run, inventory: [...run.inventory, add] }, wentToInventory: true }
+		return { run: addToKho(run, add), wentToInventory: true }
 	}
 	const item: ItemInstance = { ...add, slot: placement.slot, rotated: placement.rotated }
 	return { run: { ...run, equipped: [...run.equipped, item] }, wentToInventory: false }
@@ -96,18 +103,14 @@ export function equipFromInventory(run: RunState, uid: string): TransferResult {
 	}
 }
 
-/** Trang bị → kho: bỏ ra khỏi lưới, kho không giới hạn nên luôn thành công. */
+/**
+ * Trang bị → kho, ở chỗ trống đầu tiên. Ô trong kho là **dữ liệu thật** nên món vào kho
+ * luôn có vị trí (❌ không còn `slot: -1`).
+ */
 export function unequipToInventory(run: RunState, uid: string): TransferResult {
 	const item = run.equipped.find((entry) => entry.uid === uid)
 	if (!item) return { ok: false, reason: 'not-found' }
-	return {
-		ok: true,
-		run: {
-			...run,
-			equipped: run.equipped.filter((entry) => entry.uid !== uid),
-			inventory: [...run.inventory, { ...item, slot: -1, rotated: false }],
-		},
-	}
+	return { ok: true, run: unequipIntoKho(run, uid, null) }
 }
 
 /** Bán một món ở kho hoặc ở trang bị; hoàn 50% giá đã trả. */

@@ -49,7 +49,7 @@ describe('game store loop', () => {
 		const run = useGameStore.getState().run
 		expect(run.equipped).toHaveLength(2)
 		expect(run.inventory).toHaveLength(1)
-		expect(run.inventory[0].slot).toBe(-1)
+		expect(run.inventory[0].slot, 'kho là lưới: món mua vào kho có ô thật').toBeGreaterThanOrEqual(0)
 	})
 
 	it('never buys the same offer twice', () => {
@@ -240,7 +240,7 @@ describe('game store loop', () => {
 		let run = useGameStore.getState().run
 		expect(run.equipped).toHaveLength(0)
 		expect(run.inventory).toHaveLength(1)
-		expect(run.inventory[0].slot).toBe(-1)
+		expect(run.inventory[0].slot, 'kho là lưới: món vào kho phải có ô thật').toBeGreaterThanOrEqual(0)
 
 		useGameStore.getState().equip(uid)
 		run = useGameStore.getState().run

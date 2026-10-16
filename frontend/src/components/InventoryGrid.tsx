@@ -1,35 +1,37 @@
+import { useMemo } from 'react'
 import { templateFootprint } from '../game/bag'
 import { getTemplate } from '../game/items'
+import { khoShape, repairKhoSlots } from '../game/kho'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { ItemIcon } from './ItemIcon'
 import { ITEM_BORDER_BY_CLASS, cn } from './ui'
 
-/** Số cột của kho. */
-const WIDTH = 8
-/** Số hàng hiện mặc định (kho trống vẫn hiện đủ 8×8 ô). */
-const MIN_ROWS = 8
-/** Số hàng trống hiện thêm khi kho đã đầy, để thấy vẫn còn chỗ. */
-const SPARE_ROWS = 1
-
 export interface InventoryGridProps {
 	items: ItemInstance[]
 	held: { uid: string; rotated: boolean; templateId: string } | null
 	onPickItem?: (item: ItemInstance) => void
-	/** Bấm một ô trong kho (đặt món đang cầm xuống). */
+	/** Bấm một ô trong kho (đặt món đang cầm xuống đúng ô đó). */
 	onPickCell?: (slot: number) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
+	/** Ô neo đang vẽ gợi ý — chỗ đặt khi thả chuột dùng đúng ô này. */
+	onAnchorSlot?: (slot: number | null) => void
+	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
 	className?: string
 }
 
 /**
- * Lưới **Kho đồ** — dùng **chung `GridBoard`** với lưới Trang bị, nên ô và gợi ý chỗ đặt
- * giống hệt nhau.
+ * Lưới **Kho đồ** — một **lưới tự do** giống hệt lưới Trang bị, dùng **chung `GridBoard`** nên
+ * ô và gợi ý chỗ đặt giống nhau.
  *
- * Khác biệt duy nhất: **không giới hạn số ô** và **không kiểm tra va chạm** — món xếp lần
- * lượt từ trái sang phải, hết hàng thì xuống hàng mới, chứa nhiều thì cuộn dọc.
+ * ⚠️ Kho ❌ **không xếp hộ**: mỗi món nằm ở đúng `slot`/`rotated` người chơi đặt, nên thả ở
+ * đâu thì món ở đó, và xoay hướng nào cũng được. Bản trước tự dồn món nối tiếp nhau rồi ghi đè
+ * vị trí vừa thả, khiến thao tác kéo trong kho trông như "không kéo được".
+ *
+ * Khác biệt duy nhất so với trang bị: **không giới hạn** — lưới tự cao thêm khi có món nằm thấp
+ * hơn (xem `khoRows`), và **không có ô khoá**.
  */
 export function InventoryGrid({
 	items,
@@ -38,29 +40,16 @@ export function InventoryGrid({
 	onPickCell,
 	onDragStart,
 	onDragEnd,
+	onAnchorSlot,
+	onRotate,
 	onSell,
 	className,
 }: InventoryGridProps) {
-	const width = WIDTH
-
-	/**
-	 * Xếp tuần tự: mỗi món chiếm `w×h` ô liền nhau. Không đủ chỗ ở hàng hiện tại thì **đẩy
-	 * xuống hàng mới** — món nằm trọn trong một hàng, không bị cắt ngang.
-	 */
-	const packed: ItemInstance[] = []
-	let cursor = 0
-	for (const item of items) {
-		const size = templateFootprint(item.templateId, item.rotated)
-		const col = cursor % width
-		if (col + size.w > width) cursor += width - col
-		packed.push({ ...item, slot: cursor })
-		cursor += size.w
-	}
-
-	// Mặc định đủ 8×8; nhiều món hơn thì lưới cao thêm, luôn thừa một hàng trống.
-	const rows = Math.max(MIN_ROWS, Math.ceil(cursor / width) + SPARE_ROWS)
-	// Không giới hạn ô → mọi ô đều dùng được.
-	const usable = rows * width
+	// Món thiếu ô (bản lưu cũ dùng `slot: -1`) vẫn phải **hiện**: xếp tạm để không có món vô
+	// hình. Món có vị trí hợp lệ được giữ nguyên, nên bình thường danh sách này y hệt store.
+	const shown = useMemo(() => repairKhoSlots(items), [items])
+	const { width, rows, usable } = khoShape(shown)
+	const placed = shown.filter((item) => item.slot >= 0 && item.slot < usable)
 
 	const renderItem = (item: ItemInstance, box: ItemBoxProps) => {
 		const size = templateFootprint(item.templateId, item.rotated)
@@ -86,20 +75,36 @@ export function InventoryGrid({
 						<ItemIcon templateId={item.templateId} star={item.star} />
 					</span>
 					<span className="max-w-full truncate text-[10px] leading-[1.1] text-muted">{template.name}</span>
-					{onSell ? (
+					{onRotate || onSell ? (
 						<span className="absolute right-0.5 bottom-0.5 flex gap-1 opacity-0 transition-opacity duration-100 group-hover/inv:opacity-100">
-							<button
-								type="button"
-								data-no-drop
-								className="grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold"
-								title="Bán món này (hoàn 50%)"
-								onClick={(event) => {
-									event.stopPropagation()
-									onSell(item.uid)
-								}}
-							>
-								✕
-							</button>
+							{onRotate ? (
+								<button
+									type="button"
+									data-no-drop
+									className="grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold"
+									title="Xoay 90°"
+									onClick={(event) => {
+										event.stopPropagation()
+										onRotate(item.uid)
+									}}
+								>
+									⟳
+								</button>
+							) : null}
+							{onSell ? (
+								<button
+									type="button"
+									data-no-drop
+									className="grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold"
+									title="Bán món này (hoàn 50%)"
+									onClick={(event) => {
+										event.stopPropagation()
+										onSell(item.uid)
+									}}
+								>
+									✕
+								</button>
+							) : null}
 						</span>
 					) : null}
 				</button>
@@ -112,15 +117,15 @@ export function InventoryGrid({
 			<GridBoard
 				width={width}
 				rows={rows}
-
 				usableCells={usable}
-				items={packed}
+				items={placed}
 				held={held}
 				renderItem={renderItem}
 				onPickItem={onPickItem}
 				onPickCell={onPickCell}
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
+				onAnchorSlot={onAnchorSlot}
 			/>
 		</div>
 	)

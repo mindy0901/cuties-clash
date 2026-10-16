@@ -110,7 +110,7 @@ describe('sanitizeRun — chống trắng trang', () => {
 		const run = sanitizeRun({ ...validRun(), pets: { 'fire-pup': 1 }, equipped: [createItemInstance('jade-fury', 1, 'x', 50)] })
 		expect(run.equipped).toEqual([])
 		expect(run.inventory.map((item) => item.uid)).toEqual(['x'])
-		expect(run.inventory[0].slot).toBe(-1)
+		expect(run.inventory[0].slot).toBe(0)
 	})
 
 	it('sao và giá đã trả bị kẹp trong khoảng hợp lệ', () => {

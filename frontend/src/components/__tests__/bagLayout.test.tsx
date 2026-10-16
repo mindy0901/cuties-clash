@@ -3,7 +3,8 @@
  * Trang bị và Kho đồ là **hai chỗ khác nhau**:
  * - Trang bị: lưới 4 cột, **luôn hiện đủ 4×5**; ô vượt cấp thú bị **khoá** (mờ). Chỉ đồ
  *   trong vùng dùng được mới tham chiến.
- * - Kho: **cùng công thức và UI** nhưng **không giới hạn ô**, món xếp tuần tự, cuộn dọc.
+ * - Kho: **cùng công thức và UI** nhưng **không giới hạn ô**; kho là **lưới tự do** — món nằm
+ *   đúng ô người chơi đặt, kho không xếp hộ. Nhiều món thì cuộn dọc.
  *
  * Render cả `PrepScreen` (không render lẻ từng panel) vì state nhấc/đặt nằm ở cha chung —
  * kho và trang bị là hai panel anh em.
@@ -85,8 +86,8 @@ describe('Kho đồ — dự trữ', () => {
 			run: {
 				...state.run,
 				inventory: [
-					createItemInstance('great-axe', 2, 'axe'),
-					createItemInstance('wooden-blade', 1, 'sword'),
+					createItemInstance('great-axe', 2, 'axe', 0),
+					createItemInstance('wooden-blade', 1, 'sword', 8),
 				],
 			},
 		}))
@@ -98,7 +99,7 @@ describe('Kho đồ — dự trữ', () => {
 
 	it('bấm món trong kho rồi bấm ô thì mang lên trang bị', () => {
 		useGameStore.setState((state) => ({
-			run: { ...state.run, inventory: [createItemInstance('jade-fury', 1, 'jade')] },
+			run: { ...state.run, inventory: [createItemInstance('jade-fury', 1, 'jade', 0)] },
 		}))
 		renderPrep()
 		fireEvent.click(document.querySelector<HTMLElement>('button[data-inv-tile="jade"]')!)
@@ -112,7 +113,7 @@ describe('Kho đồ — dự trữ', () => {
 
 	it('bán được món trong kho', () => {
 		useGameStore.setState((state) => ({
-			run: { ...state.run, inventory: [createItemInstance('great-axe', 2, 'axe')] },
+			run: { ...state.run, inventory: [createItemInstance('great-axe', 2, 'axe', 0)] },
 		}))
 		const before = useGameStore.getState().run.currency
 		renderPrep()
@@ -129,7 +130,7 @@ describe('Trang bị — đồ đang mang', () => {
 			run: {
 				...state.run,
 				equipped: [createItemInstance('jade-fury', 1, 'worn', 0)],
-				inventory: [createItemInstance('great-axe', 1, 'stored')],
+				inventory: [createItemInstance('great-axe', 1, 'stored', 0)],
 			},
 		}))
 		renderPrep()
@@ -157,6 +158,6 @@ describe('Trang bị — đồ đang mang', () => {
 		const run = useGameStore.getState().run
 		expect(run.equipped).toHaveLength(0)
 		expect(run.inventory).toHaveLength(2)
-		expect(run.inventory.every((item) => item.slot === -1)).toBe(true)
+		expect(run.inventory.every((item) => item.slot >= 0), 'món về kho phải có ô thật').toBe(true)
 	})
 })

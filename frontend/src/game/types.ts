@@ -245,8 +245,9 @@ export interface RunState {
 	 */
 	equipped: ItemInstance[]
 	/**
-	 * **Kho đồ**: mọi thứ chưa mang, không giới hạn sức chứa. Món ở đây không có
-	 * hiệu lực và không chiếm ô của trang bị. `slot` luôn là -1.
+	 * **Kho đồ**: mọi thứ chưa mang, **không giới hạn** sức chứa. Món ở đây không có hiệu lực
+	 * và không chiếm ô của trang bị. Kho là **lưới tự do** (8 cột): `slot`/`rotated` là vị trí và
+	 * hướng người chơi đặt, giữ nguyên cho tới khi người chơi thao tác.
 	 */
 	inventory: ItemInstance[]
 	seed: number

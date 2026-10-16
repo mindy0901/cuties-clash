@@ -1,3 +1,4 @@
+import { repairKhoSlots } from './kho'
 import { petLevelStats } from './pets'
 import { getPet } from './pets'
 import type { ItemInstance, RunState } from './types'
@@ -43,5 +44,6 @@ export function migrateV1ToV2(persisted: PersistedV1): PersistedV2 | PersistedV1
 
 	// `size` chỉ là số ô, không phải kiểm tra va chạm: bản lưu cũ vốn đã hợp lệ.
 	void occupied
-	return { run: { ...rest, equipped, inventory } as RunState }
+	// Kho là lưới tự do nên món vào kho phải có **ô thật** (❌ không còn `slot: -1`).
+	return { run: { ...rest, equipped, inventory: repairKhoSlots(inventory) } as RunState }
 }

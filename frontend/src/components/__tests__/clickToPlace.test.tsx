@@ -8,7 +8,7 @@
  *
  * Test này khoá hành vi đó lại: nếu ai quay về kéo-thả, các test dưới sẽ đỏ.
  */
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PrepScreen } from '../PrepScreen'
 import { itemCells, templateFootprint } from '../../game/bag'
@@ -85,6 +85,64 @@ function previewSlots(): number[] {
 	return Array.from(document.querySelectorAll<HTMLElement>('[data-preview]')).map((node) =>
 		Number(node.dataset.preview),
 	)
+}
+
+/** Khung lưới bên trong một bảng. */
+function boardOf(title: string): HTMLElement {
+	const board = panel(title).querySelector<HTMLElement>('[data-grid-board]')
+	if (!board) throw new Error(`bảng ${title} không có lưới`)
+	return board
+}
+
+/**
+ * Ô gợi ý đang tô **trong một bảng**.
+ *
+ * ⚠️ Phải giới hạn theo bảng: hai bảng dùng chung `[data-preview]`, nên truy vấn toàn trang
+ * sẽ lẫn gợi ý của bảng kia.
+ */
+function previewSlotsIn(title: string): number[] {
+	return Array.from(panel(title).querySelectorAll<HTMLElement>('[data-preview]')).map((node) =>
+		Number(node.dataset.preview),
+	)
+}
+
+/** Đưa con trỏ tới một ô của **kho**. */
+function hoverInvCell(slot: number) {
+	const cell = panel('Kho đồ').querySelector<HTMLElement>(`[data-cell="${slot}"]`)
+	if (!cell) throw new Error(`kho không có ô ${slot}`)
+	fireEvent.mouseMove(cell, { clientX: 0, clientY: 0 })
+}
+
+/**
+ * Đặt vùng của **Kho đồ** (px) — thay cho layout thật mà jsdom không có.
+ *
+ * ⚠️ Bắt buộc khi cần phân biệt "thả trong kho" với "thả ngoài": jsdom trả `getBoundingClientRect()`
+ * toàn số 0 nên vùng kho là 0×0 và mọi điểm đều bị coi là **ngoài** kho.
+ */
+function stubKhoRect(left: number, top: number, width: number, height: number) {
+	const section = panel('Kho đồ')
+	section.getBoundingClientRect = () =>
+		({
+			x: left,
+			y: top,
+			left,
+			top,
+			right: left + width,
+			bottom: top + height,
+			width,
+			height,
+			toJSON: () => ({}),
+		}) as DOMRect
+}
+
+/**
+ * Đẩy con trỏ tới toạ độ (px).
+ *
+ * Bắn trên `document` — chỉ `useHeldItem` (nghe ở `document`) biết, không lưới nào nghe, nên
+ * ô đang trỏ của lưới không bị đổi. Dùng để mô phỏng "con trỏ đang ở chỗ khác".
+ */
+function movePointerTo(x: number, y: number) {
+	fireEvent.pointerMove(document, { clientX: x, clientY: y })
 }
 
 /**
@@ -221,6 +279,121 @@ describe('gợi ý chỗ đặt', () => {
 	})
 })
 
+/**
+ * LỖI ĐÃ GẶP: ô đang trỏ chỉ được **ghi** khi con trỏ đi qua lưới, mà **không bao giờ bị xoá**
+ * khi con trỏ rời đi. Hệ quả: nhấc một món rồi lướt con trỏ qua lưới (hoặc đi ngang qua trên
+ * đường tới chỗ khác) là lưới **vẫn hiện gợi ý ở ô cũ** dù con trỏ đã ở panel khác. Tệ hơn,
+ * `onAnchorSlot` lấy từ cùng biến đó nên **thả chuột ở chỗ khác lại đặt món vào ô cũ**.
+ *
+ * ⚠️ Trình tự mới tái hiện được: phải **đang cầm món** thì lưới mới ghi ô đang trỏ.
+ */
+describe('gợi ý chỉ hiện khi con trỏ ở TRONG bảng', () => {
+	it('rời lưới trang bị khi đang cầm món ở kho → lưới không còn gợi ý', () => {
+		reset([], [{ uid: 'stored', templateId: 'jade-fury', star: 1, slot: 0, paid: 3 }])
+		renderPrep()
+
+		fireEvent.click(invTileOf('stored'))
+		hoverCell(9)
+		expect(previewSlotsIn('Trang bị'), 'con trỏ vào lưới thì phải có gợi ý').toEqual([9])
+
+		fireEvent.pointerLeave(boardOf('Trang bị'))
+
+		expect(previewSlotsIn('Trang bị'), 'con trỏ đã rời lưới thì không được còn gợi ý').toEqual([])
+	})
+
+	it('rời kho khi đang cầm món ở trang bị → kho không còn gợi ý', () => {
+		reset([jade('gem', 0)], [])
+		renderPrep()
+
+		fireEvent.click(buttonOf('gem'))
+		hoverInvCell(0)
+		expect(previewSlotsIn('Kho đồ')).toEqual([0])
+
+		fireEvent.pointerLeave(boardOf('Kho đồ'))
+
+		expect(previewSlotsIn('Kho đồ')).toEqual([])
+	})
+
+	it('quay lại lưới thì gợi ý hiện lại — và đặt đúng chỗ mới', () => {
+		reset([], [{ uid: 'stored', templateId: 'jade-fury', star: 1, slot: 0, paid: 3 }])
+		renderPrep()
+
+		fireEvent.click(invTileOf('stored'))
+		hoverCell(9)
+		fireEvent.pointerLeave(boardOf('Trang bị'))
+		expect(previewSlotsIn('Trang bị')).toEqual([])
+
+		hoverCell(0)
+		expect(previewSlotsIn('Trang bị'), 'vào lại lưới thì gợi ý phải hiện lại').toEqual([0])
+
+		fireEvent.click(cellOf(0))
+		expect(useGameStore.getState().run.equipped[0].slot, 'đặt vào ô đang trỏ, không phải ô cũ').toBe(0)
+	})
+})
+
+describe('kéo-thả: thả ngoài ô đặt thì huỷ', () => {
+	/**
+	 * Bắt đầu kéo một món trong kho: `pointerdown` rồi `pointermove` xa hơn ngưỡng 4px.
+	 *
+	 * 📌 jsdom **không có layout**: mọi `getBoundingClientRect()` trả toàn số 0 và
+	 * `document.elementFromPoint` không tồn tại. Vì vậy phải tự đặt vùng cho kho (`stubKhoRect`)
+	 * và tự đẩy con trỏ (`movePointerTo`) thì hai nhánh "trong kho" / "ngoài kho" mới phân biệt
+	 * được — nếu không, mọi cú thả đều rơi vào nhánh "cất vào kho".
+	 */
+	function batDauKeoTuKho(uid: string) {
+		const tile = invTileOf(uid)
+		fireEvent.pointerDown(tile, { button: 0, clientX: 10, clientY: 10 })
+		fireEvent.pointerMove(tile, { clientX: 300, clientY: 300 })
+		expect(ghost(), 'đã nhấc món lên').not.toBeNull()
+	}
+
+	/**
+	 * Nhả chuột.
+	 *
+	 * ⚠️ Phải bọc `act`: `pointerup` ở đây nghe tại `document` (vì con trỏ có thể đang ở panel
+	 * khác), nên không đi qua `fireEvent` — thiếu `act` thì state đã đổi mà DOM chưa render lại,
+	 * và các câu kiểm tra DOM sẽ đọc phải giao diện cũ.
+	 */
+	function nhaChuot(x: number, y: number) {
+		act(() => {
+			document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: x, clientY: y }))
+		})
+	}
+
+	it('thả ngoài lưới (sau khi con trỏ rời đi) → huỷ, không đặt vào ô cũ', () => {
+		reset([], [{ uid: 'stored', templateId: 'jade-fury', star: 1, slot: 0, paid: 3 }])
+		renderPrep()
+		stubKhoRect(0, 0, 1000, 1000)
+
+		batDauKeoTuKho('stored')
+		movePointerTo(500, 500)
+		hoverCell(9)
+		fireEvent.pointerLeave(boardOf('Trang bị'))
+		nhaChuot(500, 500)
+
+		const run = useGameStore.getState().run
+		expect(run.equipped, 'thả ngoài lưới thì không được đặt món').toHaveLength(0)
+		expect(run.inventory.map((item) => item.uid), 'món vẫn nằm trong kho').toEqual(['stored'])
+		expect(ghost(), 'đã nhả chuột thì không được còn ảnh bám con trỏ').toBeNull()
+	})
+
+	it('thả trong lưới → đặt đúng ô đang trỏ', () => {
+		reset([], [{ uid: 'stored', templateId: 'jade-fury', star: 1, slot: 0, paid: 3 }])
+		renderPrep()
+		// Vùng kho **không** chứa (0,0) để nhánh "cất vào kho" không chen vào.
+		stubKhoRect(200, 200, 100, 100)
+
+		batDauKeoTuKho('stored')
+		hoverCell(6)
+		nhaChuot(0, 0)
+
+		const run = useGameStore.getState().run
+		expect(run.equipped.map((item) => item.slot), 'đặt đúng ô đang trỏ').toEqual([6])
+		expect(run.inventory, 'đã rời kho').toHaveLength(0)
+		expect(ghost(), 'đặt xong thì bỏ ảnh bám con trỏ').toBeNull()
+	})
+})
+
 describe('xoay bằng R và chuột phải', () => {
 	it('phím R đổi hướng món đang nhấc', () => {
 		renderPrep()
@@ -316,7 +489,7 @@ describe('đặt món xuống bằng bấm', () => {
 
 describe('mang đồ từ kho lên', () => {
 	it('bấm món trong kho rồi bấm ô thì món được mang lên', () => {
-		reset([], [{ uid: 'stored', templateId: 'jade-fury', star: 1, slot: -1, paid: 3 }])
+		reset([], [{ uid: 'stored', templateId: 'jade-fury', star: 1, slot: 0, paid: 3 }])
 		renderPrep()
 
 		fireEvent.click(invTileOf('stored'))
@@ -329,7 +502,7 @@ describe('mang đồ từ kho lên', () => {
 	})
 
 	it('món kho dài 1×4 tự xoay ngang khi lưới 3 hàng không đủ', () => {
-		reset([], [{ uid: 'spear', templateId: 'fire-spear', star: 1, slot: -1, paid: 4 }])
+		reset([], [{ uid: 'spear', templateId: 'fire-spear', star: 1, slot: 0, paid: 4 }])
 		renderPrep()
 
 		fireEvent.click(invTileOf('spear'))

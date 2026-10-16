@@ -119,20 +119,14 @@ export function GridBoard({
 
 		const fromTarget = (event.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-cell]')
 		if (fromTarget?.dataset.cell !== undefined) {
-			const slot = Number(fromTarget.dataset.cell)
-			setHoverSlot(slot)
-			hoverRef.current = slot
-			baoOHover(slot)
+			datO(Number(fromTarget.dataset.cell))
 			return
 		}
 
 		const fromPoint = document.elementFromPoint?.(event.clientX, event.clientY) as HTMLElement | null
 		const fromPointCell = fromPoint?.closest?.<HTMLElement>('[data-cell]')
 		if (fromPointCell?.dataset.cell !== undefined) {
-			const slot = Number(fromPointCell.dataset.cell)
-			setHoverSlot(slot)
-			hoverRef.current = slot
-			baoOHover(slot)
+			datO(Number(fromPointCell.dataset.cell))
 			return
 		}
 
@@ -142,10 +136,7 @@ export function GridBoard({
 		if (event.clientY < rect.top || event.clientY > rect.bottom) return
 		const col = Math.min(width - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * width)))
 		const row = Math.min(rows - 1, Math.max(0, Math.floor(((event.clientY - rect.top) / rect.height) * rows)))
-		const slot = row * width + col
-		setHoverSlot(slot)
-		hoverRef.current = slot
-		baoOHover(slot)
+		datO(row * width + col)
 	}
 
 	/**
@@ -202,6 +193,17 @@ export function GridBoard({
 		onAnchorSlot?.(tinhGoiY(slot, held)?.anchor ?? slot)
 	}
 
+	/**
+	 * Ghi ô đang trỏ — **một nguồn duy nhất** cho `hoverSlot` (vẽ gợi ý), `hoverRef` (chỗ đặt
+	 * khi bấm) và `onAnchorSlot` (chỗ đặt khi thả chuột). Tách ra ba chỗ là cách chắc chắn nhất
+	 * để chúng lệch nhau.
+	 */
+	const datO = (slot: number | null) => {
+		setHoverSlot(slot)
+		hoverRef.current = slot
+		baoOHover(slot)
+	}
+
 	const preview = held && hoverSlot !== null ? tinhGoiY(hoverSlot, held) : null
 
 	useEffect(() => {
@@ -242,6 +244,17 @@ export function GridBoard({
 			onMouseMove={(event) => {
 				if (heldRef.current) track(event)
 			}}
+			/**
+			 * ⚠️ **BẮT BUỘC**: con trỏ rời lưới thì phải xoá ô đang trỏ.
+			 *
+			 * Ô đang trỏ chỉ được **ghi** khi con trỏ đi qua lưới, nên thiếu hai handler này thì
+			 * giá trị cũ nằm lại vĩnh viễn: nhấc một món rồi đưa con trỏ ngang qua lưới (hoặc chỉ
+			 * lướt qua trên đường tới chỗ khác) là lưới **vẫn hiện gợi ý ở ô cũ** dù con trỏ đã ở
+			 * panel khác — và tệ hơn, `onAnchorSlot` cũng lấy từ cùng biến đó nên **thả chuột ở
+			 * chỗ khác lại đặt món vào ô cũ**.
+			 */
+			onPointerLeave={() => datO(null)}
+			onMouseLeave={() => datO(null)}
 			onClick={(event) => {
 				if ((event.target as HTMLElement).closest('button[data-no-drop]')) return
 				// Cú `click` đi kèm thao tác kéo không tính là bấm.

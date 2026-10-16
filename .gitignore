@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Biến môi trường: chỉ commit file .env.example, không commit .env thật
+.env
+.env.*
+!.env.example
+
+# Prisma sinh client vào đây, không commit
+**/generated/
+
 # Temporary agent scratch files (see AGENTS.md §8)
 _*
 *.probe.test.ts
@@ -30,3 +38,4 @@ _shot-*.png
 *.njsproj
 *.sln
 *.sw?
+node_modules

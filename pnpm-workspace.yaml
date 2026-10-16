@@ -1,0 +1,13 @@
+# Hai package độc lập: `frontend` (React + Vite) và `backend` (Fastify + Prisma).
+packages:
+  - frontend
+  - backend
+
+# `allowBuilds` do pnpm 11 yêu cầu: phải khai báo tường minh những gói được chạy script
+# cài đặt. Prisma cần bước này để tải engine, esbuild (dùng bởi Vite/Vitest/tsx) cũng vậy.
+# Thiếu khối này thì mọi `pnpm install` / `pnpm run` đều lỗi `ERR_PNPM_IGNORED_BUILDS`.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true

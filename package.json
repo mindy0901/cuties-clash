@@ -2,29 +2,17 @@
   "name": "martial-cutie",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "description": "Đấu Trường Thú Cưng — auto-battler nuôi thú cưng trên trình duyệt",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "test": "vitest run",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "zustand": "^5.0.15"
-  },
-  "devDependencies": {
-    "@testing-library/react": "^16.3.3",
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "jsdom": "^30.1.3",
-    "oxlint": "^1.81.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.3.0",
-    "vitest": "^5.0.4"
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "test": "pnpm --filter frontend test",
+    "lint": "pnpm -r lint",
+    "dev:be": "pnpm --filter backend dev",
+    "build:be": "pnpm --filter backend build",
+    "test:be": "pnpm --filter backend test",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter backend migrate"
   }
 }

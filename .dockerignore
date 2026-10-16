@@ -1,0 +1,11 @@
+# Giữ ngữ cảnh build nhỏ và tránh copy nhầm thứ của máy lên image.
+**/node_modules
+**/dist
+**/generated
+.git
+.env
+.env.*
+!.env.example
+*.log
+_*
+**/*.probe.test.ts

@@ -1,0 +1,100 @@
+# Ba image riêng biệt:
+#   db  → PostgreSQL
+#   be  → Fastify + Prisma (không chứa frontend)
+#   fr  → nginx phục vụ bản build của Vite + chuyển tiếp /api sang be
+#
+# Chạy production (dựng cả 3):   docker compose up --build
+#   → mở http://localhost:5190   (fr; fr tự proxy /api sang be)
+#
+# Chỉ chạy database:             docker compose up -d db
+#   → dùng khi dev backend/frontend trực tiếp trên máy
+#
+# Dev có hot reload:             docker compose --profile dev up db be vite
+#   → service `vite` ở cổng 5190. Khi đó ĐỪNG chạy `fr` (trùng cổng 5190):
+#     docker compose --profile dev up db be vite
+
+services:
+  # ── Cơ sở dữ liệu ─────────────────────────────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-martial}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-martial}
+      POSTGRES_DB: ${POSTGRES_DB:-martial_cutie}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      # Mở ra ngoài để dev chạy backend trực tiếp trên máy vẫn kết nối được.
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-martial} -d ${POSTGRES_DB:-martial_cutie}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend: Fastify + Prisma ─────────────────────────────────────────────
+  be:
+    build:
+      # Ngữ cảnh là gốc repo vì đây là pnpm workspace (lockfile nằm ở gốc).
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      # Trỏ vào service `db` trong mạng của compose, không phải localhost.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-martial}:${POSTGRES_PASSWORD:-martial}@db:5432/${POSTGRES_DB:-martial_cutie}
+      # Bảng do `prisma migrate deploy` trong docker-entrypoint.sh tạo, không tạo lúc khởi động.
+      AUTO_CREATE_TABLES: 'false'
+      # Gốc của điểm gọi lại OAuth = địa chỉ mà TRÌNH DUYỆT dùng để mở game,
+      # tức cổng của service `fr`. Đổi khi triển khai domain thật — và phải đăng
+      # ký lại URI tương ứng ở Google Console:
+      #   <BE_PUBLIC_URL>/api/auth/google/callback
+      FRONTEND_URL: ${BE_PUBLIC_URL:-http://localhost:5190}
+      POST_LOGIN_REDIRECT: ${BE_PUBLIC_URL:-http://localhost:5190}
+      # Bật true sau khi chạy sau HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      JWT_SECRET: ${JWT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      AUTO_LOGIN: ${AUTO_LOGIN:-false}
+    ports:
+      # Mở ra ngoài cho dev và để xem /api/docs. Không bắt buộc khi chỉ dùng `fr`.
+      - '${BE_PORT:-8000}:8000'
+
+  # ── Frontend: nginx + bản build của Vite ──────────────────────────────────
+  fr:
+    build:
+      # Ngữ cảnh là gốc repo (pnpm workspace) vì cần lockfile + frontend/package.json.
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - be
+    ports:
+      # 5190 để khớp redirect URI đã đăng ký với Google. Đổi thì phải đăng ký lại.
+      - '${FR_PORT:-5190}:80'
+
+  # ── Dev: Vite hot reload (cần profile `dev`) ──────────────────────────────
+  vite:
+    profiles: ['dev']
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0"
+    environment:
+      # Gọi thẳng service `be` trong mạng compose.
+      VITE_API_TARGET: http://be:8000
+    volumes:
+      - .:/app
+      - vite-node-modules:/app/node_modules
+    ports:
+      - '5190:5190'
+    depends_on:
+      - be
+
+volumes:
+  db-data:
+  vite-node-modules:

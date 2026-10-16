@@ -12,6 +12,7 @@ import { loadoutCellLocked } from '../game/loadout'
 import { MAX_PET_LEVEL, getPet } from '../game/pets'
 import { FINAL_STAGE, MAPS, getStage } from '../game/stages'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
+import { useUiStore } from '../store/uiStore'
 import type { ItemInstance } from '../game/types'
 import { cn, panelClass } from './ui'
 
@@ -41,8 +42,8 @@ export function PrepScreen() {
 	const map = MAPS[Math.min(MAPS.length - 1, Math.floor((run.stage - 1) / 20))]
 	const totalMatches = run.wins + run.losses
 
-	// Nhấc/đặt đồ giữa kho và trang bị — state phải ở đây vì hai panel là anh em.
-	const { held, pickUp, clear, pointerRef } = useHeldItem(run.equipped, run.inventory)
+	// Kéo-thả đồ giữa kho và trang bị — state phải ở đây vì hai panel là anh em.
+	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory)
 	const equip = useGameStore((state) => state.equip)
 	const equipAt = useGameStore((state) => state.equipAt)
 	const unequipAt = useGameStore((state) => state.unequipAt)
@@ -50,42 +51,7 @@ export function PrepScreen() {
 	const dropInKho = useGameStore((state) => state.dropInKho)
 	const rotateInKho = useGameStore((state) => state.rotateInKho)
 	const pushToast = useGameStore((state) => state.pushToast)
-
-	/** Bấm một món — ở lưới hay ở kho đều nhấc lên. */
-	const onPickItem = (item: ItemInstance, from: 'loadout' | 'inventory') => {
-		// Đang cầm món của trang bị mà bấm vào **một món trong kho** → cất vào ngay quanh món đó.
-		if (held && from === 'inventory' && run.equipped.some((entry) => entry.uid === held.uid)) {
-			unequipAt(held.uid, item.slot >= 0 ? item.slot : null, held.rotated)
-			clear()
-			return
-		}
-		pickUp(item, from)
-	}
-
-	/** Đặt món đang cầm vào một ô của **lưới trang bị** (dùng cho cả bấm và kéo-thả). */
-	const placeAt = (slot: number) => {
-		if (!held) return
-		if (held.from === 'loadout') {
-			dropItem(held.uid, slot, held.rotated)
-		} else {
-			// Món từ kho: đặt **vào ô con trỏ** nếu hướng đang chọn vừa, không thì để store
-			// tự tìm chỗ (nó thử cả hai hướng xoay).
-			const strapped = equipAt(held.uid, slot, held.rotated)
-			if (!strapped) equip(held.uid)
-		}
-		clear()
-	}
-
-	/**
-	 * Đặt món đang cầm vào một ô của **kho** — kho cũng là lưới tự do nên bấm ô nào là món nằm
-	 * ở đó, y như trang bị.
-	 */
-	const placeInKhoAt = (slot: number) => {
-		if (!held) return
-		if (held.from === 'loadout') unequipAt(held.uid, slot, held.rotated)
-		else dropInKho(held.uid, slot, held.rotated)
-		clear()
-	}
+	const openItem = useUiStore((state) => state.openItem)
 
 	const hoverSlotRef = useRef<number | null>(null)
 	/** Ô neo đang vẽ gợi ý **trong kho** (kho là lưới nên thả theo ô, không chỉ "cất vào kho"). */
@@ -111,17 +77,18 @@ export function PrepScreen() {
 	 */
 	const keoRef = useRef<{ uid: string; from: 'inventory' | 'loadout' } | null>(null)
 
-	/** Bắt đầu giữ một món (dùng chung cho lưới và kho). */
+	/** Bắt đầu kéo một món (dùng chung cho lưới và kho). */
 	const batDauKeo = (item: ItemInstance, from: 'inventory' | 'loadout') => {
 		keoRef.current = { uid: item.uid, from }
-		pickUp(item, from)
+		hold(item, from)
 	}
 
 	/**
 	 * Nhả chuột.
 	 *
 	 * `moved = true` (đã kéo đi) → đặt xuống ô đang trỏ, hoặc cất vào kho nếu nhả trên kho.
-	 * `moved = false` (chỉ bấm) → **không** đặt gì, để cú `click` ngay sau đó nhấc món lên.
+	 * `moved = false` (chỉ bấm, không di chuyển) → **không** đặt gì: cú `click` ngay sau đó mở
+	 * hộp thoại chi tiết, và trạng thái "đang kéo" chưa từng được tạo.
 	 */
 	const onDragEnd = (moved: boolean) => {
 		if (!moved) return
@@ -145,7 +112,7 @@ export function PrepScreen() {
 		const slot = hoverSlotRef.current
 		if (slot === null) {
 			// Thả ngoài **mọi** chỗ đặt (không ở kho, không ở ô nào của lưới) → huỷ: món trở về
-			// chỗ cũ. `pickUp` chưa bao giờ bỏ món khỏi `run`, nên `clear()` là đủ.
+			// chỗ cũ. Kéo món chỉ là trạng thái giao diện, chưa bao giờ bỏ món khỏi `run`, nên
 			//
 			// ⚠️ ❌ Không đặt vào ô nhớ sẵn: từ khi lưới xoá ô đang trỏ lúc con trỏ rời đi, `slot`
 			// là `null` đúng khi con trỏ **không** ở trên lưới — đặt vào đó là đặt vào ô người chơi
@@ -163,7 +130,7 @@ export function PrepScreen() {
 
 		// Kho → trang bị. Ô **khoá** thì không đặt được ở đó, và cũng không được lùi về tự tìm
 		// chỗ — làm vậy là phá đúng thứ ô khoá sinh ra để ngăn. Còn lại (ô dùng được nhưng hướng
-		// này không vừa) thì để store tự tìm chỗ, giống hệt thao tác bấm.
+		// này không vừa) thì để store tự tìm chỗ.
 		if (loadoutCellLocked(run, slot)) {
 			pushToast('Ô đó còn khoá — nâng cấp thú cưng để mở thêm ô', 'bad')
 			clear()
@@ -172,12 +139,6 @@ export function PrepScreen() {
 		if (!equipAt(dangKeo.uid, slot, rotated)) equip(dangKeo.uid)
 		clear()
 	}
-
-	/** Bấm món trong lưới. */
-	const onPickItemFromGrid = (item: ItemInstance) => onPickItem(item, 'loadout')
-
-	/** Bấm món trong kho. */
-	const onPickItemFromInventory = (item: ItemInstance) => onPickItem(item, 'inventory')
 
 	/**
 	 * Ô **neo đang vẽ gợi ý**, do `LoadoutGrid` báo lên.
@@ -278,8 +239,7 @@ export function PrepScreen() {
 							inventoryRef.current = node
 						}}
 						held={heldInfo}
-						onPickItem={onPickItemFromInventory}
-						onPickCell={placeInKhoAt}
+						onItemClick={(item) => openItem(item.uid)}
 						onDragStart={(item) => batDauKeo(item, 'inventory')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromKho}
@@ -291,8 +251,7 @@ export function PrepScreen() {
 				<div className="flex flex-col gap-2.5">
 					<PetLoadoutPanel
 						held={heldInfo}
-						onPickItem={onPickItemFromGrid}
-						onPickCell={placeAt}
+						onItemClick={(item) => openItem(item.uid)}
 						onDragStart={(item) => batDauKeo(item, 'loadout')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromGrid}

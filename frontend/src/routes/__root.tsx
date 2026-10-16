@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { AuthSync } from '../components/AuthSync'
 import { BattleScreen } from '../components/BattleScreen'
+import { ItemDetailDialog } from '../components/ItemDetailDialog'
 import { LoginDialog } from '../components/LoginDialog'
 import { PrepScreen } from '../components/PrepScreen'
 import { ResultDialog } from '../components/ResultDialog'
@@ -21,8 +22,10 @@ function RootLayout() {
 	const phase = useGameStore((state) => state.phase)
 	const mapOpen = useUiStore((state) => state.mapOpen)
 	const loginOpen = useUiStore((state) => state.loginOpen)
+	const itemUid = useUiStore((state) => state.itemUid)
 	const closeMap = useUiStore((state) => state.closeMap)
 	const closeLogin = useUiStore((state) => state.closeLogin)
+	const closeItem = useUiStore((state) => state.closeItem)
 
 	// Trong trận thì luôn hiện màn đấu, bất kể đang ở đường dẫn nào.
 	const inBattle = phase === 'battle' || phase === 'result'
@@ -36,6 +39,7 @@ function RootLayout() {
 			{phase === 'victory' ? <VictoryScreen /> : null}
 			{mapOpen ? <StageMapDialog onClose={closeMap} /> : null}
 			{loginOpen ? <LoginDialog onClose={closeLogin} /> : null}
+			{itemUid ? <ItemDetailDialog uid={itemUid} onClose={closeItem} /> : null}
 			<Toasts />
 		</div>
 	)

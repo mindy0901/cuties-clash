@@ -8,10 +8,10 @@ import { btnClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
 import type { ItemInstance } from '../game/types'
 
 interface PetLoadoutPanelProps {
-	/** Món đang được nhấc lên, nếu có. */
+	/** Món đang được kéo, nếu có. */
 	held: { uid: string; rotated: boolean; templateId: string } | null
-	onPickItem: (item: ItemInstance) => void
-	onPickCell: (slot: number) => void
+	/** Bấm một món → mở hộp thoại chi tiết. */
+	onItemClick: (item: ItemInstance) => void
 	/** Bắt đầu giữ một món (đầu thao tác kéo). */
 	onDragStart?: (item: ItemInstance) => void
 	/** Nhả chuột: `moved` cho biết vừa kéo đi hay chỉ bấm. */
@@ -24,12 +24,11 @@ interface PetLoadoutPanelProps {
  * **Trang bị** — những món thú cưng đang mang. Chỉ đồ ở đây mới tham chiến
  * (passive, hào khí, vũ khí) và chỉ chúng chiếm ô của lưới 4 cột.
  *
- * Thao tác là **bấm**: bấm món để nhấc, bấm ô để đặt (xem `useHeldItem`).
+ * Thao tác: **kéo-thả** để chuyển/đổi chỗ (xem `useHeldItem`), **bấm** để xem chi tiết.
  */
 export function PetLoadoutPanel({
 	held,
-	onPickItem,
-	onPickCell,
+	onItemClick,
 	onDragStart,
 	onDragEnd,
 	onHoverSlot,
@@ -68,8 +67,7 @@ export function PetLoadoutPanel({
 				items={run.equipped}
 				interactive
 				held={held}
-				onPickItem={onPickItem}
-				onPickCell={onPickCell}
+				onItemClick={onItemClick}
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
 				onHoverSlot={onHoverSlot}
@@ -103,9 +101,10 @@ export function PetLoadoutPanel({
 			</div>
 
 			<p className="m-0 text-[11px] text-muted">
-				<strong>Giữ chuột rồi kéo</strong> món sang ô khác để đặt, hoặc <strong>bấm</strong> một món rồi{' '}
-				<strong>bấm một ô</strong>. Khi đang cầm, <kbd className="rounded border border-line bg-black/40 px-1">R</kbd>{' '}
-				hoặc <strong>chuột phải</strong> để xoay,{' '}
+				<strong>Giữ chuột rồi kéo</strong> món sang ô khác để đặt — <strong>bấm</strong> một món để
+				xem <strong>chi tiết</strong>. Khi đang kéo,{' '}
+				<kbd className="rounded border border-line bg-black/40 px-1">R</kbd> hoặc{' '}
+				<strong>chuột phải</strong> để xoay,{' '}
 				<kbd className="rounded border border-line bg-black/40 px-1">Esc</kbd> để bỏ.
 			</p>
 		</section>

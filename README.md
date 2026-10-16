@@ -138,8 +138,9 @@ Game có **hai màn hình**, điều hướng bằng đường dẫn thật (nú
 | Món vào đây khi nào | Mua ở cửa hàng nếu trang bị **còn chỗ** | Mua khi trang bị **hết chỗ**, hoặc khi bạn tháo ra |
 | Xếp chỗ | Bạn tự đặt — món nằm đúng ô | **Cũng vậy** — món nằm đúng ô, kho không xếp hộ |
 
-Chuyển đồ giữa hai chỗ: **giữ chuột kéo** món sang ô khác rồi nhả, hoặc **bấm** món rồi **bấm** ô để đặt.
-Khi đang cầm, bấm **R** hoặc **chuột phải** để xoay 90° (không cần đặt xuống trước), **Esc** để bỏ.
+Chuyển đồ giữa hai chỗ: **giữ chuột kéo** món sang ô khác rồi nhả. Chỉ **kéo-thả** chuyển được đồ —
+**bấm** một món để xem **chi tiết** (tên, chỉ số, hiệu lực, giá và giá bán lại).
+Khi đang kéo, bấm **R** hoặc **chuột phải** để xoay 90°, **Esc** để bỏ.
 **Cả hai bảng đều là lưới tự do**: thả ở đâu món nằm ở đó, kéo trong kho để sắp xếp lại tuỳ ý.
 Kéo xuống **Kho đồ** để cất; kéo từ Kho lên lưới để mang. Vẫn có nút **↑** và **↓ Tháo hết**.
 

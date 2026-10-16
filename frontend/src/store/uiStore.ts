@@ -10,17 +10,24 @@ import { create } from 'zustand'
 interface UiStore {
 	mapOpen: boolean
 	loginOpen: boolean
+	/** `uid` của món đang mở **hộp thoại chi tiết**, `null` là đóng. */
+	itemUid: string | null
 	openMap: () => void
 	closeMap: () => void
 	openLogin: () => void
 	closeLogin: () => void
+	openItem: (uid: string) => void
+	closeItem: () => void
 }
 
 export const useUiStore = create<UiStore>()((set) => ({
 	mapOpen: false,
 	loginOpen: false,
+	itemUid: null,
 	openMap: () => set({ mapOpen: true }),
 	closeMap: () => set({ mapOpen: false }),
 	openLogin: () => set({ loginOpen: true }),
 	closeLogin: () => set({ loginOpen: false }),
+	openItem: (uid) => set({ itemUid: uid }),
+	closeItem: () => set({ itemUid: null }),
 }))

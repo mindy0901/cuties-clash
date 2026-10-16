@@ -15,6 +15,7 @@ import { PrepScreen } from '../PrepScreen'
 import { createItemInstance } from '../../game/bag'
 import { GRID_MAX_CELLS } from '../../game/pets'
 import { useGameStore } from '../../store/gameStore'
+import { useUiStore } from '../../store/uiStore'
 import { renderInRouter } from '../../test/router'
 
 function reset() {
@@ -97,18 +98,17 @@ describe('Kho đồ — dự trữ', () => {
 		expect(document.querySelector('[data-inv-tile="sword"]')).toBeTruthy()
 	})
 
-	it('bấm món trong kho rồi bấm ô thì mang lên trang bị', () => {
+	it('bấm món trong kho thì mở hộp thoại chi tiết, KHÔNG nhấc món', () => {
 		useGameStore.setState((state) => ({
 			run: { ...state.run, inventory: [createItemInstance('jade-fury', 1, 'jade', 0)] },
 		}))
 		renderPrep()
-		fireEvent.click(document.querySelector<HTMLElement>('button[data-inv-tile="jade"]')!)
-		fireEvent.click(loadoutCells()[0])
 
-		const run = useGameStore.getState().run
-		expect(run.inventory).toHaveLength(0)
-		expect(run.equipped).toHaveLength(1)
-		expect(run.equipped[0].uid).toBe('jade')
+		fireEvent.click(document.querySelector<HTMLElement>('button[data-inv-tile="jade"]')!)
+
+		expect(useUiStore.getState().itemUid, 'mở chi tiết của đúng món đó').toBe('jade')
+		expect(document.querySelector('[data-held-ghost]'), 'bấm không được nhấc món').toBeNull()
+		expect(useGameStore.getState().run.inventory[0].slot, 'vị trí không đổi').toBe(0)
 	})
 
 	it('bán được món trong kho', () => {

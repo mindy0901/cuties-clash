@@ -6,12 +6,10 @@ import type { ItemInstance } from '../game/types'
 interface InventoryPanelProps {
 	/** Nhận phần tử gốc, để cha biết vùng thả "cất vào kho". */
 	onRef?: (node: HTMLElement | null) => void
-	/** Món đang được nhấc lên, nếu có. */
+	/** Món đang được **kéo**, nếu có. */
 	held: { uid: string; rotated: boolean; templateId: string } | null
-	/** Bấm một món trong kho → nhấc lên (hoặc cất món đang cầm của trang bị). */
-	onPickItem: (item: ItemInstance) => void
-	/** Bấm một **ô** trong kho → đặt món đang cầm xuống đúng ô đó. */
-	onPickCell?: (slot: number) => void
+	/** Bấm một món trong kho → mở hộp thoại chi tiết. */
+	onItemClick: (item: ItemInstance) => void
 	/** Bắt đầu giữ một món (đầu thao tác kéo). */
 	onDragStart?: (item: ItemInstance) => void
 	/** Nhả chuột: `moved` cho biết vừa kéo đi hay chỉ bấm. */
@@ -32,8 +30,7 @@ interface InventoryPanelProps {
 export function InventoryPanel({
 	onRef,
 	held,
-	onPickItem,
-	onPickCell,
+	onItemClick,
 	onDragStart,
 	onDragEnd,
 	onAnchorSlot,
@@ -53,8 +50,7 @@ export function InventoryPanel({
 			<InventoryGrid
 				items={run.inventory}
 				held={held}
-				onPickItem={onPickItem}
-				onPickCell={onPickCell}
+				onItemClick={onItemClick}
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
 				onAnchorSlot={onAnchorSlot}

@@ -52,12 +52,35 @@ expect(window.location.pathname).toBe('/')
 `tsconfig.app.json` chỉ khai báo `types: ["vite/client"]`. Muốn kiểm tra file có tồn tại thì dùng
 `import.meta.glob('...')` (chạy qua Vite) — xem `game/__tests__/art.test.ts`.
 
-### Bẫy 5 — không có backend là trạng thái hợp lệ
+### Bẫy 5 — mô phỏng **kéo-thả** trong jsdom
+
+Kéo-thả là **cách duy nhất** chuyển/đổi chỗ đồ (bấm món = mở chi tiết), nên test lưới phải giả lập
+đúng chuỗi sự kiện thật (xem `components/__tests__/dragAndDrop.test.tsx`):
+
+```tsx
+fireEvent.pointerDown(button, { button: 0, clientX: 10, clientY: 10 })
+fireEvent.pointerMove(button, { clientX: 300, clientY: 300 })   // > 4px mới tính là kéo
+fireEvent.mouseMove(cellOf(slot), { clientX: 0, clientY: 0 })   // chọn ô đích
+act(() => document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true })))  // nhả
+```
+
+- ⚠️ `pointerup` nghe ở **`document`** (con trỏ có thể đang ở panel khác), ❌ không qua `fireEvent`
+  ⇒ **phải bọc `act`**, nếu không state đã đổi mà DOM chưa render lại.
+- ⚠️ `fireEvent.click` **không** nhấc món: nó chỉ mở hộp thoại chi tiết. Muốn nhấc phải kéo.
+- ⚠️ **jsdom không có layout**: `getBoundingClientRect()` trả toàn số 0 và `document.elementFromPoint`
+  không tồn tại. Hệ quả: "con trỏ có đang trong kho không" (`PrepScreen.trongKho`) luôn đúng với
+  điểm `(0,0)` ⇒ phải tự đặt vùng cho kho (`stubKhoRect`) rồi đẩy con trỏ (`pointerMove` trên
+  `document`) nếu muốn thử nhánh "thả ở lưới trang bị".
+- ✅ Một bất biến đáng khoá bằng test: **khối gợi ý phải trùng khối đã đặt** (so `[data-preview]`
+  với `itemCells(item, width)` sau khi thả). Bất biến này đã bắt được lỗi xoay giữa lúc kéo làm
+  ô neo cũ nằm lại.
+
+### Bẫy 6 — không có backend là trạng thái hợp lệ
 
 Test UI chạy khi backend không tồn tại nên `fetch` thất bại. Đó **không** phải lỗi: game phải vẫn
 chơi ẩn danh được. Đừng "sửa" bằng cách cho test cần backend.
 
-### Bẫy 6 — ảnh PNG đọc bằng `?raw`
+### Bẫy 7 — ảnh PNG đọc bằng `?raw`
 
 Byte đầu của PNG (`0x89`) không phải UTF-8 hợp lệ nên bị thay bằng ký tự thay thế. Chỉ kiểm tra 3
 byte `PNG`.
@@ -109,7 +132,7 @@ profile mới, không có martial-cutie-save
 
 ### Hai cách kiểm chứng an toàn
 
-**A. Chỉ test tự động** (mặc định nên dùng): `pnpm test` phủ 16 file; không mở trình duyệt, không
+**A. Chỉ test tự động** (mặc định nên dùng): `pnpm test` phủ 19 file; không mở trình duyệt, không
 thêm cổng nào.
 
 **B. Harness cách ly** khi thật sự cần nhìn giao diện:

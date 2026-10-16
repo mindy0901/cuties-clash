@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { templateFootprint, toCell } from '../game/bag'
 import type { ItemInstance } from '../game/types'
 import { cn } from './ui'
@@ -56,8 +56,7 @@ export interface GridBoardProps {
 	held: { uid: string; rotated: boolean; templateId: string } | null
 	/** Vẽ nội dung một món; nhận sẵn thuộc tính cần gắn. */
 	renderItem: (item: ItemInstance, box: ItemBoxProps) => ReactNode
-	onPickCell?: (slot: number) => void
-	onPickItem?: (item: ItemInstance) => void
+	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
@@ -85,8 +84,7 @@ export function GridBoard({
 	items,
 	held,
 	renderItem,
-	onPickCell,
-	onPickItem,
+	onItemClick,
 	onDragStart,
 	onDragEnd,
 	onHoverSlot,
@@ -147,61 +145,62 @@ export function GridBoard({
 	 * mờ sẽ **lệch** khỏi khung.
 	 *
 	 * ⚠️ Khối gợi ý **căn giữa theo con trỏ**, không dán vào góc ô: món dài neo ở ô đầu nên
-	 * nếu dán vào góc thì khối lệch hẳn khỏi tay người chơi.
+	 * nếu dán vào góc thì khối lệch hẳn khỏi tay người chơi. Vì vậy **ô neo khác ô thô** dưới
+	 * con trỏ — và ô neo đó được báo lên cha (xem effect bên dưới) để chỗ đặt dùng đúng nó.
+	 *
+	 * `useCallback` để effect báo ô neo dùng lại được mà không phải tính lại mỗi render.
 	 */
-	const tinhGoiY = (slot: number, item: { templateId: string; rotated: boolean } | null) => {
-		if (!item || usable <= 0) return null
-		const size = templateFootprint(item.templateId, item.rotated)
+	const tinhGoiY = useCallback(
+		(slot: number, item: { templateId: string; rotated: boolean } | null) => {
+			if (!item || usable <= 0) return null
+			const size = templateFootprint(item.templateId, item.rotated)
 
-		const hover = toCell(slot, width)
-		const drawCol = Math.round(Math.max(0, Math.min(width - size.w, hover.col + 0.5 - size.w / 2)))
-		const drawRow = Math.round(Math.max(0, Math.min(rows - size.h, hover.row + 0.5 - size.h / 2)))
+			const hover = toCell(slot, width)
+			const drawCol = Math.round(Math.max(0, Math.min(width - size.w, hover.col + 0.5 - size.w / 2)))
+			const drawRow = Math.round(Math.max(0, Math.min(rows - size.h, hover.row + 0.5 - size.h / 2)))
 
-		/** Các ô khối sẽ chiếm, kèm toạ độ lưới để chỗ vẽ gắn thẳng vào grid. */
-		const cells: { slot: number; col: number; row: number }[] = []
-		for (let r = 0; r < size.h; r += 1) {
-			for (let c = 0; c < size.w; c += 1) {
-				const row = drawRow + r
-				const col = drawCol + c
-				if (row >= rows || col >= width) continue
-				cells.push({ slot: row * width + col, col, row })
+			/** Các ô khối sẽ chiếm, kèm toạ độ lưới để chỗ vẽ gắn thẳng vào grid. */
+			const cells: { slot: number; col: number; row: number }[] = []
+			for (let r = 0; r < size.h; r += 1) {
+				for (let c = 0; c < size.w; c += 1) {
+					const row = drawRow + r
+					const col = drawCol + c
+					if (row >= rows || col >= width) continue
+					cells.push({ slot: row * width + col, col, row })
+				}
 			}
-		}
-		if (cells.length === 0) return null
+			if (cells.length === 0) return null
 
-		return {
-			anchor: drawRow * width + drawCol,
-			cells,
-			// Hợp lệ khi khối đủ ô **và** mọi ô đều nằm trong vùng dùng được.
-			blocked:
-				cells.length < size.w * size.h || cells.some((cell) => cell.slot >= usable),
-		}
-	}
+			return {
+				anchor: drawRow * width + drawCol,
+				cells,
+				// Hợp lệ khi khối đủ ô **và** mọi ô đều nằm trong vùng dùng được.
+				blocked: cells.length < size.w * size.h || cells.some((cell) => cell.slot >= usable),
+			}
+		},
+		[width, rows, usable],
+	)
 
 	/**
-	 * Báo lên cha **ô neo đang vẽ gợi ý**, để chỗ đặt dùng đúng ô đó.
+	 * Ô đang trỏ → **ô neo đang vẽ gợi ý**, báo lên cha để chỗ đặt dùng đúng ô đó.
 	 *
 	 * ❌ Không báo ô thô dưới con trỏ: gợi ý căn giữa nên ô neo khác ô thô, và nếu chỗ đặt tự
 	 * tính lại thì món sẽ rơi lệch khỏi khung người chơi đang thấy.
+	 *
+	 * ⚠️ Phải là **effect**, ❌ không báo ngay trong lúc xử lý sự kiện: `held` đổi giữa chừng
+	 * (người chơi bấm `R` để xoay) làm gợi ý vẽ lại ở khối khác, nên ô neo cũng phải tính lại.
+	 * Báo một lần lúc con trỏ di chuyển thì ô neo **cũ** nằm lại, và món rơi lệch khỏi khung
+	 * đang thấy — đã gặp đúng lỗi này khi xoay giữa lúc kéo.
 	 */
-	const baoOHover = (slot: number | null) => {
-		onHoverSlot?.(slot)
-		if (slot === null) {
-			onAnchorSlot?.(null)
-			return
-		}
-		onAnchorSlot?.(tinhGoiY(slot, held)?.anchor ?? slot)
-	}
+	useEffect(() => {
+		onHoverSlot?.(hoverSlot)
+		onAnchorSlot?.(hoverSlot === null ? null : (tinhGoiY(hoverSlot, held)?.anchor ?? hoverSlot))
+	}, [hoverSlot, held, tinhGoiY, onHoverSlot, onAnchorSlot])
 
-	/**
-	 * Ghi ô đang trỏ — **một nguồn duy nhất** cho `hoverSlot` (vẽ gợi ý), `hoverRef` (chỗ đặt
-	 * khi bấm) và `onAnchorSlot` (chỗ đặt khi thả chuột). Tách ra ba chỗ là cách chắc chắn nhất
-	 * để chúng lệch nhau.
-	 */
+	/** Ghi ô đang trỏ — dùng chung cho `hoverSlot` (vẽ gợi ý) và `hoverRef` (đọc lúc thả). */
 	const datO = (slot: number | null) => {
 		setHoverSlot(slot)
 		hoverRef.current = slot
-		baoOHover(slot)
 	}
 
 	const preview = held && hoverSlot !== null ? tinhGoiY(hoverSlot, held) : null
@@ -212,9 +211,6 @@ export function GridBoard({
 			const moved = pressRef.current?.moved ?? false
 			pressRef.current = null
 			onDragEnd(moved)
-			window.setTimeout(() => {
-				draggingRef.current = false
-			}, 0)
 		}
 		document.addEventListener('pointerup', finish)
 		document.addEventListener('pointercancel', finish)
@@ -255,17 +251,6 @@ export function GridBoard({
 			 */
 			onPointerLeave={() => datO(null)}
 			onMouseLeave={() => datO(null)}
-			onClick={(event) => {
-				if ((event.target as HTMLElement).closest('button[data-no-drop]')) return
-				// Cú `click` đi kèm thao tác kéo không tính là bấm.
-				if (draggingRef.current) return
-				if (heldRef.current) {
-					onPickCell?.(hoverRef.current ?? 0)
-					return
-				}
-				// ❌ Không nhấc món ở đây: `buttonProps.onClick` của chính món đã làm việc đó,
-				// và cú `click` này bubble lên nên sẽ chạy lần thứ hai → nhấc rồi bỏ ngay.
-			}}
 			className={cn('surface-board relative rounded-panel border border-dashed border-line', className)}
 			style={
 				{
@@ -361,10 +346,15 @@ export function GridBoard({
 						onPointerDown: (event: React.PointerEvent) => {
 							if (event.button !== 0) return
 							pressRef.current = { x: event.clientX, y: event.clientY, moved: false, uid: item.uid }
+							// ⚠️ Cờ "vừa kéo" hạ xuống ở **lần giữ chuột kế tiếp**, ❌ không dùng hẹn giờ:
+							// trình duyệt bắn `click` ngay sau `pointerup`, nên hẹn giờ 0ms phụ thuộc thứ tự
+							// task — có lúc cờ đã hạ trước khi `click` tới, và cú bấm mở chi tiết oan.
+							draggingRef.current = false
 						},
 						onClick: () => {
+							// Cú `click` đi kèm thao tác kéo không tính là bấm → không mở chi tiết.
 							if (draggingRef.current) return
-							onPickItem?.(item)
+							onItemClick?.(item)
 						},
 					},
 				})

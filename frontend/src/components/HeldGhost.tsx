@@ -7,7 +7,7 @@ import { ArtIcon } from './ArtIcon'
 const GHOST_SIZE = 60
 
 /**
- * Ảnh món **bám theo con trỏ** trong lúc đang nhấc món.
+ * Ảnh món **bám theo con trỏ** trong lúc **đang kéo** món.
  *
  * Món trong lưới neo ở ô của nó, nên nếu chỉ làm mờ tại chỗ thì người chơi không thấy mình
  * đang cầm gì. Ảnh này giữ **đúng tỉ lệ ô** (1×3 nằm dọc, 3×1 nằm ngang) để khớp ô gợi ý.

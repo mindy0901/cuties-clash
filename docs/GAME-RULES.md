@@ -11,9 +11,9 @@
 | Giá | `starPrice(cost, star) = cost × star`. Bán lại = **50%** của `paid` (tổng thực trả) |
 | Kho đồ | **Trang bị** (đang mang) là lưới **4 cột**, số hàng theo cấp thú: 3→5 (12–20 ô). **Kho đồ** (dự trữ) cũng là **lưới tự do 8 cột**, **không giới hạn**: lưới tự cao thêm khi món nằm thấp hơn |
 | Món ở đâu | Mua ở cửa hàng → **tự mang lên trang bị nếu còn chỗ**, hết chỗ thì vào kho. ❌ **Chỉ đồ trong `run.equipped` mới tham chiến** (passive, hào khí, vũ khí); đồ trong `run.inventory` không có hiệu lực |
-| Chuyển đồ | **Kéo-thả** giữa hai bảng, hoặc **bấm** món rồi **bấm** ô. `R` / chuột phải để xoay khi đang cầm, `Esc` để bỏ. Vẫn giữ nút ↑ / ↓ / "Tháo hết" |
+| Chuyển đồ | **Kéo-thả** giữa hai bảng và trong từng bảng. **Bấm** một món = mở **chi tiết** (❌ bấm không nhấc, không đặt). `R` / chuột phải để xoay khi **đang kéo**, `Esc` để bỏ. Vẫn giữ nút ↑ / ↓ / "Tháo hết" |
 | Hình dạng | Mỗi template có `space: {w,h}`; món chiếm một **hình chữ nhật ô** (kiếm 1×3, đại đao 2×3, thân đao 1×4, ngọc/đan 1×1) |
-| Xoay | `R`, chuột phải, hoặc nút ⟳ → xoay 90°, hoán đổi `w`/`h`. ❌ Chỉ đổi khi hướng mới **vừa chỗ** |
+| Xoay | `R`, chuột phải (khi **đang kéo**), hoặc nút ⟳ → xoay 90°, hoán đổi `w`/`h`. ❌ Chỉ đổi khi hướng mới **vừa chỗ** |
 | Va chạm | `fitsIn(slot, size, …)` là **vị từ lõi** cho mọi thao tác. Biên lưới kiểm theo **ô neo**, không theo danh sách ô suy ra (món có thể tràn dòng) |
 | Ô neo | Ô con trỏ có thể không phải ô neo hợp lệ (ô 5 cho món 4×1 trong lưới 4 cột). **Luôn đi qua `anchorFor()`** trước khi vẽ gợi ý **và** trước khi đặt — dùng chung một hàm để hai bên không lệch. ❌ Không gọi thẳng `cellsOf(hoverSlot, …)` |
 | Mua khi hết chỗ | Trang bị không còn vùng vừa → món vào **kho ở chỗ trống đầu tiên**, bấm để mang lên sau |

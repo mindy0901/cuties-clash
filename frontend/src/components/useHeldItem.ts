@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemInstance, Star } from '../game/types'
 
-/** Món đang được "nhấc lên" chờ đặt xuống. */
+/** Món đang được **kéo** (đang giữ chuột, chưa nhả). */
 export interface HeldItem {
 	uid: string
 	from: 'inventory' | 'loadout'
@@ -15,18 +15,16 @@ export interface HeldItem {
 }
 
 /**
- * Nhấc một món lên bằng **một cú bấm**, rồi đặt xuống bằng **một cú bấm** khác.
+ * Trạng thái "đang kéo một món" — **chỉ sống trong lúc giữ chuột**: từ `pointerdown` (đã đi
+ * quá ngưỡng kéo) tới `pointerup`.
  *
- * ⚠️ VÌ SAO KHÔNG KÉO-THẢ: cách kéo cần theo dõi con trỏ giữa chừng và phải giữ khớp
- * giữa "ô đang trỏ" với "ô sẽ đặt" — chỗ đó đã sinh nhiều lỗi (thả không ăn, món nằm
- * nguyên chỗ, xoay giữa lúc kéo không tới được). Bấm–bấm thì mỗi thao tác là một sự kiện
- * `click` trọn vẹn, không có trạng thái lửng lơ, và bấm sai thì bấm lại là xong.
+ * ⚠️ ❌ **Không còn nhấc/đặt bằng bấm.** Bấm một món giờ mở **hộp thoại chi tiết**, nên trạng
+ * thái "đang cầm" không được phép sống qua cú nhả chuột. Nhờ vậy không còn cảnh món "cầm lửng"
+ * bám theo con trỏ khi người chơi đã nhả chuột.
  *
  * Thao tác:
- * - Bấm món (ở Trang bị **hoặc** Kho) → nhấc lên.
- * - Bấm một ô trong lưới Trang bị → đặt xuống đó.
- * - Bấm vào Kho khi đang cầm món của Trang bị → cất vào kho.
- * - `R` hoặc chuột phải → xoay 90°. `Esc` → bỏ nhấc.
+ * - **Kéo** món (giữ chuột rồi di chuyển) → nhấc lên; **nhả chuột** → đặt xuống ô đang trỏ.
+ * - `R` hoặc **chuột phải** khi đang kéo → xoay 90°. `Esc` → bỏ.
  */
 export function useHeldItem(loadout: ItemInstance[], inventory: ItemInstance[]) {
 	const [held, setHeld] = useState<HeldItem | null>(null)
@@ -45,35 +43,28 @@ export function useHeldItem(loadout: ItemInstance[], inventory: ItemInstance[]) 
 		[loadout, inventory],
 	)
 
-	/** Nhấc món lên (hoặc bỏ nhấc nếu bấm lại chính nó). */
-	const pickUp = useCallback(
-		(item: ItemInstance, from: 'inventory' | 'loadout') => {
-			setHeld((current) =>
-				current?.uid === item.uid
-					? null
-					: {
-							uid: item.uid,
-							from,
-							// Giữ hướng đang có của món làm điểm bắt đầu.
-							rotated: item.rotated ?? false,
-							templateId: item.templateId,
-							star: item.star,
-							x: current?.x ?? 0,
-							y: current?.y ?? 0,
-						},
-			)
-		},
-		[],
-	)
+	/** Bắt đầu kéo một món. Ảnh bám con trỏ xuất phát từ vị trí con trỏ hiện tại. */
+	const hold = useCallback((item: ItemInstance, from: 'inventory' | 'loadout') => {
+		setHeld({
+			uid: item.uid,
+			from,
+			// Giữ hướng đang có của món làm điểm bắt đầu.
+			rotated: item.rotated ?? false,
+			templateId: item.templateId,
+			star: item.star,
+			x: pointerRef.current.x,
+			y: pointerRef.current.y,
+		})
+	}, [])
 
 	const clear = useCallback(() => setHeld(null), [])
 
-	/** Xoay món đang cầm. An toàn khi không cầm gì. */
+	/** Xoay món đang kéo. An toàn khi không kéo gì. */
 	const rotateHeld = useCallback(() => {
 		setHeld((current) => (current ? { ...current, rotated: !current.rotated } : current))
 	}, [])
 
-	// Giữ ảnh món bám theo con trỏ, và nghe phím tắt. Chỉ gắn khi thật sự đang cầm món.
+	// Giữ ảnh món bám theo con trỏ, và nghe phím tắt. Chỉ gắn khi thật sự đang kéo.
 	useEffect(() => {
 		if (!held) return
 
@@ -95,24 +86,16 @@ export function useHeldItem(loadout: ItemInstance[], inventory: ItemInstance[]) 
 			event.preventDefault()
 			rotateHeld()
 		}
-		/** Bấm ra ngoài lưới lẫn kho thì bỏ nhấc. */
-		const cancelOnBlank = (event: MouseEvent) => {
-			const target = event.target as HTMLElement | null
-			if (target?.closest('[data-cell], [data-item-box], [data-inv-tile], button')) return
-			clear()
-		}
 
 		document.addEventListener('pointermove', track)
 		document.addEventListener('keydown', keys)
 		document.addEventListener('contextmenu', menu)
-		document.addEventListener('click', cancelOnBlank)
 		return () => {
 			document.removeEventListener('pointermove', track)
 			document.removeEventListener('keydown', keys)
 			document.removeEventListener('contextmenu', menu)
-			document.removeEventListener('click', cancelOnBlank)
 		}
 	}, [held, rotateHeld, clear])
 
-	return { held, find, pickUp, rotateHeld, clear, pointerRef }
+	return { held, find, hold, rotateHeld, clear, pointerRef }
 }

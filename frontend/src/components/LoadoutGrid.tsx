@@ -16,8 +16,8 @@ export interface LoadoutGridProps {
 	/** Cho phép bấm/kéo món trong lưới (chỉ ở trang bị). */
 	interactive?: boolean
 	held?: { uid: string; rotated: boolean; templateId: string } | null
-	onPickItem?: (item: ItemInstance) => void
-	onPickCell?: (slot: number) => void
+	/** Bấm một món → mở hộp thoại chi tiết. */
+	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
@@ -39,8 +39,7 @@ export function LoadoutGrid({
 	items,
 	interactive = false,
 	held = null,
-	onPickItem,
-	onPickCell,
+	onItemClick,
 	onDragStart,
 	onDragEnd,
 	onHoverSlot,
@@ -120,8 +119,7 @@ export function LoadoutGrid({
 			items={placed}
 			held={held}
 			renderItem={renderItem}
-			onPickItem={onPickItem}
-			onPickCell={onPickCell}
+			onItemClick={onItemClick}
 			onDragStart={onDragStart}
 			onDragEnd={onDragEnd}
 			onHoverSlot={onHoverSlot}

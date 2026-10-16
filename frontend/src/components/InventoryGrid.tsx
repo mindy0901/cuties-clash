@@ -10,9 +10,8 @@ import { ITEM_BORDER_BY_CLASS, cn } from './ui'
 export interface InventoryGridProps {
 	items: ItemInstance[]
 	held: { uid: string; rotated: boolean; templateId: string } | null
-	onPickItem?: (item: ItemInstance) => void
-	/** Bấm một ô trong kho (đặt món đang cầm xuống đúng ô đó). */
-	onPickCell?: (slot: number) => void
+	/** Bấm một món → mở hộp thoại chi tiết. */
+	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
 	/** Ô neo đang vẽ gợi ý — chỗ đặt khi thả chuột dùng đúng ô này. */
@@ -36,8 +35,7 @@ export interface InventoryGridProps {
 export function InventoryGrid({
 	items,
 	held,
-	onPickItem,
-	onPickCell,
+	onItemClick,
 	onDragStart,
 	onDragEnd,
 	onAnchorSlot,
@@ -121,8 +119,7 @@ export function InventoryGrid({
 				items={placed}
 				held={held}
 				renderItem={renderItem}
-				onPickItem={onPickItem}
-				onPickCell={onPickCell}
+				onItemClick={onItemClick}
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
 				onAnchorSlot={onAnchorSlot}

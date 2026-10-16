@@ -110,16 +110,15 @@ describe('kho giữ đúng vị trí người chơi đặt', () => {
 		expect(slotOf('gem'), 'nhả ở ô 20 thì món phải ở ô 20').toBe(20)
 	})
 
-	it('bấm món rồi bấm ô trong kho thì món tới ô đó', () => {
+	it('bấm món trong kho thì mở chi tiết chứ không đổi vị trí', () => {
 		reset([], [item('gem', 'jade-fury', 0)])
 		renderPrep()
 
-		fireEvent.click(tile('gem'))
-		// Trình duyệt luôn bắn `mousemove` trước `click` — không có nó thì lưới không biết ô nào.
 		hoverKhoCell(30)
-		fireEvent.click(cellIn('Kho đồ', 30))
+		fireEvent.click(tile('gem'))
 
-		expect(slotOf('gem')).toBe(30)
+		expect(slotOf('gem'), 'bấm không được di chuyển món').toBe(0)
+		expect(document.querySelector('[data-held-ghost]'), 'bấm không được nhấc món').toBeNull()
 	})
 
 	it('bán một món KHÔNG làm các món khác nhảy chỗ', () => {

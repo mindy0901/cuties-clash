@@ -351,6 +351,8 @@ Build xanh **không** bảo đảm class đúng: Tailwind im lặng bỏ qua cla
 
 - ❌ Không để lại script/ảnh/file tạm. Đặt tên có tiền tố `_` (`_balance.probe.test.ts`, `_preview.tsx`, `_verify-css.mjs`) rồi **xoá trong cùng phiên**.
 - ✅ Danh sách cảnh báo trong repo này: `*.probe.test.ts`, `_preview.tsx`, `preview.html`, `_shot-*.png`, `*.dump`, `*.bak`.
+- ⚠️ **KHÔNG để quy tắc ignore bắt đầu bằng `_` mà thiếu ngoại lệ.** `.gitignore` dùng `_*` cho file tạm, nhưng `_*` khớp cả tên bắt đầu bằng **hai** gạch dưới: `__tests__/` và `routes/__root.tsx`. Hậu quả đã xảy ra thật: **16 file test và 1 file route không có trong git**, clone repo ra là build đỏ. Hai dòng `!**/__tests__/` và `!**/__root.tsx` trong `.gitignore` là **bắt buộc** — ❌ đừng bỏ khi dọn dẹp khối đó.
+- ✅ Sau khi thêm/xoá file, kiểm tra bằng `git status --short --ignored`: chỉ được thấy `.env`, `node_modules/`, `dist/`. Thấy đường dẫn nào khác là dấu hiệu ignore quá rộng.
 - ✅ Khi cần chụp ảnh/kiểm tra UI tạm: tạo harness `_preview.tsx` + `preview.html` + `?scene=` rồi xoá sau khi xong (đã từng làm, đã dọn).
 - ❌ Không commit `.env` thật (đã có trong `.gitignore`); chỉ commit `.env.example`.
 - ⚠️ **`frontend/src/routeTree.gen.ts` thì NGƯỢC LẠI: phải commit.** Đó là file máy sinh nhưng `tsc` cần nó để typecheck, và nếu không commit thì lần build đầu trên máy sạch sẽ đỏ. ❌ Đừng xoá, đừng sửa tay — `pnpm dev` / `pnpm build` sẽ sinh lại.

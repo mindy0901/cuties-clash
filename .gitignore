@@ -21,7 +21,13 @@ dist-ssr
 **/generated/
 
 # Temporary agent scratch files (see AGENTS.md §8)
+#
+# ⚠️ BẪY: `_*` khớp cả tên bắt đầu bằng HAI gạch dưới (`__tests__`, `__root.tsx`). Không có
+# hai dòng ngoại lệ dưới đây thì **16 file test và route `__root.tsx` biến mất khỏi git** —
+# clone repo ra sẽ build đỏ. Đã xảy ra thật; đừng bỏ ngoại lệ khi sửa khối này.
 _*
+!**/__tests__/
+!**/__root.tsx
 *.probe.test.ts
 preview.html
 _shot-*.png

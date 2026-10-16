@@ -490,6 +490,53 @@ describe('thả món xuống', () => {
 		expect(toastText(), 'phải báo cho người chơi biết').toMatch(/không vừa món/)
 	})
 
+	it('khối gợi ý lấn ô KHOÁ thì đỏ, dù con trỏ đang đứng trên một món', () => {
+		// LỖI ĐÃ GẶP (ảnh người chơi gửi): thương 1×4 kéo từ kho lên, khối gợi ý vừa đè lên Ngọc
+		// vừa tràn xuống hai hàng khoá. Con trỏ đứng trên Ngọc nên ngoại lệ "trỏ vào món" (dành cho
+		// nhập sao/hoán đổi) **che mất** lỗi tràn vùng → viền vẫn vàng dù thả xuống không được.
+		reset([jade('gem', 5)], [stored('spear', 'fire-spear')])
+		renderPrep()
+		khoRoiXa()
+
+		batDauKeo(invTileOf('spear'))
+		hoverCell(5)
+
+		expect(previewSlotsIn('Trang bị'), 'khối lấn sang hàng khoá').toContain(13)
+		expect(outlineClass(), 'tràn vùng đặt thì phải báo đỏ').toContain('border-danger')
+
+		nhaChuot()
+
+		const run = useGameStore.getState().run
+		expect(run.equipped.map((item) => item.uid), 'món cũ nằm nguyên').toEqual(['gem'])
+		expect(run.inventory.map((item) => item.uid), 'không đặt được thì ở lại kho').toEqual([
+			'spear',
+		])
+		expect(toastText(), 'phải chỉ cho người chơi cách xoay').toMatch(/bấm R để xoay/)
+	})
+
+	it('khối gợi ý vướng món THỨ BA (ngoài món dưới con trỏ) thì đỏ', () => {
+		// Ngoại lệ "trỏ vào một món" chỉ dành cho **món đó**: `resolveDrop` chỉ xử lý món nằm dưới con
+		// trỏ, nên món thứ ba lọt vào khối là thả không được → gợi ý phải đỏ.
+		reset([jade('gem-a', 1), blade('sword', 3), jade('gem-b', 5)], [])
+		renderPrep()
+		khoRoiXa()
+
+		batDauKeo(buttonOf('sword'))
+		hoverCell(5)
+
+		expect(previewSlots(), 'khối đè cả Ngọc ô 5 (dưới con trỏ) lẫn Ngọc ô 1').toEqual(
+			expect.arrayContaining([1, 5]),
+		)
+		expect(outlineClass(), 'vướng món thứ ba thì phải báo đỏ').toContain('border-danger')
+
+		nhaChuot()
+
+		expect(
+			useGameStore.getState().run.equipped.map((item) => item.uid),
+			'không đặt được thì mọi món nằm nguyên',
+		).toEqual(['gem-a', 'sword', 'gem-b'])
+	})
+
 	it('thả vào ô KHOÁ thì không đặt được và báo rõ', () => {
 		reset([], [stored('stored')])
 		renderPrep()

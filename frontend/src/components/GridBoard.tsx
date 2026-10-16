@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { fitsIn, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
+import { itemCells, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
 import type { ItemInstance } from '../game/types'
 import { cn } from './ui'
 
@@ -172,20 +172,25 @@ export function GridBoard({
 			if (cells.length === 0) return null
 
 			const anchor = drawRow * width + drawCol
-			// Ô **đang trỏ** có món khác không → đó là ý định nhập sao / hoán đổi, không phải "vướng".
+			// Vùng đặt: khối có nằm trọn trong phần lưới **dùng được** không (tràn lưới, hoặc lấn ô
+			// khoá của cấp thú)?
+			const outOfArea = cells.length < size.w * size.h || cells.some((cell) => cell.slot >= usable)
+
+			// Vướng món khác? Ô **ngay dưới con trỏ** có món là ý định **nhập sao / hoán đổi**, nên
+			// chính món đó không tính là vướng; mọi món khác trong khối thì vẫn tính, vì `resolveDrop`
+			// chỉ xử lý món nằm dưới con trỏ.
+			//
+			// ⚠️ Hai điều kiện phải **tách rời**: tràn vùng đặt thì **luôn** chặn, còn ngoại lệ "trỏ
+			// vào một món" chỉ dành cho việc **vướng món**. Gộp chúng lại thì con trỏ đứng trên một món
+			// sẽ che mất lỗi tràn vùng — thương 1×4 vẫn hiện viền vàng dù tràn xuống hai hàng khoá
+			// (đã gặp đúng lỗi này).
 			const cursorItem = occupantAt(items, slot, width, held?.uid)
+			const cursorCells = cursorItem ? itemCells(cursorItem, width) : []
 			const taken = takenCells(items, width, held ? [held.uid] : [])
-			return {
-				anchor,
-				cells,
-				// "Chặn" = thao tác thả **sẽ không đặt được**: khối tràn lưới/ô khoá, hoặc vướng món khác.
-				//
-				// ⚠️ Phải tính **đúng như `resolveDrop`** (kẹp ô neo rồi kiểm tra va chạm) để viền đỏ và
-				// kết quả thả luôn khớp: viền vàng mà thả không được (hoặc ngược lại) là lỗi đã gặp.
-				blocked:
-					cells.length < size.w * size.h ||
-					(!fitsIn(anchor, size, width, usable, taken) && !cursorItem),
-			}
+			const clash = cells.some(
+				(cell) => taken.has(cell.slot) && !cursorCells.includes(cell.slot),
+			)
+			return { anchor, cells, blocked: outOfArea || clash }
 		},
 		[width, rows, usable, items, held],
 	)

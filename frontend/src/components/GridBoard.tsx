@@ -325,12 +325,18 @@ export function GridBoard({
 				)
 			})}
 
-			{/* Ô gợi ý: cũng là **ô grid thật** nên khớp tuyệt đối với các ô nền. */}
+			{/*
+			 * Ô gợi ý: cũng là **ô grid thật** nên khớp tuyệt đối với các ô nền.
+			 *
+			 * ⚠️ Phải nằm **trên lớp món** (`z-10`): món là ô grid có `relative` nên vẽ sau các ô
+			 * gợi ý trong DOM và sẽ **che mất** gợi ý khi khối đè lên món — người chơi không thấy
+			 * được mình sắp đặt vào đâu. `z-index` áp dụng cho ô grid kể cả khi không `position`.
+			 */}
 			{preview?.cells.map((cell) => (
 				<div
 					key={`preview-${cell.slot}`}
 					data-preview={cell.slot}
-					className="pointer-events-none rounded-md bg-gold/20"
+					className="pointer-events-none z-10 rounded-md bg-gold/20"
 					style={{ gridColumn: `${cell.col + 1}`, gridRow: `${cell.row + 1}` }}
 				/>
 			))}
@@ -339,7 +345,7 @@ export function GridBoard({
 				<div
 					data-preview-outline
 					className={cn(
-						'pointer-events-none rounded-md border-2 border-dashed',
+						'pointer-events-none z-10 rounded-md border-2 border-dashed',
 						preview.blocked ? 'border-danger' : 'border-gold',
 					)}
 					style={{

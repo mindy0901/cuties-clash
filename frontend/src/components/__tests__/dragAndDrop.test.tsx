@@ -514,6 +514,28 @@ describe('thả món xuống', () => {
 		expect(toastText(), 'phải chỉ cho người chơi cách xoay').toMatch(/bấm R để xoay/)
 	})
 
+	it('ô gợi ý nằm TRÊN lớp món — món không được che gợi ý', () => {
+		// Món là ô grid có `relative` nên vẽ **sau** các ô gợi ý trong DOM: thiếu `z-10` là khối gợi ý
+		// bị món che mất, người chơi không thấy mình sắp đặt vào đâu.
+		//
+		// ⚠️ jsdom không vẽ nên ở đây chỉ khoá được **lớp** qua class; kiểm tra thật bằng mắt trên
+		// trình duyệt (ảnh chụp) khi đổi giao diện gợi ý.
+		reset([blade('sword', 0), jade('gem', 5)], [])
+		renderPrep()
+		khoRoiXa()
+
+		batDauKeo(buttonOf('sword'))
+		hoverCell(1)
+
+		const cells = [...document.querySelectorAll<HTMLElement>('[data-preview]')]
+		expect(cells.length, 'đang có khối gợi ý').toBeGreaterThan(0)
+		for (const cell of cells) expect(cell.className, 'ô gợi ý phải nổi lên trên').toContain('z-10')
+		expect(outlineClass(), 'khung đứt cũng phải nổi lên trên').toContain('z-10')
+		expect(boxOf('gem').className, 'món ❌ không được nâng lớp lên trên gợi ý').not.toMatch(
+			/(^|\s)z-/,
+		)
+	})
+
 	it('khối gợi ý vướng món THỨ BA (ngoài món dưới con trỏ) thì đỏ', () => {
 		// Ngoại lệ "trỏ vào một món" chỉ dành cho **món đó**: `resolveDrop` chỉ xử lý món nằm dưới con
 		// trỏ, nên món thứ ba lọt vào khối là thả không được → gợi ý phải đỏ.

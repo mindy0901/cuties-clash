@@ -84,7 +84,7 @@ người chơi đổi trang bị
                     └─ ok ──► revision mới lấy từ RESPONSE, ghi vào cache
 ```
 
-Chi tiết luật và các cạm bẫy: `AGENTS.md` §4.6. Bài học đã trả giá:
+Chi tiết luật và các cạm bẫy: `AGENTS.md` §4.4. Bài học đã trả giá:
 
 - **Vòng lặp PUT vô tận** — mỗi PUT thành công làm store đổi → effect chạy lại → PUT tiếp. Log
   xen kẽ 200/400. Chốt bằng `pushedRef` so nội dung, không so tham chiếu.
@@ -143,7 +143,23 @@ Google → GET /api/auth/google/callback?code&state
 - `AUTO_LOGIN` chỉ bật khi **đã có khoá Google**, nếu không frontend sẽ chuyển hướng vào endpoint
   chắc chắn 503.
 
-## 7. Backend: vì sao viết như hiện tại
+## 7. Quy tắc backend (kèm vì sao viết như hiện tại)
+
+- ✅ Cấu hình qua `loadConfig()` (`../.env` → `backend/.env` → biến môi trường). ❌ Không hardcode
+  secret. `JWT_SECRET` trùng giá trị mẫu hoặc ngắn hơn 32 ký tự ⇒ **ném lỗi lúc khởi động**, không
+  để tới lúc người chơi đăng nhập mới hỏng.
+- ✅ Endpoint cần đăng nhập dùng `currentUser`; endpoint cho phép ẩn danh dùng `optionalUser`.
+- ✅ Mọi lỗi trả `{"error": "<mã>", "message": "<tiếng Việt>"}` **kèm header `X-Error-Code`**, đi
+  qua **một** `setErrorHandler`.
+- ✅ Cookie phiên httpOnly + `SameSite=Lax`; bật `COOKIE_SECURE=true` khi chạy sau HTTPS.
+- ✅ `state` OAuth phải **ký + so sánh timing-safe** rồi đối chiếu cookie — ❌ không tin `state` trên URL.
+- ✅ Đăng xuất tăng `users.session_epoch` để thu hồi token cũ; token mang epoch lệch là hết hiệu lực.
+- ✅ Chỉ hỗ trợ **Google**; provider khác → **400 `unknown_provider`** (có test). `AUTO_LOGIN` chỉ
+  bật khi đã cấu hình đủ khoá; cờ trả về frontend phải là
+  `config.autoLogin && availableProviders.length > 0`.
+- ✅ Đổi schema → sửa `prisma/schema.prisma` + sinh migration mới, và migration phải **chạy được
+  trên database đang có bảng** (baseline idempotent; `scripts/migrate.mjs` tự baseline khi schema đã
+  có bảng mà Prisma chưa có lịch sử). ❌ Không sửa tay DB production.
 
 - **DB được tiêm vào** `buildApp({ db, config })`: nhờ vậy test truyền vào client của một
   transaction rồi rollback — **một database duy nhất, không tạo DB phụ, không để lại dữ liệu**.
@@ -158,3 +174,25 @@ Google → GET /api/auth/google/callback?code&state
 - **Fastify trả 400 cho POST không body kèm `Content-Type: application/json`** — đúng thứ
   `frontend/src/api/client.ts` gửi cho logout. Có hook `onRequest` gỡ `content-type` khi request
   thực sự không có body để hành xử giống Starlette.
+
+## 8. Quy ước viết UI
+
+- ❌ **Không** dùng `requestAnimationFrame` cho playback trận — tab nền bị throttle. Dùng
+  `setInterval` với `TICK_MS = 60`.
+- ✅ Playback đi theo `elapsedRef` (thời gian mô phỏng) và tra `events[next].t <= elapsed`;
+  ❌ không giả định index khớp thời gian.
+- ✅ `commitBattle()` chỉ trả thưởng **một lần** (`battle.committed`). Giữ guard này.
+- ✅ Không `setState` trong render — dùng `useEffect` (xem `BattleScreen`). Mutation qua action của
+  store; ❌ không sửa `run` tại chỗ.
+- ✅ Token màu/khoảng cách khai báo ở `@theme` trong `styles/app.css`; ❌ không rải mã hex trong
+  component.
+- ✅ Dùng hằng chuỗi class chung ở `components/ui.ts` (`panelClass`, `btnClass`, `statClass`…).
+- ❌ **Không ghép tên class động** kiểu `` `bg-cls-${value}` `` — Tailwind chỉ sinh class có trong
+  source. Phải dùng bảng tra, ví dụ `ITEM_BORDER_BY_CLASS`.
+- ⚠️ Class sai **không** làm build đỏ, chỉ mất style → phải kiểm CSS thật
+  ([`TESTING.md`](TESTING.md) §4).
+- ✅ Hộp thoại dùng chung nằm ở `store/uiStore.ts`; ❌ đừng nhét vào `gameStore` — nó bị persist.
+- ✅ `routes/__root.tsx` là khung chung + `<Outlet/>`. Trong trận (`battle`/`result`) màn đấu **đè
+  lên** `Outlet`. Đường dẫn lạ → `PrepScreen`, và nút chưa có chức năng phải **báo** "sẽ có ở bản
+  sau" chứ ❌ không im lặng.
+- Art: quy tắc chọn/khai ảnh ở [`ASSETS.md`](ASSETS.md).

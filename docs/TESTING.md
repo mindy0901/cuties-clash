@@ -1,7 +1,7 @@
 # Kiểm thử & kiểm chứng
 
-> Quy tắc bắt buộc ở [`../AGENTS.md`](../AGENTS.md) §6. File này là chi tiết + những cái bẫy đã
-> tốn thời gian thật.
+> Lệnh kiểm chứng ở [`../AGENTS.md`](../AGENTS.md) §2. File này là **toàn bộ** quy tắc kiểm thử,
+> cùng những cái bẫy đã tốn thời gian thật.
 
 ## 0. Chạy gì trước khi kết thúc phiên
 

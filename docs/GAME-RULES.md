@@ -37,10 +37,13 @@
 | PvP | `makeRivalBlueprint(power, stage, seed)` — **không** đổi `stage`/`clearedStage` |
 | Bản đồ | 60 màn chia 3 bản đồ (`MAPS`), 20 màn mỗi bản đồ |
 
-## 4. Thuật ngữ cố định (dùng đúng chữ này trong UI)
+## 4. Tiếng Việt trong UI
 
-Vũ khí · Hộ giáp · Hồn Ngọc · Pháp Bảo · Đan Dược · Kiếm Thế · Chấn Đao · Trọng kích · Thú cưng ·
-Màn · Bản đồ · Trang bị · Kho đồ · Sức mạnh · Paw Tally.
+Mọi chữ hiện cho người chơi — **kể cả thông báo lỗi API** — phải là tiếng Việt. ❌ Không lẫn tiếng
+Anh (trừ tên riêng như *Stormchant*, *Paw Tally*).
+
+Thuật ngữ cố định (dùng đúng chữ này): Vũ khí · Hộ giáp · Hồn Ngọc · Pháp Bảo · Đan Dược · Kiếm
+Thế · Chấn Đao · Trọng kích · Thú cưng · Màn · Bản đồ · Trang bị · Kho đồ · Sức mạnh · Paw Tally.
 
 ## 5. Ánh xạ luật → mã nguồn
 

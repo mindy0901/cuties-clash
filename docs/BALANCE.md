@@ -26,7 +26,7 @@ trang bị).
 
 3. Chỉnh `game/stages.ts` (`maxHp`, `attackDamage`, `enemyStar`, `enemyItems`) rồi chạy lại.
 4. Lặp tới khi khớp mục tiêu ở §1.
-5. ⚠️ **XOÁ file probe ngay khi xong** (`AGENTS.md` §7). File tên `_*.probe.test.ts` nằm trong danh
+5. ⚠️ **XOÁ file probe ngay khi xong** (`AGENTS.md` §6). File tên `_*.probe.test.ts` nằm trong danh
    sách cảnh báo của repo.
 
 ## 3. Tham số đang dùng

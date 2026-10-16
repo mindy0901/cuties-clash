@@ -20,7 +20,7 @@ dist-ssr
 # Prisma sinh client vào đây, không commit
 **/generated/
 
-# Temporary agent scratch files (see AGENTS.md §7)
+# Temporary agent scratch files (see AGENTS.md §6)
 #
 # ⚠️ BẪY: `_*` khớp cả tên bắt đầu bằng HAI gạch dưới (`__tests__`, `__root.tsx`). Không có
 # hai dòng ngoại lệ dưới đây thì **16 file test và route `__root.tsx` biến mất khỏi git** —

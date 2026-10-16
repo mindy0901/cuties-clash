@@ -7,6 +7,20 @@ nguồn, giấy phép, cách đặt file và nghĩa vụ ghi công.
 
 ---
 
+## Quy tắc khi thêm art
+
+- ✅ **Chỉ khai đường dẫn khi chắc chắn file có thật** (`stars` trong `items.ts`, `art`/`skillArt`
+  trong `pets.ts`). ❌ Không đoán tên file.
+- ✅ **Luôn giữ emoji dự phòng** trong `icon`; `ArtIcon` tự lùi về emoji khi ảnh lỗi — nhờ vậy thêm
+  art dần được mà không bao giờ có ô trống.
+- ⚠️ **Kiểm kênh alpha thật** trước khi dùng (xem bẫy ORHstudio bên dưới): đọc byte PNG, `colorType`
+  phải là **6 = RGBA**. `game/__tests__/artAlpha.test.ts` canh việc này.
+- ⚠️ Nguồn **CC BY** bắt buộc có mục **Ghi công** mở được từ menu. CC0 không bắt buộc, nhưng vẫn
+  ghi nguồn vào file này.
+- ⚠️ Ghi rõ nếu art do **AI tạo** (pack ORHstudio có khai báo "AI Assisted").
+- ⚠️ Thêm **thư mục tĩnh mới** trong `frontend/` thì kiểm image `fr` có `COPY` nó không — thiếu thì
+  ảnh 404 và nginx trả `index.html` (HTTP vẫn 200, rất khó thấy).
+
 ## Đang dùng
 
 ### ORHstudio — Wuxia Icon Series (CC0)

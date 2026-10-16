@@ -1,13 +1,14 @@
 import { useGameStore } from '../store/gameStore'
 import { InventoryGrid } from './InventoryGrid'
 import { cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
+import type { HeldItem } from './useHeldItem'
 import type { ItemInstance } from '../game/types'
 
 interface InventoryPanelProps {
 	/** Nhận phần tử gốc, để cha biết vùng thả "cất vào kho". */
 	onRef?: (node: HTMLElement | null) => void
 	/** Món đang được **kéo**, nếu có. */
-	held: { uid: string; rotated: boolean; templateId: string } | null
+	held: HeldItem | null
 	/** Bấm một món trong kho → mở hộp thoại chi tiết. */
 	onItemClick: (item: ItemInstance) => void
 	/** Bắt đầu giữ một món (đầu thao tác kéo). */

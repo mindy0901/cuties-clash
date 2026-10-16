@@ -24,8 +24,16 @@ export function templateFootprint(templateId: string, rotated = false): GridSpac
 	return footprintOf(getTemplate(templateId).space, rotated)
 }
 
-/** Hai bản sao nhập được khi cùng template, cùng số sao và chưa đạt 4★. */
-export function isMergeable(a: ItemInstance, b: ItemInstance): boolean {
+/**
+ * Hai bản sao nhập được khi cùng template, cùng số sao và chưa đạt 4★.
+ *
+ * Nhận kiểu tối thiểu (`templateId` + `star`) để dùng được cả với món **đang kéo** — lúc đó chỉ
+ * có `HeldItem`, không phải `ItemInstance` đầy đủ.
+ */
+export function isMergeable(
+	a: { templateId: string; star: Star },
+	b: { templateId: string; star: Star },
+): boolean {
 	return a.templateId === b.templateId && a.star === b.star && a.star < MAX_STAR
 }
 

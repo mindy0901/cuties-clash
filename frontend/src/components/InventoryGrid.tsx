@@ -5,11 +5,12 @@ import { khoShape, repairKhoSlots } from '../game/kho'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { ItemIcon } from './ItemIcon'
+import type { HeldItem } from './useHeldItem'
 import { ITEM_BORDER_BY_CLASS, cn } from './ui'
 
 export interface InventoryGridProps {
 	items: ItemInstance[]
-	held: { uid: string; rotated: boolean; templateId: string } | null
+	held: HeldItem | null
 	/** Bấm một món → mở hộp thoại chi tiết. */
 	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
@@ -29,8 +30,11 @@ export interface InventoryGridProps {
  * đâu thì món ở đó, và xoay hướng nào cũng được. Bản trước tự dồn món nối tiếp nhau rồi ghi đè
  * vị trí vừa thả, khiến thao tác kéo trong kho trông như "không kéo được".
  *
- * Khác biệt duy nhất so với trang bị: **không giới hạn** — lưới tự cao thêm khi có món nằm thấp
- * hơn (xem `khoRows`), và **không có ô khoá**.
+ * Khác biệt so với trang bị:
+ * - **Không giới hạn** — lưới tự cao thêm khi có món nằm thấp hơn (xem `khoRows`), **không có ô khoá**.
+ * - ❌ **Không hoán đổi** (`allowSwap={false}`): thả đè lên món **khác loại** là **từ chối** với viền
+ *   đỏ, chứ không đẩy món đang nằm đó sang chỗ khác. Kho là lưới tự do nên luôn còn ô trống để đặt;
+ *   muốn đổi chỗ thì kéo món kia ra trước. Thả lên món **giống hệt** vẫn **nhập sao** bình thường.
  */
 export function InventoryGrid({
 	items,
@@ -118,6 +122,7 @@ export function InventoryGrid({
 				usableCells={usable}
 				items={placed}
 				held={held}
+				allowSwap={false}
 				renderItem={renderItem}
 				onItemClick={onItemClick}
 				onDragStart={onDragStart}

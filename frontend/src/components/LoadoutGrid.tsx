@@ -3,6 +3,7 @@ import { getTemplate } from '../game/items'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { ItemIcon } from './ItemIcon'
+import type { HeldItem } from './useHeldItem'
 import { ITEM_BORDER_BY_CLASS, cn } from './ui'
 
 /** Số cột của bảng trang bị ở phòng chuẩn bị. */
@@ -15,7 +16,7 @@ export interface LoadoutGridProps {
 	items: ItemInstance[]
 	/** Cho phép bấm/kéo món trong lưới (chỉ ở trang bị). */
 	interactive?: boolean
-	held?: { uid: string; rotated: boolean; templateId: string } | null
+	held?: HeldItem | null
 	/** Bấm một món → mở hộp thoại chi tiết. */
 	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void

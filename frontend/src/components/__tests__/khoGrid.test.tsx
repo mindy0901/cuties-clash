@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 /**
- * **Kho đồ là lưới tự do** — khoá lại đúng hai lỗi đã gặp:
+ * **Kho đồ là lưới tự do** — khoá lại đúng ba lỗi đã gặp:
  *
  * 1. Kho **tự xếp lại** món: thả ở đâu cũng bị dồn về hàng trên, nên vị trí người chơi chọn
  *    không được giữ.
  * 2. Vì thế **kéo trong kho trông như không ăn** — thao tác có tác dụng nhưng vị trí bị tính
  *    lại ngay, và kéo món trong kho trước đây còn bị bỏ qua hoàn toàn.
+ * 3. Thả đè lên món khác loại lại **hoán đổi**, tức món đang nằm yên bị đẩy sang chỗ khác —
+ *    kho **không** hoán đổi, chỉ **nhập sao**.
  */
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -132,6 +134,49 @@ describe('kho giữ đúng vị trí người chơi đặt', () => {
 		expect(slotOf('wide'), 'không được đặt đè — món nằm nguyên chỗ cũ').toBe(8)
 		expect(slotOf('block')).toBe(2)
 		expect(toastText()).toMatch(/đã có món/)
+	})
+
+	/**
+	 * LỖI ĐÃ GẶP (ảnh người chơi gửi): con trỏ đứng **ngay trên** món khác loại, nên ngoại lệ
+	 * "trỏ vào món = ý định hoán đổi" (đúng cho trang bị) làm kho hiện viền **vàng**, rồi thả
+	 * xuống thì `resolveDrop` **hoán đổi**: món đang nằm yên bị đẩy sang chỗ cũ của món đang kéo.
+	 */
+	it('thả đè lên món khác loại → ĐỎ và TỪ CHỐI, không hoán đổi, không đẩy món đi', () => {
+		reset([], [item('vest', 'hide-vest', 0), item('spear', 'fire-spear', 24)])
+		renderPrep()
+
+		// Thương 1×4 ở ô 24 (cột 0, hàng 3). Kéo lên ô 8 (cột 0, hàng 1) — chính ô của Giáp Da 2×2.
+		batDauKeo('spear')
+		hoverKhoCell(8)
+
+		const outline = document.querySelector<HTMLElement>('[data-preview-outline]')!
+		expect(outline.className, 'con trỏ trên món khác loại thì phải báo đỏ').toContain(
+			'border-danger',
+		)
+
+		nhaChuot()
+
+		expect(slotOf('spear'), 'món đang kéo phải nằm nguyên chỗ cũ').toBe(24)
+		expect(slotOf('vest'), 'món bị đè KHÔNG được đẩy đi').toBe(0)
+		expect(toastText()).toMatch(/đã có món/)
+	})
+
+	it('thả lên món GIỐNG HỆT thì vẫn nhập sao (viền vàng)', () => {
+		reset([], [item('a', 'jade-fury', 0), item('b', 'jade-fury', 9)])
+		renderPrep()
+
+		batDauKeo('b')
+		hoverKhoCell(0)
+
+		const outline = document.querySelector<HTMLElement>('[data-preview-outline]')!
+		expect(outline.className, 'nhập sao thả được nên phải vàng').toContain('border-gold')
+
+		nhaChuot()
+
+		const inventory = useGameStore.getState().run.inventory
+		expect(inventory, 'hai món gộp thành một').toHaveLength(1)
+		expect(inventory[0].star).toBe(2)
+		expect(inventory[0].slot).toBe(0)
 	})
 
 	it('bấm món trong kho thì mở chi tiết chứ không đổi vị trí', () => {

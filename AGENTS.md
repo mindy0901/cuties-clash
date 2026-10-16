@@ -148,7 +148,7 @@ trang, người chơi hết đường bấm. Thêm trường vào `RunState` = s
 | **Màn hình** | file mới trong `src/routes/` | `routeTree.gen.ts` tự sinh; nhớ SPA fallback (§4.3) |
 | **Hộp thoại / UI dùng chung** | `store/uiStore.ts` | ❌ không vào `gameStore` (nó bị persist) |
 | **Trường trong `RunState`** | `types.ts` → `sanitize.ts` → bump `version` → `migrate.ts` | thiếu `sanitize` ⇒ **trắng trang** (§4.5) |
-| **Cách xếp/chứa đồ trong kho** | `game/kho.ts` | kho là **lưới tự do** — ❌ đừng xếp hộ; vướng món thì **từ chối** chứ ❌ đừng trượt sang ô khác; test `game/__tests__/kho.test.ts` + `components/__tests__/khoGrid.test.tsx` |
+| **Cách xếp/chứa đồ trong kho** | `game/kho.ts` | kho là **lưới tự do** — ❌ đừng xếp hộ; vướng món thì **từ chối** chứ ❌ đừng trượt sang ô khác; thả lên món **khác loại** cũng **từ chối** (❌ kho không hoán đổi, chỉ nhập sao); test `game/__tests__/kho.test.ts` + `components/__tests__/khoGrid.test.tsx` |
 | **Endpoint API** | `backend/src/routes/` | lỗi qua `ApiError`; thêm test trong `backend/tests/` |
 | **Bảng / cột DB** | `prisma/schema.prisma` + migration | migration phải chạy được trên database đang có bảng |
 

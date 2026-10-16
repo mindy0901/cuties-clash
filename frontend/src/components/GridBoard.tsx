@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { itemCells, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
+import { isMergeable, itemCells, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
 import type { ItemInstance } from '../game/types'
+import type { HeldItem } from './useHeldItem'
 import { cn } from './ui'
 
 /** Ngưỡng (px) để coi là kéo chứ không phải bấm. */
@@ -53,7 +54,7 @@ export interface GridBoardProps {
 	/** Các món (đã có `slot` hợp lệ). */
 	items: ItemInstance[]
 	/** Món đang được cầm. */
-	held: { uid: string; rotated: boolean; templateId: string } | null
+	held: HeldItem | null
 	/** Vẽ nội dung một món; nhận sẵn thuộc tính cần gắn. */
 	renderItem: (item: ItemInstance, box: ItemBoxProps) => ReactNode
 	onItemClick?: (item: ItemInstance) => void
@@ -62,6 +63,14 @@ export interface GridBoardProps {
 	onHoverSlot?: (slot: number | null) => void
 	/** Báo **ô neo đang vẽ gợi ý** (khác ô thô khi gợi ý căn giữa con trỏ) kèm trạng thái chặn. */
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
+	/**
+	 * Lưới này có **hoán đổi** khi thả đè lên món khác loại không.
+	 *
+	 * ✅ Trang bị: có (luật "khác nhau thì hoán đổi vị trí").
+	 * ❌ Kho: **không** — kho là lưới tự do nên thả đè lên món khác là **từ chối**, chứ không được
+	 * đẩy món đang nằm đó sang chỗ khác.
+	 */
+	allowSwap?: boolean
 	overlay?: ReactNode
 	className?: string
 }
@@ -89,6 +98,7 @@ export function GridBoard({
 	onDragEnd,
 	onHoverSlot,
 	onAnchorSlot,
+	allowSwap = true,
 	overlay,
 	className,
 }: GridBoardProps) {
@@ -176,23 +186,33 @@ export function GridBoard({
 			// khoá của cấp thú)?
 			const outOfArea = cells.length < size.w * size.h || cells.some((cell) => cell.slot >= usable)
 
-			// Vướng món khác? Ô **ngay dưới con trỏ** có món là ý định **nhập sao / hoán đổi**, nên
-			// chính món đó không tính là vướng; mọi món khác trong khối thì vẫn tính, vì `resolveDrop`
-			// chỉ xử lý món nằm dưới con trỏ.
+			// Ô **ngay dưới con trỏ**:
+			// - **nhập sao** (cùng template + cùng sao) → luôn thả được, `resolveDrop` chỉ gộp vào món
+			//   dưới con trỏ nên vị trí khối không còn quan trọng;
+			// - khác loại → **hoán đổi**, chỉ khi lưới cho phép (`allowSwap`); kho thì **không**.
+			const cursorItem = occupantAt(items, slot, width, held?.uid)
+			const mergeable = !!held && !!cursorItem && isMergeable(held, cursorItem)
+			const swapHere = allowSwap && !!cursorItem
+
+			// Vướng món khác trong khối (ngoài món dưới con trỏ, vì món đó sẽ được gộp/đổi chỗ).
 			//
 			// ⚠️ Hai điều kiện phải **tách rời**: tràn vùng đặt thì **luôn** chặn, còn ngoại lệ "trỏ
 			// vào một món" chỉ dành cho việc **vướng món**. Gộp chúng lại thì con trỏ đứng trên một món
 			// sẽ che mất lỗi tràn vùng — thương 1×4 vẫn hiện viền vàng dù tràn xuống hai hàng khoá
 			// (đã gặp đúng lỗi này).
-			const cursorItem = occupantAt(items, slot, width, held?.uid)
 			const cursorCells = cursorItem ? itemCells(cursorItem, width) : []
 			const taken = takenCells(items, width, held ? [held.uid] : [])
 			const clash = cells.some(
 				(cell) => taken.has(cell.slot) && !cursorCells.includes(cell.slot),
 			)
-			return { anchor, cells, blocked: outOfArea || clash }
+
+			return {
+				anchor,
+				cells,
+				blocked: mergeable ? false : outOfArea || clash || (!!cursorItem && !swapHere),
+			}
 		},
-		[width, rows, usable, items, held],
+		[width, rows, usable, items, held, allowSwap],
 	)
 
 	/**

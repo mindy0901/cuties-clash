@@ -5,11 +5,12 @@ import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { estimatePower } from '../game/build'
 import { LoadoutGrid } from './LoadoutGrid'
 import { btnClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
+import type { HeldItem } from './useHeldItem'
 import type { ItemInstance } from '../game/types'
 
 interface PetLoadoutPanelProps {
 	/** Món đang được kéo, nếu có. */
-	held: { uid: string; rotated: boolean; templateId: string } | null
+	held: HeldItem | null
 	/** Bấm một món → mở hộp thoại chi tiết. */
 	onItemClick: (item: ItemInstance) => void
 	/** Bắt đầu giữ một món (đầu thao tác kéo). */

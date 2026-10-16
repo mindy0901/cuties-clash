@@ -36,14 +36,19 @@ describe('kho là lưới tự do', () => {
 		])
 	})
 
-	it('thả lên món khác thì hoán đổi vị trí', () => {
+	it('thả lên món KHÁC LOẠI thì TỪ CHỐI — không hoán đổi, không đẩy món đi', () => {
+		// LỖI ĐÃ GẶP: thả đè lên món khác trong kho lại **hoán đổi** hai món, tức món đang nằm yên
+		// bị đẩy sang chỗ khác. Kho là lưới tự do nên thao tác đó bị từ chối.
 		const blade = createItemInstance('wooden-blade', 1, 'blade', 0)
 		const gem = createItemInstance('jade-fury', 1, 'gem', 2)
 
-		const { run } = dropInKho(runWith([blade, gem]), 'gem', 0)
+		const { run, result } = dropInKho(runWith([blade, gem]), 'gem', 0)
 
-		expect(run.inventory.find((item) => item.uid === 'gem')?.slot).toBe(0)
-		expect(run.inventory.find((item) => item.uid === 'blade')?.slot).toBe(2)
+		expect(result.reason, 'phải từ chối').toBe('no-space')
+		expect(run.inventory.map((item) => [item.uid, item.slot])).toEqual([
+			['blade', 0],
+			['gem', 2],
+		])
 	})
 
 	it('thả lên món giống hệt thì nhập sao', () => {

@@ -137,6 +137,7 @@ Game có **hai màn hình**, điều hướng bằng đường dẫn thật (nú
 | Có tham chiến? | ✅ Có — passive, hào khí, vũ khí đều tính | ❌ Không, nằm không thì không có hiệu lực |
 | Món vào đây khi nào | Mua ở cửa hàng nếu trang bị **còn chỗ** | Mua khi trang bị **hết chỗ**, hoặc khi bạn tháo ra |
 | Xếp chỗ | Bạn tự đặt — món nằm đúng ô | **Cũng vậy** — món nằm đúng ô, kho không xếp hộ |
+| Thả đè lên món khác loại | **Hoán đổi vị trí** hai món | ❌ **Từ chối** (viền đỏ) — món đang nằm yên không bị đẩy đi |
 
 Chuyển đồ giữa hai chỗ: **giữ chuột kéo** món sang ô khác rồi nhả. Chỉ **kéo-thả** chuyển được đồ —
 **bấm** một món để xem **chi tiết** (tên, chỉ số, hiệu lực, giá và giá bán lại).

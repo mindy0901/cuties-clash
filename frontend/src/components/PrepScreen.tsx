@@ -192,10 +192,14 @@ export function PrepScreen() {
 	const heldItem = held
 		? ([...run.equipped, ...run.inventory].find((item) => item.uid === held.uid) ?? null)
 		: null
-	/** Dạng rút gọn cho hai panel: chỉ cần biết món nào và hướng đang chọn. */
+	/**
+	 * Món đang kéo, dạng `HeldItem` đầy đủ.
+	 *
+	 * ⚠️ ❌ **Không cắt bớt trường**: hai lưới cần cả `star` để biết món có **nhập sao** được vào món
+	 * ngay dưới con trỏ hay không (kho chỉ cho nhập sao, không cho hoán đổi). Bản trước chỉ truyền
+	 * `uid`/`rotated`/`templateId` nên phép kiểm tra đó luôn sai.
+	 */
 	const heldInfo = held
-		? { uid: held.uid, rotated: held.rotated, templateId: held.templateId }
-		: null
 
 	return (
 		<div className="flex flex-col gap-3.5">

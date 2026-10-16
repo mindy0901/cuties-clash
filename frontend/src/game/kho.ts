@@ -126,7 +126,13 @@ export function addToKho(run: RunState, item: ItemInstance): RunState {
 	return { ...run, inventory: placeNew(run.inventory, item, null, false).items }
 }
 
-/** Di chuyển một món **trong kho**: thả vào ô trống, nhập sao, hoán đổi — như lưới trang bị. */
+/**
+ * Di chuyển một món **trong kho**: thả vào ô trống, hoặc **nhập sao** khi thả lên món giống hệt.
+ *
+ * ❌ **Không hoán đổi**: thả đè lên món khác loại là **từ chối** (`reason: 'no-space'`), ❌ không
+ * đẩy món đang nằm ở đó sang chỗ khác. Kho là lưới tự do nên luôn còn ô trống để đặt, và "thả một
+ * chỗ mà món khác bị dời đi" là hành vi người chơi không hề yêu cầu.
+ */
 export function dropInKho(
 	run: RunState,
 	uid: string,
@@ -147,6 +153,9 @@ export function dropInKho(
 		slot === null
 			? empty
 			: resolveDrop(run.inventory, uid, slot, KHO_WIDTH, khoShape(run.inventory).size, rotated)
+	if (result.swapped) {
+		return { run, result: { ...empty, reason: 'no-space' } }
+	}
 	if (!result.reason) return { run: { ...run, inventory: result.items }, result }
 
 	// Thả ra vùng trống của kho, hoặc lưới đang hiện đã kín ô → xếp món vào chỗ trống trong

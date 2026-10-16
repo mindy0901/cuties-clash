@@ -1,0 +1,297 @@
+import { useRef } from 'react'
+import { ActionBar } from './ActionBar'
+import { HeldGhost } from './HeldGhost'
+import { InventoryPanel } from './InventoryPanel'
+import { PetIcon } from './ItemIcon'
+import { PetLoadoutPanel } from './PetLoadoutPanel'
+import { PetPanel } from './PetPanel'
+import { useHeldItem } from './useHeldItem'
+import { estimatePower } from '../game/build'
+import { templateFootprint } from '../game/bag'
+import { MAX_PET_LEVEL, getPet } from '../game/pets'
+import { FINAL_STAGE, MAPS, getStage } from '../game/stages'
+import { playerCombatantFor, useGameStore } from '../store/gameStore'
+import type { ItemInstance } from '../game/types'
+import { cn, panelClass } from './ui'
+
+function StatRow({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'jade' }) {
+	return (
+		<div className="flex items-center justify-between gap-3 border-b border-line/60 px-3 py-1.5 last:border-b-0">
+			<span className="text-[12.5px] text-muted">{label}</span>
+			<span className={cn('font-semibold tabular-nums', tone === 'gold' && 'text-gold-soft', tone === 'jade' && 'text-jade')}>
+				{value}
+			</span>
+		</div>
+	)
+}
+
+/**
+ * Phòng chuẩn bị — bố cục theo bản gốc:
+ * trái là thú cưng + bảng chỉ số, giữa là sân khấu thú cưng, phải là bảng trang bị;
+ * dưới cùng là thanh nút hành động. Kho đồ (sửa được) nằm ở cột giữa dưới sân khấu.
+ */
+export function PrepScreen() {
+	const run = useGameStore((state) => state.run)
+	const pet = getPet(run.petId)
+	const level = run.pets[run.petId] ?? 1
+	const combatant = playerCombatantFor(run)
+	const power = estimatePower(combatant)
+	const stage = getStage(run.stage)
+	const map = MAPS[Math.min(MAPS.length - 1, Math.floor((run.stage - 1) / 20))]
+	const totalMatches = run.wins + run.losses
+
+	// Nhấc/đặt đồ giữa kho và trang bị — state phải ở đây vì hai panel là anh em.
+	const { held, pickUp, clear, pointerRef } = useHeldItem(run.equipped, run.inventory)
+	const equip = useGameStore((state) => state.equip)
+	const equipAt = useGameStore((state) => state.equipAt)
+	const unequip = useGameStore((state) => state.unequip)
+	const dropItem = useGameStore((state) => state.dropItem)
+	const pushToast = useGameStore((state) => state.pushToast)
+
+	/** Bấm một món — ở lưới hay ở kho đều nhấc lên. */
+	const onPickItem = (item: ItemInstance, from: 'loadout' | 'inventory') => {
+		// Đang cầm món của trang bị mà bấm vào kho → cất vào kho.
+		if (held && from === 'inventory' && run.equipped.some((entry) => entry.uid === held.uid)) {
+			unequip(held.uid)
+			clear()
+			return
+		}
+		pickUp(item, from)
+	}
+
+	/** Đặt món đang cầm vào một ô (dùng cho cả bấm và kéo-thả). */
+	const placeAt = (slot: number) => {
+		if (!held) return
+		if (held.from === 'loadout') {
+			dropItem(held.uid, slot, held.rotated)
+		} else {
+			// Món từ kho: đặt **vào ô con trỏ** nếu hướng đang chọn vừa, không thì để store
+			// tự tìm chỗ (nó thử cả hai hướng xoay).
+			const strapped = equipAt(held.uid, slot, held.rotated)
+			if (!strapped) equip(held.uid)
+		}
+		clear()
+	}
+
+	const hoverSlotRef = useRef<number | null>(null)
+	const inventoryRef = useRef<HTMLElement | null>(null)
+
+	/** Con trỏ có đang nằm trong vùng Kho đồ không. */
+	const trongKho = () => {
+		const box = inventoryRef.current?.getBoundingClientRect()
+		if (!box) return false
+		const { x, y } = pointerRef.current
+		return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom
+	}
+
+	/**
+	 * Món đang được **giữ chuột**, để biết lúc nhả thì đang kéo món nào.
+	 *
+	 * ⚠️ Cần ref riêng cho trường hợp kéo **từ kho**: `held` trong closure của `onDragEnd` có
+	 * thể chưa kịp có giá trị mới, mà `pointerup` lại cần biết ngay.
+	 *
+	 * ⚠️ Hướng xoay phải **đọc từ `held`** lúc nhả, không lấy giá trị chụp lúc bắt đầu kéo —
+	 * người chơi có thể đã bấm `R` giữa chừng và giá trị chụp sẽ cũ.
+	 */
+	const keoRef = useRef<{ uid: string; from: 'inventory' | 'loadout' } | null>(null)
+
+	/** Bắt đầu giữ một món (dùng chung cho lưới và kho). */
+	const batDauKeo = (item: ItemInstance, from: 'inventory' | 'loadout') => {
+		keoRef.current = { uid: item.uid, from }
+		pickUp(item, from)
+	}
+
+	/**
+	 * Nhả chuột.
+	 *
+	 * `moved = true` (đã kéo đi) → đặt xuống ô đang trỏ, hoặc cất vào kho nếu nhả trên kho.
+	 * `moved = false` (chỉ bấm) → **không** đặt gì, để cú `click` ngay sau đó nhấc món lên.
+	 */
+	const onDragEnd = (moved: boolean) => {
+		if (!moved) return
+		const dangKeo = keoRef.current
+		keoRef.current = null
+		if (!dangKeo) return
+
+		const slot = hoverSlotRef.current
+
+		// Nhả **trên kho**:
+		// - Món của trang bị → cất vào kho.
+		// - Món vốn đã ở kho → không làm gì (nó vẫn ở kho).
+		if (trongKho()) {
+			if (dangKeo.from === 'loadout') unequip(dangKeo.uid)
+			clear()
+			return
+		}
+
+		if (slot === null) return
+
+		// Hướng xoay đọc từ `held` **lúc nhả** — người chơi có thể đã bấm `R` giữa chừng.
+		const rotated = held?.rotated ?? false
+
+		if (dangKeo.from === 'loadout') {
+			dropItem(dangKeo.uid, slot, rotated)
+			clear()
+			return
+		}
+
+		// Từ kho: đặt **đúng ô đang trỏ**. ❌ Không lùi về quip() (tự tìm chỗ) — làm vậy thì
+		// thả vào ô **khoá** vẫn đặt được, phá đúng thứ ô khoá sinh ra để ngăn.
+		if (!equipAt(dangKeo.uid, slot, rotated)) {
+			pushToast('Chỗ đó không đặt được món này — thử ô khác hoặc xoay món', 'bad')
+		}
+		clear()
+	}
+
+	/** Bấm món trong lưới. */
+	const onPickItemFromGrid = (item: ItemInstance) => onPickItem(item, 'loadout')
+
+	/** Bấm món trong kho. */
+	const onPickItemFromInventory = (item: ItemInstance) => onPickItem(item, 'inventory')
+
+	/**
+	 * Ô **neo đang vẽ gợi ý**, do `LoadoutGrid` báo lên.
+	 *
+	 * ⚠️ Dùng ô này làm chỗ đặt, ❌ không tự tính lại từ ô thô: gợi ý căn giữa con trỏ nên ô
+	 * neo khác ô thô — tính lại sẽ làm món rơi lệch khỏi khung người chơi đang thấy.
+	 */
+	const onAnchorSlotFromGrid = (slot: number | null) => {
+		hoverSlotRef.current = slot
+	}
+
+	const heldItem = held
+		? ([...run.equipped, ...run.inventory].find((item) => item.uid === held.uid) ?? null)
+		: null
+	/** Dạng rút gọn cho hai panel: chỉ cần biết món nào và hướng đang chọn. */
+	const heldInfo = held
+		? { uid: held.uid, rotated: held.rotated, templateId: held.templateId }
+		: null
+
+	return (
+		<div className="flex flex-col gap-3.5">
+			{/*
+			 * ⚠️ **Ba cột bằng nhau** (`1fr`), và mỗi panel lưới chiếm **một cột**.
+			 *
+			 * Vì sao: bề rộng ô do bề rộng panel quyết định. Hai panel ở hai cột khác bề rộng thì
+			 * ô sẽ khác cỡ, hoặc panel rộng hơn lưới sẽ **thừa một mảng nền** bên phải các ô.
+			 * Cho hai panel cùng bề rộng thì lưới lấp đầy panel và ô **tự khớp nhau** — không cần
+			 * ép cỡ px nào.
+			 *
+			 * ⚠️ Cột dùng `minmax(0, 1fr)`, ❌ không cố định px: cố định sẽ tràn ngang ở màn hẹp.
+			 */}
+			{/*
+			 * Ba cột: **chỉ số thú cưng** · **sân khấu + kho** (lưới 8 cột × 50px ≈ 442px) · **trang bị**
+			 * (lưới 4 cột × 50px ≈ 226px).
+			 *
+			 * ⚠️ Cột đặt theo **nội dung** (`minmax(0, …)` với trần tính từ số cột × `CELL_SIZE`),
+			 * ❌ không dùng `1fr`: panel rộng hơn lưới sẽ thừa một mảng nền bên phải các ô.
+			 */}
+			<div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,320px)_minmax(0,545px)_minmax(0,310px)] max-lg:grid-cols-1">
+				{/* ── Trái: bảng chỉ số + panel thú cưng ─────────────────────────── */}
+				<div className="flex min-w-0 flex-col gap-2.5">
+					<section className={cn(panelClass, 'gap-2.5')}>
+						<div className="flex items-center gap-3">
+							<div className="surface-pet grid size-16 shrink-0 place-items-center rounded-[16px] border border-line p-1.5">
+								<PetIcon petId={pet.id} emojiClass="text-4xl" />
+							</div>
+							<div>
+								<div className="flex items-baseline gap-2">
+									<span className="text-3xl leading-none font-bold text-gold-soft">{level}</span>
+									<span className="font-semibold">{pet.name}</span>
+								</div>
+								<div className="text-[12px] text-muted">
+									{level >= MAX_PET_LEVEL ? 'Đã đạt cấp tối đa' : `Cấp ${level}/${MAX_PET_LEVEL}`}
+								</div>
+							</div>
+						</div>
+
+						<div className="overflow-hidden rounded-[10px] border border-line bg-black/25">
+							<StatRow label="Sức mạnh" value={power.toLocaleString('vi-VN')} tone="gold" />
+							<StatRow label="Máu tối đa" value={String(Math.round(combatant.maxHp))} />
+							<StatRow
+								label="Lịch sử đấu"
+								value={totalMatches === 0 ? 'chưa đấu' : `${run.wins} thắng, ${run.losses} thua`}
+								tone={run.losses === 0 && run.wins > 0 ? 'jade' : undefined}
+							/>
+							<StatRow label="Tiến trình" value={`${Math.round((run.clearedStage / FINAL_STAGE) * 100)}%`} />
+							<StatRow label="Kiếm Thế" value={`${combatant.maxSe} (+${Math.round(combatant.seRegen)}/s)`} />
+						</div>
+					</section>
+
+					<PetPanel />
+				</div>
+
+				{/* ── Giữa: sân khấu thú cưng + kho đồ ───────────────────────────── */}
+				<div className="flex flex-col gap-2.5">
+					<section className="surface-stage relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-panel border border-line px-4 py-8">
+						<div className="surface-pet relative grid size-40 place-items-center rounded-full border-2 border-gold/40 p-6 leading-none shadow-[0_0_48px_rgb(217_162_39/25%)]">
+							<PetIcon petId={pet.id} emojiClass="text-[104px]" />
+						</div>
+						<div className="relative text-center">
+							<div className="text-lg font-bold tracking-[0.02em] text-gold-soft">{pet.name}</div>
+							<div className="text-[12px] text-muted">
+								{map.name} · Màn {stage.index} · {pet.skill.name}
+							</div>
+						</div>
+					</section>
+
+					<InventoryPanel
+						onRef={(node) => {
+							inventoryRef.current = node
+						}}
+						held={heldInfo}
+						onPickItem={onPickItemFromInventory}
+						onDragStart={(item) => batDauKeo(item, 'inventory')}
+						onDragEnd={onDragEnd}
+					/>
+				</div>
+
+				{/* ── Phải: trang bị + đối thủ kế tiếp ──────────────────────────── */}
+				<div className="flex flex-col gap-2.5">
+					<PetLoadoutPanel
+						held={heldInfo}
+						onPickItem={onPickItemFromGrid}
+						onPickCell={placeAt}
+						onDragStart={(item) => batDauKeo(item, 'loadout')}
+						onDragEnd={onDragEnd}
+						onAnchorSlot={onAnchorSlotFromGrid}
+					/>
+
+					<section className={cn(panelClass, 'gap-2.5')}>
+						<div className="flex items-center gap-3">
+							<div className="grid size-14 shrink-0 place-items-center rounded-[14px] border border-line bg-ink-700 text-3xl">
+								{stage.enemy.icon}
+							</div>
+							<div className="min-w-0">
+								<div className="font-semibold">{stage.enemy.name}</div>
+								<div className="text-[12px] text-muted">
+									Màn {stage.index} · {stage.enemy.items.length} món · thưởng {stage.reward} 🐾
+								</div>
+							</div>
+						</div>
+						<div className="overflow-hidden rounded-[10px] border border-line bg-black/25">
+							<StatRow label="Máu đối thủ" value={String(stage.enemy.maxHp)} />
+							<StatRow label="Sát thương" value={String(stage.enemy.attackDamage)} />
+							<StatRow label="Tỉ lệ Chấn Đao" value={`${Math.round(stage.enemy.counterChance * 100)}%`} />
+						</div>
+					</section>
+				</div>
+			</div>
+
+			<ActionBar />
+
+			{/* Ảnh món bám theo con trỏ trong lúc đang nhấc. */}
+			{held && heldItem ? (
+				<HeldGhost
+					templateId={held.templateId}
+					star={held.star}
+					rotated={held.rotated}
+					w={templateFootprint(heldItem.templateId, false).w}
+					h={templateFootprint(heldItem.templateId, false).h}
+					x={held.x}
+					y={held.y}
+				/>
+			) : null}
+		</div>
+	)
+}

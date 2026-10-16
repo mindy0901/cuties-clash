@@ -22,7 +22,7 @@ export interface LoadoutGridProps {
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
 	/** Ô neo đang vẽ gợi ý — chỗ đặt dùng đúng ô này. */
-	onAnchorSlot?: (slot: number | null) => void
+	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
 	className?: string

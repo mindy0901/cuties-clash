@@ -15,7 +15,7 @@ export interface InventoryGridProps {
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
 	/** Ô neo đang vẽ gợi ý — chỗ đặt khi thả chuột dùng đúng ô này. */
-	onAnchorSlot?: (slot: number | null) => void
+	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
 	className?: string

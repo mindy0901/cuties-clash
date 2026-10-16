@@ -113,41 +113,16 @@ export function adjacentUids(
 }
 
 /**
- * Các ô neo **hợp lệ** cho khối `size`, xếp theo khoảng cách tới `hoverSlot` gần nhất trước.
- *
- * Khi kéo, con trỏ có thể ở ô mà khối không thể neo (ví dụ ô cuối cột), và ô đó còn có thể
- * **chính món đang kéo** đè lên. Nếu chỉ thử một ô neo thì thao tác thả sẽ thất bại dù món
- * hoàn toàn vừa chỗ khác ngay cạnh.
- */
-export function anchorsNear(hoverSlot: number, size: GridSpace, width: number, gridSize: number): number[] {
-	const rows = Math.ceil(gridSize / width)
-	const { row: hoverRow, col: hoverCol } = toCell(Math.max(0, Math.min(gridSize - 1, hoverSlot)), width)
-	const candidates: { slot: number; distance: number }[] = []
-
-	for (let row = 0; row + size.h <= rows; row += 1) {
-		for (let col = 0; col + size.w <= width; col += 1) {
-			candidates.push({
-				slot: toSlot({ row, col }, width),
-				distance: Math.abs(row - hoverRow) + Math.abs(col - hoverCol),
-			})
-		}
-	}
-
-	candidates.sort((a, b) => a.distance - b.distance || a.slot - b.slot)
-	return candidates.map((entry) => entry.slot)
-}
-
-/**
  * Kẹp một ô thành **ô neo hợp lệ** cho khối `size`: giữ nguyên nếu khối đã nằm trọn
  * trong lưới, nếu không thì dịch ô neo về phía gần nhất mà khối vẫn trọn.
  *
  * ⚠️ VÌ SAO CẦN: khi kéo, con trỏ có thể ở ô 5 trong lưới 4 cột. Món 4×1 không thể
  * neo ở cột 1 (`col + 4 > 4`), nên nếu vẽ gợi ý từ ô 5 thì `cellsOf` sinh ra
- * `[5, 6, 7, 8]` — tràn sang hàng dưới, nhìn như hai hàng. Tệ hơn: `resolveDrop` từ
- * chối ô 5 (`blocked`), nên gợi ý và chỗ thả **không khớp nhau** — người chơi chỉ thả
- * được khi trỏ đúng vào ô đầu.
+ * `[5, 6, 7, 8]` — tràn sang hàng dưới, nhìn như hai hàng, và `resolveDrop` cũng từ
+ * chối ô 5 vì khối tràn lưới ⇒ gợi ý và chỗ thả **không khớp nhau**.
  *
- * Dùng hàm này cho CẢ gợi ý lẫn chỗ thả để hai bên luôn nhất quán.
+ * ❌ Không dùng hàm này để **đổi chỗ** cho khỏi vướng món khác: kẹp ở đây chỉ để khối nằm
+ * trọn trong lưới, còn vướng món thì `resolveDrop` **từ chối** chứ không trượt đi.
  */
 export function anchorFor(slot: number, size: GridSpace, width: number, gridSize: number): number {
 	if (slot < 0) return 0
@@ -330,23 +305,28 @@ export function resolveDrop(
 		}
 	}
 
-	// (2) Chỗ trống: thử các ô neo hợp lệ gần con trỏ nhất.
+	// (2) Chỗ trống: dùng **đúng ô neo mà gợi ý đang vẽ**, chỉ kẹp theo biên lưới.
+	//
+	// ⚠️ ❌ **Không trượt sang ô khác khi khối vướng món**: gợi ý đang vẽ ở ô nào thì món phải
+	// nằm ở ô đó. Trượt đi làm món rơi lệch khỏi khung người chơi đang thấy — và tệ hơn, thao
+	// tác thả lại "ăn" ở một chỗ bị món khác chiếm, không đoán trước được. Vướng thì **từ chối**,
+	// gợi ý đã báo đỏ từ trước (xem `GridBoard.tinhGoiY`).
+	//
 	// Bỏ qua chính món đang kéo khi kiểm tra va chạm — nó sắp rời khỏi chỗ cũ.
 	const taken = takenCells(items, width, [moving.uid])
-	for (const anchor of anchorsNear(slot, size, width, usableCells)) {
-		if (!fitsIn(anchor, size, width, usableCells, taken)) continue
-		if (anchor === moving.slot && (moving.rotated ?? false) === orientation) {
-			return { items, merged: false, swapped: false, rotated: false, reason: 'same-slot' }
-		}
-		return {
-			items: items.map((item) => (item.uid === moving.uid ? { ...item, slot: anchor, rotated: orientation } : item)),
-			merged: false,
-			swapped: false,
-			rotated: orientation !== (moving.rotated ?? false),
-		}
+	const anchor = anchorFor(slot, size, width, usableCells)
+	if (!fitsIn(anchor, size, width, usableCells, taken)) {
+		return { items, merged: false, swapped: false, rotated: false, reason: 'no-space' }
 	}
-
-	return { items, merged: false, swapped: false, rotated: false, reason: 'no-space' }
+	if (anchor === moving.slot && (moving.rotated ?? false) === orientation) {
+		return { items, merged: false, swapped: false, rotated: false, reason: 'same-slot' }
+	}
+	return {
+		items: items.map((item) => (item.uid === moving.uid ? { ...item, slot: anchor, rotated: orientation } : item)),
+		merged: false,
+		swapped: false,
+		rotated: orientation !== (moving.rotated ?? false),
+	}
 }
 
 /** Xoay một món tại chỗ. Trả `null` nếu hướng mới không vừa. */

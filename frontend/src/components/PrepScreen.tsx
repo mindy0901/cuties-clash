@@ -44,7 +44,6 @@ export function PrepScreen() {
 
 	// Kéo-thả đồ giữa kho và trang bị — state phải ở đây vì hai panel là anh em.
 	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory)
-	const equip = useGameStore((state) => state.equip)
 	const equipAt = useGameStore((state) => state.equipAt)
 	const unequipAt = useGameStore((state) => state.unequipAt)
 	const dropItem = useGameStore((state) => state.dropItem)
@@ -56,6 +55,15 @@ export function PrepScreen() {
 	const hoverSlotRef = useRef<number | null>(null)
 	/** Ô neo đang vẽ gợi ý **trong kho** (kho là lưới nên thả theo ô, không chỉ "cất vào kho"). */
 	const khoSlotRef = useRef<number | null>(null)
+	/**
+	 * Gợi ý của từng lưới đang báo **chặn** (vướng món khác / ô khoá) → thả xuống là không đặt.
+	 *
+	 * ⚠️ Phải **một cờ cho mỗi lưới**, ❌ không dùng chung: cả hai lưới đều báo lên ở mỗi lần
+	 * render, nên cờ chung sẽ bị lưới báo sau ghi đè — lưới kia "chặn" mà cờ lại thành `false`
+	 * và thao tác thả vẫn đặt món (đã gặp đúng lỗi này khi thả trong kho).
+	 */
+	const chanGridRef = useRef(false)
+	const chanKhoRef = useRef(false)
 	const inventoryRef = useRef<HTMLElement | null>(null)
 
 	/** Con trỏ có đang nằm trong vùng Kho đồ không. */
@@ -103,6 +111,12 @@ export function PrepScreen() {
 		// - Món của trang bị → cất vào kho (đúng ô đang trỏ; không trỏ ô nào thì tự tìm chỗ).
 		// - Món vốn ở kho → **di chuyển trong kho** (trước đây bỏ qua nên kéo trong kho vô hiệu).
 		if (trongKho()) {
+			// Gợi ý trong kho đang báo **chặn** (vướng món khác) → không đặt, món trở về chỗ cũ.
+			if (chanKhoRef.current) {
+				pushToast('Chỗ đó đã có món — chọn chỗ trống khác', 'bad')
+				clear()
+				return
+			}
 			if (dangKeo.from === 'loadout') unequipAt(dangKeo.uid, khoSlotRef.current, rotated)
 			else dropInKho(dangKeo.uid, khoSlotRef.current, rotated)
 			clear()
@@ -122,21 +136,36 @@ export function PrepScreen() {
 			return
 		}
 
+		// Gợi ý đang báo **chặn** → thả xuống là **không đặt**, món trở về chỗ cũ. Đây đúng là điều
+		// gợi ý đã hứa bằng viền đỏ; ❌ không được lặng lẽ đặt sang chỗ khác.
+		//
+		// ⚠️ Món dài (1×4) không lọt lưới trang bị đang mở (cấp thú thấp) cũng rơi vào đây — chủ ý:
+		// xoay bằng `R` rồi thả, thay vì để game tự xoay và đặt ở chỗ người chơi không trỏ tới.
+		if (chanGridRef.current) {
+			pushToast(
+				'Chỗ đó không vừa món — bấm R để xoay, hoặc chọn ô khác',
+				'bad',
+			)
+			clear()
+			return
+		}
+
 		if (dangKeo.from === 'loadout') {
 			dropItem(dangKeo.uid, slot, rotated)
 			clear()
 			return
 		}
 
-		// Kho → trang bị. Ô **khoá** thì không đặt được ở đó, và cũng không được lùi về tự tìm
-		// chỗ — làm vậy là phá đúng thứ ô khoá sinh ra để ngăn. Còn lại (ô dùng được nhưng hướng
-		// này không vừa) thì để store tự tìm chỗ.
+		// Kho → trang bị. Ô **khoá** thì không đặt được ở đó, và cũng không được lùi về tự tìm chỗ —
+		// làm vậy là phá đúng thứ ô khoá sinh ra để ngăn.
 		if (loadoutCellLocked(run, slot)) {
 			pushToast('Ô đó còn khoá — nâng cấp thú cưng để mở thêm ô', 'bad')
 			clear()
 			return
 		}
-		if (!equipAt(dangKeo.uid, slot, rotated)) equip(dangKeo.uid)
+		// Gợi ý và chỗ đặt dùng **chung một ô neo** nên tới đây là vừa chỗ; nếu vẫn không vừa thì
+		// báo, ❌ không tự tìm chỗ khác (món sẽ rơi lệch khỏi khung người chơi đang thấy).
+		if (!equipAt(dangKeo.uid, slot, rotated)) pushToast('Không đặt được món vào ô đó', 'bad')
 		clear()
 	}
 
@@ -146,16 +175,18 @@ export function PrepScreen() {
 	 * ⚠️ Dùng ô này làm chỗ đặt, ❌ không tự tính lại từ ô thô: gợi ý căn giữa con trỏ nên ô
 	 * neo khác ô thô — tính lại sẽ làm món rơi lệch khỏi khung người chơi đang thấy.
 	 */
-	const onAnchorSlotFromGrid = (slot: number | null) => {
+	const onAnchorSlotFromGrid = (slot: number | null, blocked: boolean) => {
 		hoverSlotRef.current = slot
+		chanGridRef.current = blocked
 	}
 
 	/**
 	 * Ô neo đang vẽ gợi ý **trong kho**. Kho cũng là lưới tự do nên khi thả chuột, món nằm
 	 * đúng ô này (không còn "cất vào kho" là xong, vị trí do kho tự xếp).
 	 */
-	const onAnchorSlotFromKho = (slot: number | null) => {
+	const onAnchorSlotFromKho = (slot: number | null, blocked: boolean) => {
 		khoSlotRef.current = slot
+		chanKhoRef.current = blocked
 	}
 
 	const heldItem = held

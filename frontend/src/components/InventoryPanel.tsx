@@ -15,7 +15,7 @@ interface InventoryPanelProps {
 	/** Nhả chuột: `moved` cho biết vừa kéo đi hay chỉ bấm. */
 	onDragEnd?: (moved: boolean) => void
 	/** Ô neo đang vẽ gợi ý trong kho (chỗ đặt khi thả chuột). */
-	onAnchorSlot?: (slot: number | null) => void
+	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { templateFootprint, toCell } from '../game/bag'
+import { fitsIn, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
 import type { ItemInstance } from '../game/types'
 import { cn } from './ui'
 
@@ -60,8 +60,8 @@ export interface GridBoardProps {
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
-	/** Báo **ô neo đang vẽ gợi ý** (khác ô thô khi gợi ý căn giữa con trỏ). */
-	onAnchorSlot?: (slot: number | null) => void
+	/** Báo **ô neo đang vẽ gợi ý** (khác ô thô khi gợi ý căn giữa con trỏ) kèm trạng thái chặn. */
+	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	overlay?: ReactNode
 	className?: string
 }
@@ -171,14 +171,23 @@ export function GridBoard({
 			}
 			if (cells.length === 0) return null
 
+			const anchor = drawRow * width + drawCol
+			// Ô **đang trỏ** có món khác không → đó là ý định nhập sao / hoán đổi, không phải "vướng".
+			const cursorItem = occupantAt(items, slot, width, held?.uid)
+			const taken = takenCells(items, width, held ? [held.uid] : [])
 			return {
-				anchor: drawRow * width + drawCol,
+				anchor,
 				cells,
-				// Hợp lệ khi khối đủ ô **và** mọi ô đều nằm trong vùng dùng được.
-				blocked: cells.length < size.w * size.h || cells.some((cell) => cell.slot >= usable),
+				// "Chặn" = thao tác thả **sẽ không đặt được**: khối tràn lưới/ô khoá, hoặc vướng món khác.
+				//
+				// ⚠️ Phải tính **đúng như `resolveDrop`** (kẹp ô neo rồi kiểm tra va chạm) để viền đỏ và
+				// kết quả thả luôn khớp: viền vàng mà thả không được (hoặc ngược lại) là lỗi đã gặp.
+				blocked:
+					cells.length < size.w * size.h ||
+					(!fitsIn(anchor, size, width, usable, taken) && !cursorItem),
 			}
 		},
-		[width, rows, usable],
+		[width, rows, usable, items, held],
 	)
 
 	/**
@@ -194,7 +203,8 @@ export function GridBoard({
 	 */
 	useEffect(() => {
 		onHoverSlot?.(hoverSlot)
-		onAnchorSlot?.(hoverSlot === null ? null : (tinhGoiY(hoverSlot, held)?.anchor ?? hoverSlot))
+		const goiY = hoverSlot === null ? null : tinhGoiY(hoverSlot, held)
+		onAnchorSlot?.(goiY ? goiY.anchor : hoverSlot, Boolean(goiY?.blocked))
 	}, [hoverSlot, held, tinhGoiY, onHoverSlot, onAnchorSlot])
 
 	/** Ghi ô đang trỏ — dùng chung cho `hoverSlot` (vẽ gợi ý) và `hoverRef` (đọc lúc thả). */

@@ -111,6 +111,25 @@ function ghost(): HTMLElement | null {
 	return document.querySelector<HTMLElement>('[data-held-ghost]')
 }
 
+/** Class của khung gợi ý — `border-danger` nghĩa là chỗ đó **không đặt được**. */
+function outlineClass(): string {
+	const outline = document.querySelector<HTMLElement>('[data-preview-outline]')
+	if (!outline) throw new Error('không có khung gợi ý')
+	return outline.className
+}
+
+/**
+ * Nội dung các thông báo đang hiện.
+ *
+ * ⚠️ Đọc từ store: `Toasts` nằm ở layout gốc, mà test ở đây chỉ render `PrepScreen`.
+ */
+function toastText(): string {
+	return useGameStore
+		.getState()
+		.toasts.map((toast) => toast.text)
+		.join(' | ')
+}
+
 function pressKey(key: string) {
 	fireEvent.keyDown(document, { key })
 }
@@ -449,6 +468,28 @@ describe('thả món xuống', () => {
 		expect(new Set([...itemCells(a, 4), ...itemCells(b, 4)]).size).toBe(itemCells(a, 4).length + itemCells(b, 4).length)
 	})
 
+	it('gợi ý đè lên món khác → viền đỏ và thả xuống KHÔNG đặt, dù bên dưới còn trống', () => {
+		// LỖI ĐÃ GẶP: khối gợi ý đè lên món khác mà vẫn vẽ viền vàng, rồi thả xuống lại "ăn" —
+		// món trượt xuống ô trống bên dưới, lệch hẳn khỏi khung người chơi đang thấy.
+		reset([blade('sword', 0), jade('gem', 5)], [])
+		renderPrep()
+		khoRoiXa()
+
+		batDauKeo(buttonOf('sword'))
+		hoverCell(1)
+
+		expect(previewSlots(), 'khối gợi ý đè lên Ngọc ở ô 5').toContain(5)
+		expect(outlineClass(), 'phải báo đỏ vì vướng món').toContain('border-danger')
+
+		nhaChuot()
+
+		expect(
+			useGameStore.getState().run.equipped.find((item) => item.uid === 'sword')?.slot,
+			'món phải nằm nguyên chỗ cũ',
+		).toBe(0)
+		expect(toastText(), 'phải báo cho người chơi biết').toMatch(/không vừa món/)
+	})
+
 	it('thả vào ô KHOÁ thì không đặt được và báo rõ', () => {
 		reset([], [stored('stored')])
 		renderPrep()
@@ -488,18 +529,37 @@ describe('kho ↔ trang bị', () => {
 		expect(run.equipped[0].uid).toBe('stored')
 	})
 
-	it('món kho dài 1×4 tự xoay ngang khi lưới 3 hàng không đủ', () => {
+	it('món kho dài 1×4 không lọt lưới 3 hàng thì TỪ CHỐI (phải xoay bằng R)', () => {
 		reset([], [stored('spear', 'fire-spear')])
 		renderPrep()
 		khoRoiXa()
 
 		batDauKeo(invTileOf('spear'))
 		hoverCell(0)
+		expect(outlineClass(), 'gợi ý phải báo đỏ: hướng này không vừa').toContain('border-danger')
 		nhaChuot()
 
 		const run = useGameStore.getState().run
-		expect(run.inventory, 'phải đặt được, không để lại trong kho').toHaveLength(0)
-		expect(run.equipped[0].rotated, 'phải xoay ngang mới vừa').toBe(true)
+		expect(run.inventory, 'không đặt được thì món ở lại kho').toHaveLength(1)
+		expect(toastText(), 'phải chỉ cho người chơi cách xoay').toMatch(/bấm R để xoay/)
+	})
+
+	it('xoay bằng R trong lúc kéo thì món kho 1×4 vào được lưới 3 hàng', () => {
+		reset([], [stored('spear', 'fire-spear')])
+		renderPrep()
+		khoRoiXa()
+
+		batDauKeo(invTileOf('spear'))
+		hoverCell(0)
+		pressKey('r')
+		expect(outlineClass(), 'xoay xong thì gợi ý hết đỏ').not.toContain('border-danger')
+		const preview = previewSlots()
+		nhaChuot()
+
+		const run = useGameStore.getState().run
+		expect(run.inventory, 'đã mang lên được').toHaveLength(0)
+		expect(run.equipped[0].rotated, 'đúng hướng đang thấy').toBe(true)
+		expect(itemCells(run.equipped[0], 4)).toEqual(preview)
 	})
 
 	it('kéo món của trang bị xuống vùng kho thì cất vào kho', () => {

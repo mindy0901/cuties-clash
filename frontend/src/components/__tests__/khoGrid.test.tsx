@@ -58,6 +58,8 @@ function boxOf(uid: string): HTMLElement {
 	return found
 }
 
+function toastText(): string { return useGameStore.getState().toasts.map((toast) => toast.text).join(' | ') }
+
 function slotOf(uid: string): number | undefined {
 	return useGameStore.getState().run.inventory.find((entry) => entry.uid === uid)?.slot
 }
@@ -99,7 +101,7 @@ describe('kho giữ đúng vị trí người chơi đặt', () => {
 		expect(boxOf('far').style.gridRow).toBe('6 / span 1')
 	})
 
-	it('kéo một món trong kho tới ô khác thì món nằm ở ô đó', () => {
+	it('kéo món trong kho tới ô khác thì món nằm ở ô đó', () => {
 		reset([], [item('gem', 'jade-fury', 0)])
 		renderPrep()
 
@@ -108,6 +110,28 @@ describe('kho giữ đúng vị trí người chơi đặt', () => {
 		nhaChuot()
 
 		expect(slotOf('gem'), 'nhả ở ô 20 thì món phải ở ô 20').toBe(20)
+	})
+
+	/**
+	 * LỖI ĐÃ GẶP: hai lưới dùng **chung một cờ** "gợi ý đang chặn", nên lưới báo sau ghi đè lưới
+	 * kia — thả trong kho mà cờ lại thành `false` nên món vẫn được đặt đè lên món khác.
+	 */
+	it('khối gợi ý đè lên món khác trong kho → không đặt, và báo cho người chơi', () => {
+		reset([], [item('block', 'jade-fury', 2), item('wide', 'hide-vest', 8)])
+		renderPrep()
+
+		// Giáp Da 2×2 ở ô 8 (cột 0, hàng 1). Kéo sang ô 1: khối 2×2 sẽ trùm lên Ngọc ở ô 2.
+		batDauKeo('wide')
+		hoverKhoCell(1)
+
+		const outline = document.querySelector<HTMLElement>('[data-preview-outline]')!
+		expect(outline.className, 'gợi ý phải báo đỏ').toContain('border-danger')
+
+		nhaChuot()
+
+		expect(slotOf('wide'), 'không được đặt đè — món nằm nguyên chỗ cũ').toBe(8)
+		expect(slotOf('block')).toBe(2)
+		expect(toastText()).toMatch(/đã có món/)
 	})
 
 	it('bấm món trong kho thì mở chi tiết chứ không đổi vị trí', () => {

@@ -146,7 +146,7 @@ Kéo xuống **Kho đồ** để cất; kéo từ Kho lên lưới để mang. V
 
 1. **Mua đồ** ở trang Cửa hàng bằng **Paw Tally (萌主币)** kiếm được qua mỗi màn — món tự lên trang bị nếu còn chỗ.
 2. **Xếp trang bị**: mỗi món chiếm một **hình chữ nhật ô** (kiếm 1×3, đại đao 2×3, thân đao 1×4, ngọc/đan 1×1).
-3. **Xoay 90°** món bằng **chuột phải** hoặc nút **⟳** khi chật — **kể cả đang giữ chuột kéo**. Chỉ xoay được nếu hướng mới vừa chỗ.
+3. **Xoay 90°** món bằng **chuột phải** hoặc nút **⟳** khi chật — **kể cả đang giữ chuột kéo**. Chỉ xoay được nếu hướng mới vừa chỗ. Món dài (**1×4**) không lọt lưới trang bị đang mở thì **phải xoay** rồi mới thả được — game không tự xoay hộ.
 4. **Nhập 2 món giống hệt** (thả chồng lên nhau) → `+1★` (tối đa **4★**). Bán lại nhận **50%** Paw Tally.
 5. **Đấu Thú Cưng** — thú tự động đánh. Xem lại toàn bộ diễn biến ở tốc độ ×1/×2/×4/×8.
 6. **60 màn / 3 bản đồ** (Tụ Khốt Châu → Hỏa La Quốc → Stormchant), màn 10/20/30… là **thủ lĩnh**.

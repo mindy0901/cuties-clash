@@ -15,8 +15,10 @@
 | Hình dạng | Mỗi template có `space: {w,h}`; món chiếm một **hình chữ nhật ô** (kiếm 1×3, đại đao 2×3, thân đao 1×4, ngọc/đan 1×1) |
 | Xoay | `R`, chuột phải (khi **đang kéo**), hoặc nút ⟳ → xoay 90°, hoán đổi `w`/`h`. ❌ Chỉ đổi khi hướng mới **vừa chỗ** |
 | Va chạm | `fitsIn(slot, size, …)` là **vị từ lõi** cho mọi thao tác. Biên lưới kiểm theo **ô neo**, không theo danh sách ô suy ra (món có thể tràn dòng) |
-| Ô neo | Ô con trỏ có thể không phải ô neo hợp lệ (ô 5 cho món 4×1 trong lưới 4 cột). **Luôn đi qua `anchorFor()`** trước khi vẽ gợi ý **và** trước khi đặt — dùng chung một hàm để hai bên không lệch. ❌ Không gọi thẳng `cellsOf(hoverSlot, …)` |
-| Mua khi hết chỗ | Trang bị không còn vùng vừa → món vào **kho ở chỗ trống đầu tiên**, bấm để mang lên sau |
+| Ô neo | Ô con trỏ có thể không phải ô neo hợp lệ (ô 5 cho món 4×1 trong lưới 4 cột). **Luôn đi qua `anchorFor()`** để kẹp khối vào trong lưới. ❌ Không gọi thẳng `cellsOf(hoverSlot, …)` |
+| **Gợi ý phải khớp kết quả** | Khối gợi ý căn giữa con trỏ, và `GridBoard` báo **đúng ô neo đó** lên cha để chỗ đặt dùng lại (`onAnchorSlot`). Viền **vàng = thả xuống là đặt**, viền **đỏ = không đặt** (`blocked`). ⚠️ `resolveDrop` **từ chối** khi khối vướng món khác — ❌ **không trượt** sang ô trống khác: thao tác thả phải khớp khung người chơi đang thấy. Món dài không lọt lưới trang bị (1×4 trong lưới 3 hàng) cũng bị từ chối ⇒ người chơi bấm `R` để xoay, chứ game ❌ không tự xoay rồi đặt ở chỗ khác |
+| Mua khi hết chỗ | Trang bị không còn vùng vừa → món vào **kho ở chỗ trống đầu tiên**, kéo để mang lên sau |
+| Kho là lưới tự do | Món trong kho nằm ở **đúng `slot`/`rotated` người chơi đặt** — kho ❌ **không xếp hộ**, không dồn món khi thêm/bớt. `slot`/`rotated` trong kho là **dữ liệu thật**, `slot = -1` chỉ còn là dấu hiệu bản lưu cũ cần `repairKhoSlots` xếp lại lúc đọc |
 | Kho là lưới tự do | Món trong kho nằm ở **đúng `slot`/`rotated` người chơi đặt** — kho ❌ **không xếp hộ**, không dồn món khi thêm/bớt. `slot`/`rotated` trong kho là **dữ liệu thật**, `slot = -1` chỉ còn là dấu hiệu bản lưu cũ cần `repairKhoSlots` xếp lại lúc đọc |
 
 ## 2. Chiến đấu

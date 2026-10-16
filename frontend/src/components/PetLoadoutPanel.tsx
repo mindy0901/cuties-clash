@@ -17,7 +17,7 @@ interface PetLoadoutPanelProps {
 	/** Nhả chuột: `moved` cho biết vừa kéo đi hay chỉ bấm. */
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
-	onAnchorSlot?: (slot: number | null) => void
+	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 }
 
 /**

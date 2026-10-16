@@ -152,19 +152,17 @@ describe('kéo thả', () => {
 		expect(cells).toEqual([0, 4, 8])
 	})
 
-	it('tránh món khác: không đặt đè, mà neo sang chỗ trống', () => {
+	it('vướng món khác thì TỪ CHỐI, không trượt sang ô trống bên cạnh', () => {
 		const items = [
 			createItemInstance('jade-fury', 1, 'block', 5),
 			createItemInstance('wooden-blade', 1, 'a', 9),
 		]
-		// Thả vào ô 1 — ô đó trống nhưng kiếm dọc sẽ đè lên 'block' ở ô 5.
+		// Thả vào ô 1 — ô đó trống nhưng kiếm dọc sẽ đè lên 'block' ở ô 5, và bên dưới còn chỗ trống.
+		// ⚠️ ❌ Không được trượt xuống chỗ trống đó: gợi ý đang vẽ ở ô 2 (đè lên 'block') nên thả
+		// xuống là **không đặt** — thao tác thả phải khớp với khung người chơi đang thấy.
 		const result = resolveDrop(items, 'a', 1, WIDTH, SIZE)
-		expect(result.reason).toBeUndefined()
-		// ⚠️ Phải tìm theo uid: `items[0]` là món 'block', không phải món đang kéo.
-		const moved = result.items.find((item) => item.uid === 'a')!
-		const cells = itemCells(moved, WIDTH)
-		expect(cells, 'không được đè lên món khác').not.toContain(5)
-		expect(cells).toHaveLength(3)
+		expect(result.reason).toBe('no-space')
+		expect(result.items.find((item) => item.uid === 'a')?.slot, 'món nằm nguyên chỗ cũ').toBe(9)
 	})
 
 	it('nhập hai bản giống hệt thành +1★ và cộng giá đã trả', () => {

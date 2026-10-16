@@ -1,7 +1,7 @@
 /**
  * Đồng bộ bản lưu với máy chủ — logic thuần, **tách khỏi React** để test trực tiếp.
  *
- * ⚠️ Ba lỗi đã từng xảy ra ở đây, cả ba đều gây 400 liên tục (xem AGENTS.md §5.6). Đọc kỹ
+ * ⚠️ Ba lỗi đã từng xảy ra ở đây, cả ba đều gây 400 liên tục (xem AGENTS.md §4.6). Đọc kỹ
  * trước khi sửa:
  *
  * 1. Gặp `revision_conflict` mà **nạp bản máy chủ đè lên** thì mất thay đổi vừa làm và lại

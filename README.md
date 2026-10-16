@@ -223,4 +223,6 @@ Backend bao phủ: phiên đăng nhập, ẩn danh vẫn chơi được, đăng 
 
 ## Dành cho AI agent / phiên làm việc tiếp theo
 
-Đọc **[`AGENTS.md`](AGENTS.md)** — quy ước kiến trúc, luật chơi bất biến, yêu cầu tất định của battle engine, quy tắc Tailwind và backend, quy trình cân bằng bằng probe test, và quy tắc dọn file tạm.
+Đọc **[`AGENTS.md`](AGENTS.md)** trước khi sửa: bảng tra tài liệu, lệnh chạy, bố cục mã nguồn, các bất biến bắt buộc, và công thức thêm tính năng mới.
+
+Chi tiết theo chủ đề nằm trong [`docs/`](docs/): [kiến trúc](docs/ARCHITECTURE.md) · [luật chơi](docs/GAME-RULES.md) · [kiểm thử](docs/TESTING.md) · [cân bằng](docs/BALANCE.md) · [art](docs/ASSETS.md) · [OAuth](docs/OAUTH-SETUP.md).

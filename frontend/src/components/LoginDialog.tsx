@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 import { api } from '../api/client'
 import { useSessionState } from '../api/queries'
 import { ProviderIcon } from './ProviderIcon'
-import { PROVIDER_LABELS, btnClass, btnSmClass, dialogClass, overlayClass } from './ui'
+import { PROVIDER_LABELS, btnClass, btnSmClass, cn, dialogClass, overlayClass } from './ui'
 /** Hộp thoại đăng nhập: chuyển hướng sang Google. */
 export function LoginDialog({ onClose }: { onClose: () => void }) {
-	const { availableProviders, loading } = useSessionState()
+	const { availableProviders, loading, unavailable, retry } = useSessionState()
 
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
@@ -34,7 +34,21 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
 				<div className="flex flex-col gap-2">
 					{loading ? <p className="m-0 text-[13px] text-muted">Đang kiểm tra máy chủ…</p> : null}
 
-					{!loading && availableProviders.length === 0 ? (
+					{/* ⚠️ Máy chủ không gọi được KHÁC với "chưa cấu hình key". Bảo người dùng điền
+					    GOOGLE_CLIENT_ID trong trường hợp này là chỉ sai chỗ cần sửa. */}
+					{!loading && unavailable ? (
+						<div className="rounded-[10px] border border-line bg-black/25 p-3">
+							<p className="m-0 text-[13px] text-muted">
+								Không kết nối được máy chủ đăng nhập. Hãy kiểm tra backend đã chạy chưa rồi thử lại —
+								không đăng nhập vẫn chơi được bình thường.
+							</p>
+							<button type="button" className={cn(btnClass, btnSmClass, 'mt-2')} onClick={retry}>
+								Thử lại
+							</button>
+						</div>
+					) : null}
+
+					{!loading && !unavailable && availableProviders.length === 0 ? (
 						<div className="rounded-[10px] border border-line bg-black/25 p-3">
 							<p className="m-0 text-[13px] text-muted">
 								Máy chủ chưa được cấu hình đăng nhập. Hãy điền <code>GOOGLE_CLIENT_ID</code> và{' '}

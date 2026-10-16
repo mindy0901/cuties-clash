@@ -22,21 +22,37 @@ export function useSession() {
 
 export interface SessionState {
 	loading: boolean
+	/** ❌ Không gọi được máy chủ (backend chưa chạy / mất mạng) — khác hẳn "chưa cấu hình OAuth". */
+	unavailable: boolean
 	user: ApiUser | null
 	/** Nhà cung cấp đã cấu hình đủ key ở backend. */
 	availableProviders: string[]
 	/** Backend yêu cầu tự chuyển hướng sang nhà cung cấp khi chưa đăng nhập. */
 	autoLogin: boolean
+	/** Gọi lại lời kiểm tra phiên. */
+	retry: () => void
 }
 
-/** Phiên đăng nhập đã chuẩn hoá cho UI. Máy chủ lỗi ⇒ coi như chơi ẩn danh. */
+/**
+ * Phiên đăng nhập đã chuẩn hoá cho UI. Máy chủ lỗi ⇒ coi như chơi ẩn danh.
+ *
+ * ⚠️ Phân biệt `unavailable` với "chưa cấu hình": cùng cho ra `availableProviders` rỗng nhưng
+ * nguyên nhân khác nhau, và hướng dẫn cho người dùng cũng khác nhau.
+ */
 export function useSessionState(): SessionState {
-	const { data, isPending } = useSession()
+	const { data, isPending, isError, refetch } = useSession()
+	// Giữ danh tính của `retry` ổn định: nếu đổi mỗi lần render thì effect của `AuthSync`
+	// sẽ chạy lại liên tục.
+	const retry = useCallback(() => {
+		void refetch()
+	}, [refetch])
 	return {
 		loading: isPending,
+		unavailable: isError,
 		user: data?.authenticated ? data.user : null,
 		availableProviders: data?.available_providers ?? [],
 		autoLogin: data?.auto_login ?? false,
+		retry,
 	}
 }
 

@@ -20,7 +20,7 @@ type SyncTone = keyof typeof SYNC_TEXT
 
 /** Góc phải thanh trên: trạng thái đăng nhập, đồng bộ và nút đăng xuất. */
 export function AccountChip() {
-	const { user, loading } = useSessionState()
+	const { user, loading, unavailable } = useSessionState()
 	const push = usePushRun()
 	const logout = useLogout()
 	const openLogin = useUiStore((state) => state.openLogin)
@@ -31,7 +31,12 @@ export function AccountChip() {
 
 	if (!user) {
 		return (
-			<button type="button" className={cn(btnClass, btnSmClass)} onClick={openLogin}>
+			<button
+				type="button"
+				className={cn(btnClass, btnSmClass)}
+				onClick={openLogin}
+				title={unavailable ? 'Không kết nối được máy chủ đăng nhập' : undefined}
+			>
 				👤 Đăng nhập
 			</button>
 		)

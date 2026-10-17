@@ -26,7 +26,7 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `artExt`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
+| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
 | **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in
@@ -171,7 +171,8 @@ Two ways, and the uploaded one wins:
 1. **From the admin page** (no deploy): 🖼️ **Tải ảnh lên** → crop → save. Stored in the database as a
    512×512 PNG and served from `/api/content/art/…` — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
 2. **As a bundled file**: put `public/icons/items/<id>.png` (one per item) and set `art: true`.
-   `art`/`artExt`, `skillArt` and `avatar` flags are also editable from the page.
+   `art`, `skillArt` and `avatar` flags are also editable from the page — the extension is always
+   `.png`, so there is no extension field.
 
 `itemArtSrc()` / `petArtSrc()` return **uploaded → bundled → `null`** (emoji), so a picture can be
 replaced or removed at any time without touching code. `avatarArtSrc()` also falls back to the

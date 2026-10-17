@@ -32,7 +32,6 @@ const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 
 const ITEM_CLASSES = ['weapon', 'armor', 'souljade', 'curio', 'potion'] as const
 const AURA_TARGETS = ['adjacent', 'adjacentWeapon', 'adjacentNonWeapon', 'all'] as const
-const ART_EXTS = ['png', 'svg', 'webp'] as const
 const STARS = [1, 2, 3, 4, 5] as const
 
 /** Must match `StatKey` in `frontend/src/game/stats.ts`. */
@@ -158,9 +157,8 @@ const ITEM_FIELDS: Record<string, FieldCheck> = {
 	quality: (field, value) => asInteger(field, value, 1, 5),
 	cost: (field, value) => asInteger(field, value, 1, 999),
 	space: asSpace,
-	/** One art per item: `public/icons/items/<id>.<ext>` — art files are never per star rank. */
+	/** One art per item: `public/icons/items/<id>.png` — art files are never per star rank. */
 	art: asBoolean,
-	artExt: (field, value) => asOneOf(field, value, ART_EXTS),
 	damage: (field, value) =>
 		asPerStar(field, value, (index, raw) => asNumber(`${field}[${index}★]`, raw, 0, 100_000)),
 	attackInterval: (field, value) =>
@@ -192,11 +190,8 @@ const PET_FIELDS: Record<string, FieldCheck> = {
 	seRegen: (field, value) => asNumber(field, value, 0, 100),
 	counterChance: (field, value) => asNumber(field, value, 0, 1),
 	art: asBoolean,
-	artExt: (field, value) => asOneOf(field, value, ART_EXTS),
 	skillArt: asBoolean,
-	skillArtExt: (field, value) => asOneOf(field, value, ART_EXTS),
 	avatar: asBoolean,
-	avatarExt: (field, value) => asOneOf(field, value, ART_EXTS),
 	/** Innate skill, treated as a weapon. */
 	skill: (field, value) => {
 		if (typeof value !== 'object' || value === null) {

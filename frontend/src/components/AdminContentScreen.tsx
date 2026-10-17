@@ -64,12 +64,6 @@ const CLASS_OPTIONS = [
 	{ value: 'potion', label: 'Đan Dược' },
 ]
 
-const ART_EXT_OPTIONS = [
-	{ value: 'png', label: 'png' },
-	{ value: 'svg', label: 'svg' },
-	{ value: 'webp', label: 'webp' },
-]
-
 const BOOLEAN_OPTIONS = [
 	{ value: 'true', label: 'có' },
 	{ value: 'false', label: 'không' },
@@ -105,7 +99,6 @@ const ITEM_FIELDS: FieldDef[] = [
 		options: BOOLEAN_OPTIONS,
 		hint: 'một ảnh cho mỗi món — public/icons/items/<id>.png',
 	},
-	{ key: 'artExt', label: 'Đuôi art', kind: 'select', options: ART_EXT_OPTIONS },
 	{ key: 'damage', label: 'Sát thương', kind: 'perStarNumber', min: 0, max: 100_000 },
 	{ key: 'attackInterval', label: 'Nhịp đánh (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
 	{ key: 'interval', label: 'Nhịp hiệu lực (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },

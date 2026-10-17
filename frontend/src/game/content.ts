@@ -155,7 +155,7 @@ export function mergeItem(base: ItemTemplate, override: ContentOverride | undefi
 				if (typeof value === 'boolean') next.art = value
 				continue
 			}
-			if (key === 'name' || key === 'icon' || key === 'cls' || key === 'artExt') {
+			if (key === 'name' || key === 'icon' || key === 'cls') {
 				if (typeof value === 'string' && value.length > 0) Object.assign(next, { [key]: value })
 				continue
 			}
@@ -213,12 +213,6 @@ export function mergePet(base: PetDef, override: ContentOverride | undefined): P
 			}
 			if (key === 'art' || key === 'skillArt' || key === 'avatar') {
 				if (typeof value === 'boolean') Object.assign(next, { [key]: value })
-				continue
-			}
-			if (key === 'artExt' || key === 'skillArtExt' || key === 'avatarExt') {
-				if (value === 'png' || value === 'svg' || value === 'webp') {
-					Object.assign(next, { [key]: value })
-				}
 				continue
 			}
 			if (key === 'unlockStage' || key === 'maxHp' || key === 'maxSe') {

@@ -35,7 +35,7 @@ describe('item art', () => {
 
 	it('resolves one picture per item — the star rank is not part of the path', () => {
 		const template = withArt[0]!
-		expect(itemArtSrc(template.id)).toBe(`/icons/items/${template.id}.${template.artExt ?? 'png'}`)
+		expect(itemArtSrc(template.id)).toBe(`/icons/items/${template.id}.png`)
 	})
 
 	it('keeps exactly one file per item — no `<id>-<star>.png` variants left', () => {

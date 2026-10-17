@@ -27,8 +27,7 @@ the licences, where files go, and the attribution obligations.
 The avatar frame on the arena floor (`components/AvatarCard.tsx`) picks an image in this order:
 
 1. **A dedicated avatar image** — `public/icons/pets/<petId>-avatar.png`, enabled with
-   `avatar: true` in `game/pets.ts` (for another extension add `avatarExt`). Lookup function:
-   `avatarArtSrc`.
+   `avatar: true` in `game/pets.ts`. Lookup function: `avatarArtSrc`.
 2. **Pet art** — `public/icons/pets/<petId>.png` (`art: true`), already present.
 3. **Emoji fallback** — `icon` in `pets.ts`.
 
@@ -198,16 +197,16 @@ public/icons/
 └─ ui/      (interface icons, optional)
 ```
 
-For an extension other than `png`, declare `artExt` in the template.
+Every bundled icon is a `.png` — the extension is fixed, so there is nothing to declare.
 
 ## How the code finds art
 
 `frontend/src/game/art.ts` resolves the path; `frontend/src/components/ItemIcon.tsx` displays it
 (`ItemIcon`, `PetIcon`, `SkillIcon`), built on `ArtIcon`.
 
-**Important principle:** only return a path when the asset is **declared**, based on `art: true` /
-`artExt` in `items.ts` and `art`/`skillArt`/`avatar` in `pets.ts`. Do not guess file names — a wrong
-guess shows a broken icon.
+**Important principle:** only return a path when the asset is **declared**, based on `art: true` in
+`items.ts` and `art`/`skillArt`/`avatar` in `pets.ts`. Do not guess file names — a wrong guess shows a
+broken icon.
 
 When there is no art, or the image fails to load → it **falls back to the emoji**. That way art can be
 added little by little, and the game has never shown an empty cell.
@@ -218,7 +217,6 @@ added little by little, and the game has never shown an empty cell.
   id: 'wooden-blade',
   icon: '🗡️',                    // fallback, always keep
   art: true,                    // public/icons/items/wooden-blade.png exists
-  artExt: 'png',                // optional, defaults to 'png'
 }
 
 // pets.ts

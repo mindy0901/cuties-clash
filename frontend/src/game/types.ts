@@ -87,15 +87,13 @@ export interface ItemTemplate {
 	 */
 	icon: string
 	/**
-	 * Declares that art exists in `public/icons/items/<id>.<ext>` (`artExt`, default `png`).
+	 * Declares that art exists at `public/icons/items/<id>.png`.
 	 *
 	 * ⚠️ ONE art per item, **not** one per star rank: upgrading an item changes only the **number**
 	 * of stars drawn on the tile and their **colour** (`ITEM_STAR_TEXT`), never the picture. See
 	 * `docs/ASSETS.md` and `itemArtSrc()`.
 	 */
 	art?: boolean
-	/** Art file extension. Defaults to `png`. */
-	artExt?: 'png' | 'svg' | 'webp'
 	/** Shop pool tier: 1 = available from the start, 3 = late maps. */
 	tier: 1 | 2 | 3
 	/**
@@ -137,20 +135,17 @@ export interface PetDef {
 	/** Fallback icon (emoji), used while art is missing. */
 	icon: string
 	blurb: string
-	/** Whether pet art exists in `public/icons/pets/<id>.<artExt>`. */
+	/** Whether pet art exists at `public/icons/pets/<id>.png`. */
 	art?: boolean
-	artExt?: 'png' | 'svg' | 'webp'
-	/** Whether skill art exists in `public/icons/skills/<id>-skill.<skillArtExt>`. */
+	/** Whether skill art exists at `public/icons/skills/<id>-skill.png`. */
 	skillArt?: boolean
-	skillArtExt?: 'png' | 'svg' | 'webp'
 	/**
-	 * Whether a dedicated **avatar** art exists in `public/icons/pets/<id>-avatar.<avatarExt>`.
+	 * Whether a dedicated **avatar** art exists at `public/icons/pets/<id>-avatar.png`.
 	 *
 	 * The fighter frame (`AvatarCard`) prefers this image and falls back to `art` and then the emoji
 	 * — so adding an avatar only means dropping a file and setting the flag, ❌ no UI change needed.
 	 */
 	avatar?: boolean
-	avatarExt?: 'png' | 'svg' | 'webp'
 	/** Stage index that must be cleared to unlock the pet (0 = starter). */
 	unlockStage: number
 	maxHp: number

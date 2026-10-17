@@ -26,7 +26,7 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `stars`, `artExt`, `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
+| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `artExt`, `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
 | **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in
@@ -37,7 +37,7 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 | Field | Control |
 | --- | --- |
 | `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a text input for `desc`, a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
-| `stars` (which ranks have art) | **5 checkboxes** — ❌ not raw JSON |
+| `art` (one picture per item) | a **có/không select** — the file is `public/icons/items/<id>.<ext>`, ❌ art is not per star rank |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |
 
@@ -47,15 +47,16 @@ never contains code. A single box with comma separated values was replaced by on
 with one box, a missing comma shifted every later rank silently.
 
 **Quality** is a fixed property of the template (❌ independent of the item's star rank) that only
-decides the **tile colour**:
+decides the **tile colour**. The star rank uses the **same palette** for the star glyphs, so one
+five-step scale covers both:
 
-| Quality | Colour | Token |
+| Rank / quality | Colour | Token |
 | --- | --- | --- |
-| 1 | Bạc | `--color-quality-1` |
-| 2 | Xanh lá | `--color-quality-2` |
-| 3 | Lam | `--color-quality-3` |
-| 4 | Tím | `--color-quality-4` |
-| 5 | Vàng cam | `--color-quality-5` |
+| 1 | Bạc | `--color-rank-1` |
+| 2 | Xanh lá | `--color-rank-2` |
+| 3 | Lam | `--color-rank-3` |
+| 4 | Tím | `--color-rank-4` |
+| 5 | Vàng cam | `--color-rank-5` |
 
 The coloured background follows the item everywhere it is drawn — Trang bị, Kho đồ, the shop list,
 the detail dialog and the enemy grid in battle — through the shared `itemTileClass()` in
@@ -97,5 +98,6 @@ Determinism is untouched: the seed decides rolls, and the lists keep their origi
 
 ## Adding art later
 
-Item and pet art paths are declared in code (`stars`/`art`/`avatar` flags) and can be toggled from
-the page; the actual files go under `public/icons/…` — see [`ASSETS.md`](./ASSETS.md).
+Item and pet art paths are declared in code (`art`/`artExt`, `skillArt`, `avatar` flags) and can be
+toggled from the page; the actual files go under `public/icons/…`, **one per item** — see
+[`ASSETS.md`](./ASSETS.md).

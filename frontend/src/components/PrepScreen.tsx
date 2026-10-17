@@ -350,7 +350,6 @@ export function PrepScreen() {
 			{held && heldItem ? (
 				<HeldGhost
 					templateId={held.templateId}
-					star={held.star}
 					rotated={held.rotated}
 					w={templateFootprint(heldItem.templateId, false).w}
 					h={templateFootprint(heldItem.templateId, false).h}

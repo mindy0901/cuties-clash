@@ -56,8 +56,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'weapon',
 		quality: 1,
 		icon: '🗡️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 3 },
@@ -71,8 +70,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'weapon',
 		quality: 2,
 		icon: '🔥',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 4,
 		space: { w: 1, h: 4 },
@@ -100,8 +98,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'weapon',
 		quality: 3,
 		icon: '❄️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 6,
 		space: { w: 2, h: 1 },
@@ -120,8 +117,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'weapon',
 		quality: 3,
 		icon: '☠️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 1 },
@@ -148,8 +144,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'weapon',
 		quality: 5,
 		icon: '🪓',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 8,
 		space: { w: 2, h: 3 },
@@ -163,8 +158,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'weapon',
 		quality: 5,
 		icon: '🐾',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 9,
 		space: { w: 2, h: 1 },
@@ -182,8 +176,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'armor',
 		quality: 1,
 		icon: '🦺',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 3,
 		space: { w: 2, h: 2 },
@@ -196,8 +189,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'armor',
 		quality: 3,
 		icon: '⛓️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 5,
 		space: { w: 2, h: 2 },
@@ -211,8 +203,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'armor',
 		quality: 5,
 		icon: '🛡️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 8,
 		space: { w: 2, h: 3 },
@@ -228,8 +219,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'souljade',
 		quality: 2,
 		icon: '💠',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 1 },
@@ -242,8 +232,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'souljade',
 		quality: 1,
 		icon: '🌪️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 1 },
@@ -256,8 +245,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'souljade',
 		quality: 3,
 		icon: '🎯',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
@@ -270,8 +258,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'souljade',
 		quality: 3,
 		icon: '🩸',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 1 },
@@ -284,8 +271,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'souljade',
 		quality: 4,
 		icon: '🧿',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 7,
 		space: { w: 1, h: 1 },
@@ -298,8 +284,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'souljade',
 		quality: 3,
 		icon: '⚔️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
@@ -318,8 +303,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 3,
 		icon: '🥁',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 6,
 		space: { w: 2, h: 2 },
@@ -332,8 +316,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 2,
 		icon: '🏮',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 4,
 		space: { w: 1, h: 2 },
@@ -347,8 +330,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 3,
 		icon: '🐺',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 2 },
@@ -362,8 +344,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 3,
 		icon: '⚗️',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
@@ -387,8 +368,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 3,
 		icon: '🔔',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 1 },
@@ -412,8 +392,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 5,
 		icon: '🔨',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 8,
 		space: { w: 2, h: 2 },
@@ -432,8 +411,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 4,
 		icon: '🧊',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 7,
 		space: { w: 1, h: 1 },
@@ -458,8 +436,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 4,
 		icon: '🪞',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 7,
 		space: { w: 1, h: 2 },
@@ -477,8 +454,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'curio',
 		quality: 4,
 		icon: '🎏',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 7,
 		space: { w: 2, h: 1 },
@@ -493,8 +469,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'potion',
 		quality: 1,
 		icon: '🧪',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 1 },
@@ -508,8 +483,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'potion',
 		quality: 3,
 		icon: '🍶',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
@@ -523,8 +497,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		cls: 'potion',
 		quality: 4,
 		icon: '🫙',
-		// Art exists for star ranks 1–4 in public/icons/items/<id>-<star>.png; 5★ falls back to the emoji.
-		stars: [1, 2, 3, 4],
+		art: true,
 		tier: 3,
 		cost: 6,
 		space: { w: 1, h: 2 },

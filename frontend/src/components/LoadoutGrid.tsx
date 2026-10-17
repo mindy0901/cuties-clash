@@ -4,7 +4,7 @@ import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { ItemIcon } from './ItemIcon'
 import type { HeldItem } from './useHeldItem'
-import { cn, itemTileClass } from './ui'
+import { ITEM_STAR_TEXT, cn, itemTileClass } from './ui'
 
 /** Number of columns of the loadout board in the preparation room. */
 export const LOADOUT_WIDTH = 4
@@ -63,16 +63,22 @@ export function LoadoutGrid({
 					className={cn(
 						'surface-item relative flex size-full flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-line p-1 text-center select-none',
 						interactive && 'cursor-pointer',
-						itemTileClass(template.cls, template.quality, item.star),
+						itemTileClass(template.cls, template.quality),
 					)}
 					title={`${template.name} ${size.w}×${size.h}`}
 					data-item-quality={template.quality}
 				>
-					<span className="absolute top-0.5 right-1 text-[9px] tracking-[-1px] text-gold-soft">
+					<span
+						data-item-stars={item.star}
+						className={cn(
+							'absolute top-0.5 right-1 text-[9px] tracking-[-1px] drop-shadow-[0_1px_1px_rgb(0_0_0/70%)]',
+							ITEM_STAR_TEXT[item.star],
+						)}
+					>
 						{'★'.repeat(item.star)}
 					</span>
 					<span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-						<ItemIcon templateId={item.templateId} star={item.star} />
+						<ItemIcon templateId={item.templateId} />
 					</span>
 					<span className="max-w-full truncate text-[10px] leading-[1.1] text-muted">{template.name}</span>
 					{interactive && (onRotate || onSell) ? (

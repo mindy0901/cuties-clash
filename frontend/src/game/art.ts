@@ -1,21 +1,26 @@
 import { getTemplate } from './items'
 import { getPet } from './pets'
-import type { Star } from './types'
 
 /**
  * Resolve an art path inside `public/`.
  *
- * Rule: **only return a path when the file is known to exist**. The star ranks that have art are
- * declared in `items.ts`/`pets.ts` (`stars`, `artExt`), so nothing is guessed — a wrong guess would
- * render a broken icon.
+ * Rule: **only return a path when the file is declared** (`art`/`skillArt`/`avatar` in
+ * `items.ts`/`pets.ts`), so nothing is guessed — a wrong guess would render a broken icon.
  *
  * With no art this returns `null` and the component falls back to the emoji.
  */
 
-/** Art for one item at a specific star rank. `null` = no art yet, use the emoji. */
-export function itemArtSrc(templateId: string, star: Star): string | null {
+/**
+ * Art for one item: `public/icons/items/<id>.<ext>`.
+ *
+ * ⚠️ ONE art per item, independent of the star rank — the star rank is drawn on top of it as a row
+ * of stars (`ITEM_STAR_TEXT`). ❌ Never go back to `<id>-<star>.png`: that turned a single weapon
+ * into four different pictures.
+ */
+export function itemArtSrc(templateId: string): string | null {
 	const template = getTemplate(templateId)
-	return artPath('items', templateId, template.stars, star, template.artExt)
+	if (!template.art) return null
+	return `/icons/items/${templateId}.${template.artExt ?? 'png'}`
 }
 
 /** Art for a pet (independent of the star rank). */
@@ -42,15 +47,4 @@ export function skillArtSrc(petId: string): string | null {
 	const pet = getPet(petId)
 	if (!pet.skillArt) return null
 	return `/icons/skills/${petId}-skill.${pet.skillArtExt ?? 'png'}`
-}
-
-function artPath(
-	folder: string,
-	id: string,
-	stars: Star[] | undefined,
-	star: Star,
-	ext: string | undefined,
-): string | null {
-	if (!stars?.includes(star)) return null
-	return `/icons/${folder}/${id}-${star}.${ext ?? 'png'}`
 }

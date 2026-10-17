@@ -9,7 +9,7 @@ the licences, where files go, and the attribution obligations.
 
 ## Rules for adding art
 
-- ✅ **Only declare a path when you are sure the file exists** (`stars` in `items.ts`,
+- ✅ **Only declare a path when you are sure the file exists** (`art` in `items.ts`,
   `art`/`skillArt` in `pets.ts`). ❌ Do not guess file names.
 - ✅ **Always keep the emoji fallback** in `icon`; `ArtIcon` falls back to the emoji when an image
   fails — that way art can be added gradually and there is never an empty cell.
@@ -72,7 +72,7 @@ How to detect it (not visible by eye in a preview image, you have to read the pi
 
 ```powershell
 Add-Type -AssemblyName System.Drawing
-$b = [System.Drawing.Bitmap]::FromFile('public\icons\items\wooden-blade-1.png')
+$b = [System.Drawing.Bitmap]::FromFile('public\icons\items\wooden-blade.png')
 $opaque = 0
 for ($y=0; $y -lt $b.Height; $y++) { for ($x=0; $x -lt $b.Width; $x++) {
   if ($b.GetPixel($x,$y).A -gt 240) { $opaque++ } } }
@@ -92,25 +92,17 @@ again. `frontend/src/game/__tests__/artAlpha.test.ts` guards it: every image mus
 
 ## Mapping in use
 
-Each item takes **one icon type** from the pack, and each star level takes a **different material
-tier** — so a 4★ item looks completely different from a 1★ one at a glance.
+⚠️ **One art per item** — `public/icons/items/<id>.png`, resolved by `itemArtSrc(templateId)` with
+`art: true` on the template. The star rank is **not** part of the picture: upgrading an item only
+draws **more stars** on the tile and **recolours** them (`ITEM_STAR_TEXT`, silver → gold-orange).
 
-⚠️ Art ships for star ranks **1–4** only. A **5★** item is legitimate in game (two 4★ copies merge
-into it, see `docs/GAME-RULES.md` §4) but `stars` in `items.ts` stops at 4, so it draws the
-template's **emoji**. Adding 5★ art later means adding the files **and** declaring `5` in `stars`.
+❌ The old mechanism used one file per star rank (`<id>-1.png` … `<id>-4.png`, a different material
+tier per rank). It turned a single weapon into four unrelated pictures and left 5★ with no picture
+at all. Those variants were deleted; `src/game/__tests__/art.test.ts` fails if `<id>-<star>.png`
+ever comes back. To change an item's art, **replace its one file** — no code change needed.
 
-**Material tier per star:**
-
-| Star | Material tier |
-| --- | ------------ |
-| ★ | `natural_wood` |
-| ★★ | `green_jade` |
-| ★★★ | `ebony_steel` |
-| ★★★★ | `divine_gold_inlaid_wood` |
-| ★★★★★ | — (falls back to the emoji) |
-
-Exceptions (mixed materials): `poison-dagger` starts at `rusty_stone`; `twin-claws` uses
-`worn_leather` → `forged_iron` → `shining_silver`.
+The art that was kept is the **plain-material variant** (what `<id>-1.png` used to be): it does not
+compete with the tile colour (quality) or the star colour (rank), so both signals stay readable.
 
 **Icon type for each item:**
 
@@ -184,7 +176,7 @@ suited to **UI icons** (buttons, stats) than to wuxia items.
 
 ```
 public/icons/
-├─ items/   <templateId>-<star>.png     e.g. wooden-blade-1.png, great-axe-4.png
+├─ items/   <templateId>.png            e.g. wooden-blade.png, great-axe.png
 ├─ pets/    <petId>.png                 e.g. fire-pup.png
 ├─ skills/  <petId>-skill.png           e.g. fire-pup-skill.png
 └─ ui/      (interface icons, optional)
@@ -197,19 +189,19 @@ For an extension other than `png`, declare `artExt` in the template.
 `frontend/src/game/art.ts` resolves the path; `frontend/src/components/ItemIcon.tsx` displays it
 (`ItemIcon`, `PetIcon`, `SkillIcon`), built on `ArtIcon`.
 
-**Important principle:** only return a path when you **know for sure the file exists**, based on the
-star list declared in `items.ts` (`stars: [1, 2, 3, 4]`) / `pets.ts` (`art: true`). Do not guess file
-names — a wrong guess shows a broken icon.
+**Important principle:** only return a path when the asset is **declared**, based on `art: true` /
+`artExt` in `items.ts` and `art`/`skillArt`/`avatar` in `pets.ts`. Do not guess file names — a wrong
+guess shows a broken icon.
 
 When there is no art, or the image fails to load → it **falls back to the emoji**. That way art can be
 added little by little, and the game has never shown an empty cell.
 
 ```ts
-// items.ts — declare which stars have art
+// items.ts — one art per item, ❌ not one per star rank
 {
   id: 'wooden-blade',
   icon: '🗡️',                    // fallback, always keep
-  stars: [1, 2, 3, 4],          // art exists for star ranks 1–4 (5★ uses the emoji)
+  art: true,                    // public/icons/items/wooden-blade.png exists
   artExt: 'png',                // optional, defaults to 'png'
 }
 
@@ -225,8 +217,9 @@ added little by little, and the game has never shown an empty cell.
 ## Guard tests
 
 `frontend/src/game/__tests__/art.test.ts` checks:
-- every template declaring `stars` has a **real file** for each of those stars
+- every item with `art: true` has a **real file**
 - every pet `art`/`skillArt` flag has a file
+- **no `<id>-<star>.png` variant is left behind** (the removed per-star art mechanism)
 - **no leftover files** in `public/icons/` (a file matching no template — a sign of a wrong mapping)
 - it returns `null` at the right moment so the emoji fallback kicks in
 

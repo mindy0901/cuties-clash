@@ -58,7 +58,7 @@ function activeItemChips(items: ItemInstance[]): SkillChip[] {
 		.filter((item) => getTemplate(item.templateId).active)
 		.map((item) => ({
 			uid: combatItemUid(item.templateId, item.slot),
-			icon: <ItemIcon templateId={item.templateId} star={item.star} emojiClass="text-base" />,
+			icon: <ItemIcon templateId={item.templateId} emojiClass="text-base" />,
 			label: `${getTemplate(item.templateId).name} — hiệu lực chủ động`,
 		}))
 }

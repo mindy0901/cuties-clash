@@ -144,13 +144,6 @@ function asSpace(field: string, value: unknown): { w: number; h: number } {
 	}
 }
 
-function asStars(field: string, value: unknown): number[] {
-	if (!Array.isArray(value)) fieldError(field, 'must be an array of star ranks')
-	const stars = [...new Set(value as unknown[])].map((raw) => asInteger(field, raw, 1, 5))
-	if (stars.length !== (value as unknown[]).length) fieldError(field, 'must not repeat a star rank')
-	return stars.sort((a, b) => a - b)
-}
-
 // ── Editable fields ──────────────────────────────────────────────────────────
 
 type FieldCheck = (field: string, value: unknown) => unknown
@@ -165,7 +158,8 @@ const ITEM_FIELDS: Record<string, FieldCheck> = {
 	quality: (field, value) => asInteger(field, value, 1, 5),
 	cost: (field, value) => asInteger(field, value, 1, 999),
 	space: asSpace,
-	stars: asStars,
+	/** One art per item: `public/icons/items/<id>.<ext>` — art files are never per star rank. */
+	art: asBoolean,
 	artExt: (field, value) => asOneOf(field, value, ART_EXTS),
 	/** Description per star — 5 strings. */
 	desc: (field, value) =>

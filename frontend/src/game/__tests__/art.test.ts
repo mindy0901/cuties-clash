@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { itemArtSrc, petArtSrc, skillArtSrc } from '../art'
 import { ITEM_TEMPLATES } from '../items'
 import { PETS } from '../pets'
-import type { Star } from '../types'
 
 /**
  * Art declared in `items.ts`/`pets.ts` **must have a real file behind it**.
@@ -22,33 +21,35 @@ function toKey(publicPath: string): string {
 }
 
 describe('item art', () => {
-	const templatesWithStars = ITEM_TEMPLATES.filter((template) => template.stars?.length)
+	const withArt = ITEM_TEMPLATES.filter((template) => template.art)
 
 	it('has at least one template that uses art', () => {
-		expect(templatesWithStars.length).toBeGreaterThan(0)
+		expect(withArt.length).toBeGreaterThan(0)
 	})
 
-	it.each(templatesWithStars.map((template) => [template.id, template] as const))(
-		'%s has a file for every declared star rank',
-		(_id, template) => {
-			for (const star of template.stars ?? []) {
-				const src = itemArtSrc(template.id, star)
-				expect(src, `${template.id} star ${star} must return a path`).not.toBeNull()
-				expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
-			}
-		},
-	)
+	it.each(withArt.map((template) => [template.id, template] as const))('%s has its file', (_id, template) => {
+		const src = itemArtSrc(template.id)
+		expect(src, `${template.id} must return a path`).not.toBeNull()
+		expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
+	})
 
-	it('never declares art for a star rank that does not exist', () => {
-		const declared = new Set(templatesWithStars.flatMap((template) => template.stars ?? []))
-		for (const star of declared) expect([1, 2, 3, 4, 5]).toContain(star)
+	it('resolves one picture per item — the star rank is not part of the path', () => {
+		const template = withArt[0]!
+		expect(itemArtSrc(template.id)).toBe(`/icons/items/${template.id}.${template.artExt ?? 'png'}`)
+	})
+
+	it('keeps exactly one file per item — no `<id>-<star>.png` variants left', () => {
+		const variants = [...FILES]
+			.filter((key) => key.includes('/icons/items/'))
+			.filter((key) => /-\d\.png$/.test(key))
+		expect(variants, 'per-star art files are no longer used').toEqual([])
 	})
 
 	it('every item file in public/ has a matching template', () => {
 		// Catches extra files or typos in the name — a sign of a wrong mapping.
 		const orphans = [...FILES]
 			.filter((key) => key.includes('/icons/items/'))
-			.map((key) => key.replace(/^.*\/icons\/items\//, '').replace(/-\d\.png$/, ''))
+			.map((key) => key.replace(/^.*\/icons\/items\//, '').replace(/\.png$/, ''))
 			.filter((id) => !ITEM_TEMPLATES.some((template) => template.id === id))
 		expect([...new Set(orphans)]).toEqual([])
 	})
@@ -84,15 +85,9 @@ describe('pet and skill art', () => {
 })
 
 describe('falls back to the emoji when art is missing', () => {
-	it('returns null for an item that declares no star rank', () => {
-		const bare = ITEM_TEMPLATES.find((template) => !template.stars?.length)
-		if (bare) expect(itemArtSrc(bare.id, 1 as Star)).toBeNull()
-	})
-
-	it('returns null for a star rank outside the declared list', () => {
-		const template = ITEM_TEMPLATES.find((entry) => entry.stars?.length)
-		if (!template) return
-		const missingStar = ([1, 2, 3, 4, 5] as Star[]).find((star) => !template.stars!.includes(star))
-		if (missingStar) expect(itemArtSrc(template.id, missingStar)).toBeNull()
+	it('returns null for an item that declares no art', () => {
+		const bare = ITEM_TEMPLATES.find((template) => !template.art)
+		// Every shipped item has art today; the branch is still the documented fallback contract.
+		if (bare) expect(itemArtSrc(bare.id)).toBeNull()
 	})
 })

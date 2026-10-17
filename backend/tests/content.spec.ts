@@ -42,9 +42,11 @@ describe('content payload validation', () => {
 		expect(() => validateContentPayload('item', { quality: 1.5 })).toThrow(/whole number/)
 	})
 
-	it('accepts the whole star range in stars, but no star outside it', () => {
-		expect(validateContentPayload('item', { stars: [5, 1, 3] })).toEqual({ stars: [1, 3, 5] })
-		expect(() => validateContentPayload('item', { stars: [1, 6] })).toThrow(/between 1 and 5/)
+	it('accepts an art flag and rejects a per-star art list', () => {
+		expect(validateContentPayload('item', { art: true })).toEqual({ art: true })
+		expect(() => validateContentPayload('item', { art: 'yes' })).toThrow(/true or false/)
+		// `stars` declared art per star rank — that mechanism is gone, so it must be refused.
+		expect(() => validateContentPayload('item', { stars: [1, 2, 3] })).toThrow(/not editable/)
 	})
 
 	it('rejects fields that are not editable', () => {

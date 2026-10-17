@@ -43,7 +43,6 @@ type FieldKind =
 	| 'perStarNumber'
 	| 'perStarText'
 	| 'perStarJson'
-	| 'stars'
 	| 'size'
 	| 'quality'
 
@@ -103,7 +102,13 @@ const ITEM_FIELDS: FieldDef[] = [
 	{ key: 'quality', label: 'Phẩm', kind: 'quality', hint: 'màu nền ô của món' },
 	{ key: 'cost', label: 'Giá gốc (1★)', kind: 'int', min: 1, max: 999 },
 	{ key: 'space', label: 'Kích thước ô', kind: 'size', hint: 'w 1–4, h 1–5' },
-	{ key: 'stars', label: 'Sao có art riêng', kind: 'stars', hint: 'bỏ trống thì chỉ dùng emoji' },
+	{
+		key: 'art',
+		label: 'Có art riêng',
+		kind: 'select',
+		options: BOOLEAN_OPTIONS,
+		hint: 'một ảnh cho mỗi món — public/icons/items/<id>.png',
+	},
 	{ key: 'artExt', label: 'Đuôi art', kind: 'select', options: ART_EXT_OPTIONS },
 	{ key: 'desc', label: 'Mô tả', kind: 'perStarText', hint: 'một ô cho mỗi sao — ❌ không tự tính lại theo chỉ số' },
 	{ key: 'damage', label: 'Sát thương', kind: 'perStarNumber', min: 0, max: 100_000 },
@@ -162,10 +167,6 @@ function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
 		case 'perStarJson': {
 			const source = (base as unknown as Record<string, ((star: Star) => unknown) | undefined>)[field.key]
 			return STARS.map((star) => (source ? JSON.stringify(source(star)) : ''))
-		}
-		case 'stars': {
-			const stars = (base as ItemTemplate).stars ?? []
-			return STARS.map((star) => String(stars.includes(star)))
 		}
 		case 'size': {
 			const space = (base as ItemTemplate).space
@@ -265,14 +266,6 @@ function buildPayload(
 						JSON.parse(textValue(values[index] ?? '', rank)),
 					)
 					break
-				case 'stars': {
-					const chosen = STARS.filter((_rank, index) => (values[index] ?? '') === 'true')
-					if (chosen.length === 0) {
-						throw new Error('chọn ít nhất một sao có art (hoặc bấm "Về mặc định" để trả về emoji)')
-					}
-					payload[field.key] = chosen
-					break
-				}
 				case 'size':
 					payload[field.key] = {
 						w: integerInRange(values[0] ?? '', SIZE_LIMITS.w, 'w'),
@@ -607,10 +600,7 @@ function AdminContentEditor() {
 /** Whether a field edits a value per star rank and therefore needs a full-width row of controls. */
 function isPerStar(field: FieldDef): boolean {
 	return (
-		field.kind === 'perStarNumber' ||
-		field.kind === 'perStarText' ||
-		field.kind === 'perStarJson' ||
-		field.kind === 'stars'
+		field.kind === 'perStarNumber' || field.kind === 'perStarText' || field.kind === 'perStarJson'
 	)
 }
 
@@ -630,7 +620,7 @@ function FieldInput({
 	values: string[]
 	onChange: (index: number, value: string) => void
 }) {
-	if (isPerStar(field) && field.kind !== 'stars') {
+	if (isPerStar(field)) {
 		return (
 			<div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
 				{STARS.map((star, index) => (
@@ -656,28 +646,6 @@ function FieldInput({
 								onChange={(event) => onChange(index, event.target.value)}
 							/>
 						)}
-					</label>
-				))}
-			</div>
-		)
-	}
-
-	if (field.kind === 'stars') {
-		return (
-			<div className="flex flex-wrap gap-1.5">
-				{STARS.map((star, index) => (
-					<label
-						key={star}
-						className="flex items-center gap-1.5 rounded-lg border border-line bg-black/30 px-2 py-1"
-					>
-						<input
-							type="checkbox"
-							data-admin-field={field.key}
-							data-admin-star={star}
-							checked={values[index] === 'true'}
-							onChange={(event) => onChange(index, String(event.target.checked))}
-						/>
-						<RankLabel star={star} />
 					</label>
 				))}
 			</div>

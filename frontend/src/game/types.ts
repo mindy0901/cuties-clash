@@ -83,15 +83,17 @@ export interface ItemTemplate {
 	cls: ItemClass
 	/**
 	 * Fallback icon (emoji). Always present so the game never shows an empty cell when art is
-	 * missing. Real art (when available) lives in `public/icons/items` and is resolved from `id` +
-	 * `star`.
+	 * missing. Real art (when available) lives in `public/icons/items`.
 	 */
 	icon: string
 	/**
-	 * Star ranks that **have their own art** in `public/icons/items/<id>-<star>.<ext>`.
-	 * Empty = only `icon` (emoji) is used. See `docs/ASSETS.md` and `itemArtSrc()`.
+	 * Declares that art exists in `public/icons/items/<id>.<ext>` (`artExt`, default `png`).
+	 *
+	 * ⚠️ ONE art per item, **not** one per star rank: upgrading an item changes only the **number**
+	 * of stars drawn on the tile and their **colour** (`ITEM_STAR_TEXT`), never the picture. See
+	 * `docs/ASSETS.md` and `itemArtSrc()`.
 	 */
-	stars?: Star[]
+	art?: boolean
 	/** Art file extension. Defaults to `png`. */
 	artExt?: 'png' | 'svg' | 'webp'
 	/** Shop pool tier: 1 = available from the start, 3 = late maps. */

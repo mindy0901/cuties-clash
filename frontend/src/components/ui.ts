@@ -74,43 +74,52 @@ export const ITEM_BORDER_BY_CLASS: Record<string, string> = {
 /**
  * Tile **background** per item quality: 1 = silver … 5 = gold-orange.
  *
- * ⚠️ Full class names, never a dynamic `` `bg-quality-${q}` `` — Tailwind only emits classes it
- * can see literally in the source. The colour tokens live in `src/styles/app.css` (`@theme`).
+ * ⚠️ Full class names, never a dynamic `` `bg-rank-${q}` `` — Tailwind only emits classes it can
+ * see literally in the source. The colour tokens live in `src/styles/app.css` (`@theme`).
  */
 export const ITEM_QUALITY_BG: Record<Quality, string> = {
-	1: 'bg-quality-1/22',
-	2: 'bg-quality-2/22',
-	3: 'bg-quality-3/22',
-	4: 'bg-quality-4/22',
-	5: 'bg-quality-5/28',
+	1: 'bg-rank-1/22',
+	2: 'bg-rank-2/22',
+	3: 'bg-rank-3/22',
+	4: 'bg-rank-4/22',
+	5: 'bg-rank-5/28',
 }
 
-/** Glow drawn around a tile at the top star ranks, so a maxed item stands out. */
-export const ITEM_MAX_STAR_GLOW = 'shadow-[0_0_12px_rgb(217_162_39/55%)]'
+/**
+ * Colour of the **stars** drawn on an item tile, by star rank: 1★ silver … 5★ gold-orange — the
+ * same five steps as the quality palette, so a rank never looks unrelated to the rest of the UI.
+ *
+ * ⚠️ Upgrading a star must show **only two things**: one more star, and this colour. ❌ No different
+ * art (one art per item), no glow, no extra frame.
+ */
+export const ITEM_STAR_TEXT: Record<Star, string> = {
+	1: 'text-rank-1',
+	2: 'text-rank-2',
+	3: 'text-rank-3',
+	4: 'text-rank-4',
+	5: 'text-rank-5',
+}
 
 /**
  * Background colour of one quality, used by the admin page to **show the mapping** next to the
  * quality select. Solid (no alpha) so the swatch is readable on its own.
  */
 export const ITEM_QUALITY_SWATCH: Record<Quality, string> = {
-	1: 'bg-quality-1',
-	2: 'bg-quality-2',
-	3: 'bg-quality-3',
-	4: 'bg-quality-4',
-	5: 'bg-quality-5',
+	1: 'bg-rank-1',
+	2: 'bg-rank-2',
+	3: 'bg-rank-3',
+	4: 'bg-rank-4',
+	5: 'bg-rank-5',
 }
 
 /**
  * Colour of an item tile, shared by every place that draws one (Trang bị, Kho đồ, shop, the
  * enemy grid in battle, the detail dialog) so they can never drift apart:
- * the **quality** colours the background, the **class** the border, and 4★/5★ keep the glow.
+ * the **quality** colours the background and the **class** the border. The star rank is shown by
+ * `ITEM_STAR_TEXT` on the stars themselves — ❌ it must not change the tile as well.
  */
-export function itemTileClass(cls: string, quality: Quality, star: Star): string {
-	return cn(
-		ITEM_QUALITY_BG[quality] ?? '',
-		ITEM_BORDER_BY_CLASS[cls] ?? '',
-		star >= 4 && ITEM_MAX_STAR_GLOW,
-	)
+export function itemTileClass(cls: string, quality: Quality): string {
+	return cn(ITEM_QUALITY_BG[quality] ?? '', ITEM_BORDER_BY_CLASS[cls] ?? '')
 }
 
 export const STATUS_CHIP_DEBUFF = 'border-danger/60 text-[#f0b6ac]'

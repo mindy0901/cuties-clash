@@ -261,21 +261,40 @@ describe('the tile background follows the item quality', () => {
 		renderPrep()
 
 		expect(anyTile('starter').dataset.itemQuality).toBe('1')
-		expect(anyTile('starter').className, 'quality 1 = silver').toContain('bg-quality-1')
-		expect(anyTile('starter').className).not.toContain('bg-quality-5')
+		expect(anyTile('starter').className, 'quality 1 = silver').toContain('bg-rank-1')
+		expect(anyTile('starter').className).not.toContain('bg-rank-5')
 
 		expect(anyTile('late').dataset.itemQuality).toBe('5')
-		expect(anyTile('late').className, 'quality 5 = gold-orange').toContain('bg-quality-5')
+		expect(anyTile('late').className, 'quality 5 = gold-orange').toContain('bg-rank-5')
 	})
 
-	it('still borders the tile by item class, and glows only at 4★ and 5★', () => {
+	it('still borders the tile by item class, and never changes it by star rank', () => {
 		reset([], [item('jade', 'jade-haste', 0), { ...item('maxed', 'jade-haste', 1), star: 5 }])
 		renderPrep()
 
 		// Border = item class, background = quality: the two never replace each other.
 		expect(anyTile('maxed').className).toContain('border-[#6b4a8c]')
 		expect(anyTile('jade').className).toContain('border-[#6b4a8c]')
+		// Upgrading a star must **only** add stars and recolour them — ❌ no glow, no extra frame.
 		expect(anyTile('jade').className).not.toContain('shadow-[0_0_12px')
-		expect(anyTile('maxed').className, '5★ keeps the glow').toContain('shadow-[0_0_12px')
+		expect(anyTile('maxed').className, '5★ adds no glow').not.toContain('shadow-[0_0_12px')
+	})
+
+	it('colours the stars by star rank, from silver to gold-orange', () => {
+		reset([], [
+			item('one', 'jade-haste', 0),
+			{ ...item('three', 'jade-haste', 1), star: 3 },
+			{ ...item('five', 'jade-haste', 2), star: 5 },
+		])
+		renderPrep()
+
+		const stars = (uid: string) =>
+			document.querySelector<HTMLElement>(`[data-item-box="${uid}"] [data-item-stars]`)
+		expect(stars('one')?.className, '1★ = silver').toContain('text-rank-1')
+		expect(stars('one')?.textContent).toBe('★')
+		expect(stars('three')?.className, '3★ = blue').toContain('text-rank-3')
+		expect(stars('three')?.textContent).toBe('★★★')
+		expect(stars('five')?.className, '5★ = gold-orange').toContain('text-rank-5')
+		expect(stars('five')?.textContent).toBe('★★★★★')
 	})
 })

@@ -133,14 +133,12 @@ export function mergeItem(base: ItemTemplate, override: ContentOverride | undefi
 				}
 				continue
 			}
-			if (key === 'stars') {
-				if (Array.isArray(value) && value.length > 0 && value.every((star) => star >= 1 && star <= 5)) {
-					next.stars = [...value] as Star[]
-				}
-				continue
-			}
 			if (key === 'quality') {
 				if (isPositiveInt(value, 5)) next.quality = value as Quality
+				continue
+			}
+			if (key === 'art') {
+				if (typeof value === 'boolean') next.art = value
 				continue
 			}
 			if (key === 'name' || key === 'icon' || key === 'cls' || key === 'artExt') {

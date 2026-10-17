@@ -6,7 +6,7 @@ import { MAX_PET_LEVEL, getPet } from '../game/pets'
 import { getStage } from '../game/stages'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { ItemIcon } from './ItemIcon'
-import { btnClass, btnGoldClass, btnSmClass, cn, itemTileClass, panelClass, panelHeadClass, panelTitleClass } from './ui'
+import { ITEM_STAR_TEXT, btnClass, btnGoldClass, btnSmClass, cn, itemTileClass, panelClass, panelHeadClass, panelTitleClass } from './ui'
 
 /**
  * The dedicated shop page (`/shop`).
@@ -84,15 +84,20 @@ export function ShopScreen() {
 								<div
 									className={cn(
 										'surface-item grid size-14 shrink-0 place-items-center rounded-[10px] border p-1',
-										itemTileClass(template.cls, template.quality, offer.star),
+										itemTileClass(template.cls, template.quality),
 									)}
 								>
-									<ItemIcon templateId={offer.templateId} star={offer.star} emojiClass="text-3xl" />
+									<ItemIcon templateId={offer.templateId} emojiClass="text-3xl" />
 								</div>
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-1.5 font-semibold">
 										{template.name}
-										<span className="rounded-md border border-gold/45 px-1.5 py-px text-[11px] text-gold-soft">
+										<span
+											className={cn(
+												'rounded-md border border-line px-1.5 py-px text-[11px]',
+												ITEM_STAR_TEXT[offer.star],
+											)}
+										>
 											{starLabel(offer.star)}
 										</span>
 										<span className="rounded-md border border-line px-1.5 py-px text-[11px] text-muted">

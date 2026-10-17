@@ -4,7 +4,7 @@ import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ArtIcon } from './ArtIcon'
 import { itemArtSrc } from '../game/art'
-import { btnClass, btnSmClass, cn, dialogClass, itemTileClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
+import { ITEM_STAR_TEXT, btnClass, btnSmClass, cn, dialogClass, itemTileClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
 
 /**
  * **Item details** — opened by **clicking** an item in the inventory or the loadout.
@@ -47,11 +47,11 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					<div
 						className={cn(
 							'surface-item grid size-20 shrink-0 place-items-center rounded-[14px] border p-2',
-							itemTileClass(template.cls, template.quality, item.star),
+							itemTileClass(template.cls, template.quality),
 						)}
 					>
 						<ArtIcon
-							src={itemArtSrc(item.templateId, item.star)}
+							src={itemArtSrc(item.templateId)}
 							emoji={template.icon}
 							emojiClass="text-4xl"
 							alt={template.name}
@@ -60,7 +60,9 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					<div className="min-w-0">
 						<div className="flex items-baseline gap-2">
 							<span className="text-[20px] font-semibold">{template.name}</span>
-							<span className="text-gold-soft">{starLabel(item.star)}</span>
+							<span className={cn('font-semibold', ITEM_STAR_TEXT[item.star])}>
+								{starLabel(item.star)}
+							</span>
 						</div>
 						<div className="mt-1 flex flex-wrap items-center gap-1.5">
 							<span className={tagClass}>{CLASS_LABELS[template.cls]}</span>

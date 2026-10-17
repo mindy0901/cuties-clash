@@ -1,31 +1,28 @@
 import { itemArtSrc, petArtSrc, skillArtSrc } from '../game/art'
 import { getTemplate } from '../game/items'
 import { getPet } from '../game/pets'
-import type { Star } from '../game/types'
 import { ArtIcon } from './ArtIcon'
 import { cn } from './ui'
 
 /**
- * Icon of an item: dedicated art **per item and per star**, falling back to an emoji.
+ * Icon of an item, falling back to an emoji.
  *
- * Why per star: each star level uses a different material tier, so a 4★ item looks clearly
- * different from a 1★ one — the player sees at a glance how strong they are.
+ * ⚠️ **One art per item**, so the star rank is not a parameter: upgrading an item only adds stars
+ * and changes their colour on the tile, it never swaps the picture (see `docs/ASSETS.md`).
  */
 export function ItemIcon({
 	templateId,
-	star,
 	emojiClass = 'text-[22px]',
 	className,
 }: {
 	templateId: string
-	star: Star
 	emojiClass?: string
 	className?: string
 }) {
 	const template = getTemplate(templateId)
 	return (
 		<ArtIcon
-			src={itemArtSrc(templateId, star)}
+			src={itemArtSrc(templateId)}
 			emoji={template.icon}
 			emojiClass={emojiClass}
 			className={cn('pointer-events-none', className)}

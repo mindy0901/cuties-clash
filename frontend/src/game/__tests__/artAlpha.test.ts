@@ -43,7 +43,9 @@ const files = Object.keys(RAW).map((key) => [key.replace(/^.*\/icons\//, ''), ke
 
 describe('art has an alpha channel', () => {
 	it('has enough images to check', () => {
-		expect(files.length).toBeGreaterThan(100)
+		// One art per item (27) plus pet and skill art — the count dropped when the per-star item
+		// variants were removed on purpose.
+		expect(files.length).toBeGreaterThan(20)
 	})
 
 	it.each(files)('%s is an 8-bit RGBA PNG', (_label, key) => {

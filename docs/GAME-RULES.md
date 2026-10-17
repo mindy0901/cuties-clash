@@ -54,7 +54,19 @@ result is one rank higher. **5★ is the cap** (`MAX_STAR` in `game/items.ts`).
 
 Every per-star value in `game/items.ts` is declared as an array with **one entry per star rank**
 (`pick(star, [1★, 2★, 3★, 4★, 5★])`), so a missing rank is a type error rather than a silent fallback.
-Art ships for star ranks **1–4**; a 5★ item renders the template's emoji (`stars` in `items.ts`).
+
+⚠️ **A star upgrade shows only two things: one more star, and a different star colour.** ❌ It does
+not change the item's picture — there is **one art per item** (`public/icons/items/<id>.png`,
+`art: true`), ❌ not one file per star rank. Upgrading also draws no glow or extra frame. See
+`docs/ASSETS.md`.
+
+| Star | Star colour | Token |
+| --- | --- | --- |
+| 1★ | Bạc (silver) | `--color-rank-1` |
+| 2★ | Xanh lá (green) | `--color-rank-2` |
+| 3★ | Lam (blue) | `--color-rank-3` |
+| 4★ | Tím (purple) | `--color-rank-4` |
+| 5★ | Vàng cam (gold-orange) | `--color-rank-5` |
 
 ⚠️ **5★ belongs to the player only.** The shop stops at 4★, and enemy loadouts stop at 4★
 (`enemyStar` in `game/stages.ts`) — a 5★ enemy loadout makes the last map unwinnable for every build,
@@ -62,19 +74,20 @@ so it is deliberately not used. Measured numbers: `docs/BALANCE.md` §1.
 
 **Quality** (`quality` on `ItemTemplate`, fixed per template — ❌ it does *not* follow the star rank):
 it only decides the **colour of the item tile**, so the catalogue reads at a glance. It is data, and
-the admin page can edit it.
+the admin page can edit it. It uses the **same five-step palette** as the star colour.
 
 | Quality | Colour | Colour token | Typical templates |
 | --- | --- | --- | --- |
-| 1 | Bạc (silver) | `--color-quality-1` | Starter gear: Đao Gỗ, Giáp Da, Lộ Sương, Hồn Ngọc Thôi Sách |
-| 2 | Xanh lá (green) | `--color-quality-2` | Thương Lửa, Hồn Ngọc Phẫn Nộ, Đèn Quỷ |
-| 3 | Lam (blue) | `--color-quality-3` | Everything from the middle maps (tier 2) |
-| 4 | Tím (purple) | `--color-quality-4` | Late-map support: Hồn Ngọc Hộ Thể, Hàn Ngọc Phù, Mảnh Gương, Cờ Lụa, Thuốc Sắt |
-| 5 | Vàng cam (gold-orange) | `--color-quality-5` | Late-map power: Phủ Nặng, Song Trảo, Giáp Vệ Binh, Thần Đúc Sư |
+| 1 | Bạc (silver) | `--color-rank-1` | Starter gear: Đao Gỗ, Giáp Da, Lộ Sương, Hồn Ngọc Thôi Sách |
+| 2 | Xanh lá (green) | `--color-rank-2` | Thương Lửa, Hồn Ngọc Phẫn Nộ, Đèn Quỷ |
+| 3 | Lam (blue) | `--color-rank-3` | Everything from the middle maps (tier 2) |
+| 4 | Tím (purple) | `--color-rank-4` | Late-map support: Hồn Ngọc Hộ Thể, Hàn Ngọc Phù, Mảnh Gương, Cờ Lụa, Thuốc Sắt |
+| 5 | Vàng cam (gold-orange) | `--color-rank-5` | Late-map power: Phủ Nặng, Song Trảo, Giáp Vệ Binh, Thần Đúc Sư |
 
-⚠️ Colours live in `@theme` in `src/styles/app.css` and are applied through the **lookup tables**
-`ITEM_QUALITY_BG` / `ITEM_QUALITY_SWATCH` in `src/components/ui.ts` — ❌ never build a class name
-dynamically (``  `bg-quality-${q}`  ``), Tailwind only emits classes it can read in the source.
+⚠️ Colours live in `@theme` in `src/styles/app.css` (one palette, `--color-rank-1…5`) and are applied
+through the **lookup tables** `ITEM_QUALITY_BG` / `ITEM_QUALITY_SWATCH` (tile background) and
+`ITEM_STAR_TEXT` (star colour) in `src/components/ui.ts` — ❌ never build a class name dynamically
+(``  `bg-rank-${n}`  ``), Tailwind only emits classes it can read in the source.
 
 ## 5. Vietnamese in the UI
 
@@ -92,7 +105,7 @@ Thế · Chấn Đao · Trọng kích · Thú cưng · Màn · Bản đồ · Tr
 | Kho đồ is a **free grid**: row count, placement, drag/drop/rotate inside Kho đồ | `game/storage.ts` |
 | Splitting Trang bị ↔ Kho đồ | `game/loadout.ts` |
 | Item templates, star tiers, **quality band** | `game/items.ts` |
-| Quality colours and the shared tile class | `components/ui.ts`, `styles/app.css` |
+| Quality colours, star colours and the shared tile class | `components/ui.ts`, `styles/app.css` |
 | Pets, levels, number of grid rows | `game/pets.ts` |
 | Stages, maps, PvP blueprint | `game/stages.ts` |
 | Merging passive + aura → stats | `game/build.ts` |

@@ -1,6 +1,5 @@
 import { itemArtSrc } from '../game/art'
 import { getTemplate } from '../game/items'
-import type { Star } from '../game/types'
 import { ArtIcon } from './ArtIcon'
 
 /** Longest side of the held item's image, in px. */
@@ -15,7 +14,6 @@ const GHOST_SIZE = 60
  */
 export function HeldGhost({
 	templateId,
-	star,
 	rotated,
 	w,
 	h,
@@ -23,7 +21,6 @@ export function HeldGhost({
 	y,
 }: {
 	templateId: string
-	star: Star
 	rotated: boolean
 	w: number
 	h: number
@@ -54,7 +51,7 @@ export function HeldGhost({
 				style={{ width: `${width}px`, height: `${height}px`, opacity: 0.95 }}
 			>
 				<ArtIcon
-					src={itemArtSrc(templateId, star)}
+					src={itemArtSrc(templateId)}
 					emoji={template.icon}
 					emojiClass="text-2xl"
 					alt={template.name}

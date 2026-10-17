@@ -141,7 +141,7 @@ and the player has nothing left to click. Adding a field to `RunState` = sanitiz
 
 | To add | Change | Do not forget |
 | --- | --- | --- |
-| **An item** | `game/items.ts` | art `public/icons/items/<id>-<star>.png`; `content.test.ts` counts them |
+| **An item** | `game/items.ts` | art is **one file per item**: `public/icons/items/<id>.png` + `art: true` (❌ never per star rank); `content.test.ts` counts them |
 | **A pet** | `game/pets.ts` | art in `pets/` + `skills/`; `unlockStage` is currently 20/40 |
 | **A stage / map** | `game/stages.ts` | re-run the balance probe ([`docs/BALANCE.md`](docs/BALANCE.md)) |
 | **An effect / aura** | `game/stats.ts` + `game/build.ts` | if you add a random branch in `battle.ts` you must add a determinism test |

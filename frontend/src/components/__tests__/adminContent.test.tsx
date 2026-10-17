@@ -151,35 +151,21 @@ describe('editing content', () => {
 		expect(puts[0]!.body).toEqual({ damage: [12, 20, 32, 50, 99] })
 	})
 
-	it('edits which star ranks have art with checkboxes', async () => {
+	it('edits art with a yes/no select — one art per item, not one per star rank', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		const boxes = document.querySelectorAll<HTMLInputElement>('[data-admin-field="stars"]')
-		expect(boxes).toHaveLength(5)
-		expect([...boxes].map((box) => box.checked)).toEqual([true, true, true, true, false])
+		// ❌ No per-star art controls any more: the item has a single picture.
+		expect(document.querySelectorAll('[data-admin-field="stars"]')).toHaveLength(0)
 
-		fireEvent.click(boxes[4]!)
+		const select = document.querySelector<HTMLSelectElement>('[data-admin-field="art"]')!
+		expect(select.value).toBe('true')
+		fireEvent.change(select, { target: { value: 'false' } })
 		fireEvent.click(screen.getByText(/Lưu/))
 
 		await waitFor(() => expect(puts).toHaveLength(1))
-		expect(puts[0]!.body).toEqual({ stars: [1, 2, 3, 4, 5] })
-	})
-
-	it('refuses to save an empty art list instead of sending a no-op override', async () => {
-		const { puts } = stubApi()
-		renderInRouter(<AdminContentScreen />)
-		await screen.findByText('wooden-blade')
-
-		const boxes = document.querySelectorAll<HTMLInputElement>('[data-admin-field="stars"]')
-		boxes.forEach((box) => {
-			if (box.checked) fireEvent.click(box)
-		})
-		fireEvent.click(screen.getByText(/Lưu/))
-
-		expect(await screen.findByText(/chọn ít nhất một sao/)).toBeTruthy()
-		expect(puts, 'nothing is sent when the form is invalid').toHaveLength(0)
+		expect(puts[0]!.body).toEqual({ art: false })
 	})
 
 	it('edits the footprint with two number inputs instead of raw JSON', async () => {
@@ -206,10 +192,10 @@ describe('editing content', () => {
 		const select = document.querySelector<HTMLSelectElement>('[data-admin-field="quality"]')!
 		expect(select.options).toHaveLength(5)
 		expect(select.value).toBe('1')
-		expect(document.querySelector('[data-admin-quality-swatch]')!.className).toContain('bg-quality-1')
+		expect(document.querySelector('[data-admin-quality-swatch]')!.className).toContain('bg-rank-1')
 
 		fireEvent.change(select, { target: { value: '5' } })
-		expect(document.querySelector('[data-admin-quality-swatch]')!.className).toContain('bg-quality-5')
+		expect(document.querySelector('[data-admin-quality-swatch]')!.className).toContain('bg-rank-5')
 
 		fireEvent.click(screen.getByText(/Lưu/))
 		await waitFor(() => expect(puts).toHaveLength(1))

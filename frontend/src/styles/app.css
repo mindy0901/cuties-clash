@@ -29,13 +29,16 @@
 	--color-hp-low: #d0533f;
 	--color-se: #6fb3e0;
 
-	/* Item quality bands: 1 = silver … 5 = gold-orange. Drive the tile background
-	   (`ITEM_QUALITY_BG` in `src/components/ui.ts`) and the admin swatches. */
-	--color-quality-1: #93a3b5;
-	--color-quality-2: #4fae5f;
-	--color-quality-3: #4a82d0;
-	--color-quality-4: #8a5cd6;
-	--color-quality-5: #d9761f;
+	/*
+	   Rank palette: 1 = silver … 5 = gold-orange. It drives **two** things with the same five steps:
+	   the item tile background by **quality** (`ITEM_QUALITY_BG`) and the colour of the **stars** by
+	   star rank (`ITEM_STAR_TEXT`). One palette, so the two axes can never look unrelated.
+	*/
+	--color-rank-1: #93a3b5;
+	--color-rank-2: #4fae5f;
+	--color-rank-3: #4a82d0;
+	--color-rank-4: #8a5cd6;
+	--color-rank-5: #d9761f;
 
 	--radius-panel: 12px;
 	--radius-dialog: 16px;

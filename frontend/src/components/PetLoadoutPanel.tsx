@@ -50,7 +50,7 @@ export function PetLoadoutPanel({
 	const lockedCells = GRID_MAX_CELLS - bagSize
 
 	return (
-		<section className={cn(panelClass, 'gap-2.5 self-start')}>
+		<section className={cn(panelClass, 'gap-2.5')}>
 			<div className={panelHeadClass}>
 				<h2 className={panelTitleClass}>Trang bị</h2>
 				<span className="text-[11px] text-muted">
@@ -75,6 +75,8 @@ export function PetLoadoutPanel({
 				onAnchorSlot={onAnchorSlot}
 				onRotate={rotate}
 				onSell={sell}
+				// Centred in the (fluid) column: the cells keep their fixed size, only the panel stretches.
+				className="mx-auto"
 			/>
 
 			<div className="flex flex-wrap gap-2">

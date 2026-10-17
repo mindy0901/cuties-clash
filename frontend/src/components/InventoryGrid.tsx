@@ -125,7 +125,7 @@ export function InventoryGrid({
 	}
 
 	return (
-		<div className={cn('overflow-y-auto scroll-hidden', className)}>
+		<div className={cn('flex justify-center overflow-y-auto scroll-hidden', className)}>
 			<GridBoard
 				width={width}
 				rows={rows}

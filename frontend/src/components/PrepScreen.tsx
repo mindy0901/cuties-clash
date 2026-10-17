@@ -233,27 +233,17 @@ export function PrepScreen() {
 	return (
 		<div className="flex flex-col gap-3.5">
 			{/*
-			 * ⚠️ **Three equal columns** (`1fr`), each grid panel taking **one column**.
+			 * Three columns in a **1 : 2 : 1 flex ratio** — pet stats · stage + inventory · loadout.
+			 * The columns take the full width and split it, and every panel inside a column stretches
+			 * to that column's width (`items-stretch`), so the three panels line up edge to edge.
 			 *
-			 * Why: cell width follows panel width. Two panels in columns of different widths would
-			 * give cells of different sizes, or a panel wider than its grid would leave **a strip of
-			 * background** to the right of the cells. Giving both panels the same width lets the grid
-			 * fill the panel and the cells **match each other** — no px size needs to be forced.
-			 *
-			 * ⚠️ Columns use `minmax(0, 1fr)`, ❌ not fixed px: fixed values overflow horizontally on
-			 * narrow screens.
+			 * ⚠️ Cell size stays the **fixed `CELL_SIZE` px** on both boards: a wider column does not
+			 * stretch the cells, it only gives the board room. ❌ Do not switch the columns back to
+			 * fixed px either — that overflowed horizontally on narrow screens.
 			 */}
-			{/*
-			 * Three columns: **pet stats** · **stage + inventory** (8 columns × 50px ≈ 442px) ·
-			 * **loadout** (4 columns × 50px ≈ 226px).
-			 *
-			 * ⚠️ Columns are sized by **content** (`minmax(0, …)` with a cap derived from column
-			 * count × `CELL_SIZE`), ❌ not `1fr`: a panel wider than its grid would leave a strip of
-			 * background to the right of the cells.
-			 */}
-			<div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,320px)_minmax(0,545px)_minmax(0,310px)] max-lg:grid-cols-1">
+			<div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch">
 				{/* ── Left: stat table + pet panel ───────────────────────────────── */}
-				<div className="flex min-w-0 flex-col gap-2.5">
+				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-1">
 					<section className={cn(panelClass, 'gap-2.5')}>
 						<div className="flex items-center gap-3">
 							<div className="surface-pet grid size-16 shrink-0 place-items-center rounded-[16px] border border-line p-1.5">
@@ -286,8 +276,8 @@ export function PrepScreen() {
 					<PetPanel />
 				</div>
 
-				{/* ── Middle: pet stage + inventory ─────────────────────────────── */}
-				<div className="flex flex-col gap-2.5">
+				{/* ── Middle: pet stage + inventory (twice as wide as the sides) ── */}
+				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-[2]">
 					<section className="surface-stage relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-panel border border-line px-4 py-8">
 						<div className="surface-pet relative grid size-40 place-items-center rounded-full border-2 border-gold/40 p-6 leading-none shadow-[0_0_48px_rgb(217_162_39/25%)]">
 							<PetIcon petId={pet.id} emojiClass="text-[104px]" />
@@ -314,7 +304,7 @@ export function PrepScreen() {
 				</div>
 
 				{/* ── Right: loadout + next opponent ─────────────────────────────── */}
-				<div className="flex flex-col gap-2.5">
+				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-1">
 					<PetLoadoutPanel
 						held={heldInfo}
 						onItemClick={(item) => openItem(item.uid)}

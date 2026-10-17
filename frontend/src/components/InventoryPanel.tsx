@@ -42,7 +42,7 @@ export function InventoryPanel({
 	const sell = useGameStore((state) => state.sell)
 
 	return (
-		<section ref={onRef} className={cn(panelClass, 'w-fit gap-2.5 self-start')}>
+		<section ref={onRef} className={cn(panelClass, 'gap-2.5')}>
 			<div className={panelHeadClass}>
 				<h2 className={panelTitleClass}>Kho đồ</h2>
 				<span className="text-[11px] text-muted">{run.inventory.length} món · không giới hạn</span>

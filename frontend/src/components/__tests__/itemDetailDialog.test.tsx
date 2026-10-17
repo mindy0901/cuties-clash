@@ -40,15 +40,16 @@ describe('ItemDetailDialog', () => {
 		expect(screen.getByText('Đang mang')).toBeTruthy()
 	})
 
-	it('shows the description, damage and resale value per star', () => {
+	it('shows the damage and resale value per star, and no description line', () => {
 		reset([], [item('spear', 'fire-spear', 2, 8)])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
-		expect(screen.getByText(/Đâm 17 sát thương/)).toBeTruthy()
 		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
 		expect(screen.getByText('2★')).toBeTruthy()
 		// Paid 8 → resells for 4.
 		expect(screen.getByText(/4 🐾 \(hoàn 50%\)/)).toBeTruthy()
+		// An item has no description field any more — the numbers say everything.
+		expect(screen.queryByText(/Đâm 17 sát thương/)).toBeNull()
 	})
 
 	it('lists the bonus stats of an item with a passive', () => {

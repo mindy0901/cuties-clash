@@ -118,16 +118,6 @@ function perStarAura(values: unknown): (star: Star) => { target: AuraTarget; mod
 
 /** Lookup table: JSON data → the function `ItemTemplate` expects. */
 const ITEM_UNPACKERS: Record<string, (value: unknown) => unknown> = {
-	desc: (value) => {
-		if (
-			!Array.isArray(value) ||
-			value.length !== STAR_COUNT ||
-			!value.every((entry) => typeof entry === 'string')
-		) {
-			throw new Error(`desc: expected ${STAR_COUNT} strings`)
-		}
-		return perStar<string>(value)
-	},
 	damage: perStarNumber,
 	attackInterval: perStarNumber,
 	interval: perStarNumber,

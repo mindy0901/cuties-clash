@@ -111,7 +111,6 @@ export interface ItemTemplate {
 	attackInterval?: (star: Star) => number
 	/** Weapon damage per swing. */
 	damage?: (star: Star) => number
-	desc: (star: Star) => string
 	passive?: (star: Star) => StatMods
 	active?: (star: Star) => ActiveEffect[]
 	/** Activation interval for `active`, in ms. */

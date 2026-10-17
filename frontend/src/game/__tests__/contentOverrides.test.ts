@@ -36,12 +36,9 @@ describe('merging an overlay into a template', () => {
 		const merged = mergeItem(getTemplate('wooden-blade'), {
 			damage: [11, 22, 33, 44, 55],
 			attackInterval: [900, 800, 700, 600, 500],
-			desc: ['a', 'b', 'c', 'd', 'e'],
 		})
 		expect(STARS.map((star) => merged.damage!(star))).toEqual([11, 22, 33, 44, 55])
 		expect(STARS.map((star) => merged.attackInterval!(star))).toEqual([900, 800, 700, 600, 500])
-		expect(merged.desc(3 as Star)).toBe('c')
-		expect(merged.desc(5 as Star)).toBe('e')
 	})
 
 	it('rebuilds passive and aura per star', () => {

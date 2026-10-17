@@ -142,7 +142,7 @@ describe('editing content', () => {
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		for (const key of ['damage', 'attackInterval', 'desc']) {
+		for (const key of ['damage', 'attackInterval']) {
 			const controls = document.querySelectorAll(`[data-admin-field="${key}"]`)
 			expect(controls, `${key} must have one control per star`).toHaveLength(5)
 		}

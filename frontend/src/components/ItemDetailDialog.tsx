@@ -76,8 +76,6 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					</div>
 				</div>
 
-				<p className="m-0 text-[14px] leading-relaxed text-paper/90">{template.desc(item.star)}</p>
-
 				<div className={statGridClass}>
 					{damage !== undefined ? <Row label="Sát thương mỗi đòn" value={String(damage)} /> : null}
 					{swingMs !== undefined ? <Row label="Nhịp đánh" value={`${(swingMs / 1000).toFixed(1)}s`} /> : null}

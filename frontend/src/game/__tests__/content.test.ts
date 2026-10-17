@@ -12,7 +12,8 @@ describe('item catalogue', () => {
 		expect(new Set(ids).size).toBe(ids.length)
 		for (const template of ITEM_TEMPLATES) {
 			for (const star of STARS) {
-				expect(template.desc(star).length).toBeGreaterThan(0)
+				// Every price is a real number at every rank: a NaN would break the shop.
+				expect(Number.isFinite(starPrice(template.cost, star)), template.id).toBe(true)
 			}
 			if (template.attackInterval) expect(template.damage, template.id).toBeDefined()
 			if (template.active) expect(template.interval, template.id).toBeDefined()

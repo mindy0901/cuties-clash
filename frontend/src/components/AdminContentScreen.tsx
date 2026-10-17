@@ -38,7 +38,6 @@ type FieldKind =
 	| 'select'
 	| 'json'
 	| 'perStarNumber'
-	| 'perStarText'
 	| 'perStarJson'
 	| 'size'
 	| 'quality'
@@ -107,7 +106,6 @@ const ITEM_FIELDS: FieldDef[] = [
 		hint: 'một ảnh cho mỗi món — public/icons/items/<id>.png',
 	},
 	{ key: 'artExt', label: 'Đuôi art', kind: 'select', options: ART_EXT_OPTIONS },
-	{ key: 'desc', label: 'Mô tả', kind: 'perStarText', hint: 'một ô cho mỗi sao — ❌ không tự tính lại theo chỉ số' },
 	{ key: 'damage', label: 'Sát thương', kind: 'perStarNumber', min: 0, max: 100_000 },
 	{ key: 'attackInterval', label: 'Nhịp đánh (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
 	{ key: 'interval', label: 'Nhịp hiệu lực (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
@@ -156,10 +154,6 @@ function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
 		case 'perStarNumber': {
 			const source = (base as unknown as Record<string, ((star: Star) => number) | undefined>)[field.key]
 			return STARS.map((star) => (source ? String(source(star)) : ''))
-		}
-		case 'perStarText': {
-			const source = (base as unknown as Record<string, ((star: Star) => string) | undefined>)[field.key]
-			return STARS.map((star) => (source ? source(star) : ''))
 		}
 		case 'perStarJson': {
 			const source = (base as unknown as Record<string, ((star: Star) => unknown) | undefined>)[field.key]
@@ -254,9 +248,6 @@ function buildPayload(
 					payload[field.key] = STARS.map((rank, index) =>
 						numberValue(field, values[index] ?? '', rank),
 					)
-					break
-				case 'perStarText':
-					payload[field.key] = STARS.map((rank, index) => textValue(values[index] ?? '', rank))
 					break
 				case 'perStarJson':
 					payload[field.key] = STARS.map((rank, index) =>
@@ -731,9 +722,7 @@ function AdminContentEditor() {
 
 /** Whether a field edits a value per star rank and therefore needs a full-width row of controls. */
 function isPerStar(field: FieldDef): boolean {
-	return (
-		field.kind === 'perStarNumber' || field.kind === 'perStarText' || field.kind === 'perStarJson'
-	)
+	return field.kind === 'perStarNumber' || field.kind === 'perStarJson'
 }
 
 const inputClass = 'w-full rounded-lg border border-line bg-black/40 px-2 py-1.5 text-[13px]'
@@ -771,9 +760,9 @@ function FieldInput({
 								data-admin-field={field.key}
 								data-admin-star={star}
 								className={inputClass}
-								type={field.kind === 'perStarNumber' ? 'number' : 'text'}
-								min={field.kind === 'perStarNumber' ? field.min : undefined}
-								max={field.kind === 'perStarNumber' ? field.max : undefined}
+								type="number"
+								min={field.min}
+								max={field.max}
 								value={values[index] ?? ''}
 								onChange={(event) => onChange(index, event.target.value)}
 							/>

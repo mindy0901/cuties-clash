@@ -62,7 +62,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		space: { w: 1, h: 3 },
 		attackInterval: (star) => Math.round(1500 - 90 * (star - 1)),
 		damage: (star) => pick(star, [12, 20, 32, 50, 78]),
-		desc: (star) => `Chém ${pick(star, [12, 20, 32, 50, 78])} sát thương mỗi ${(1500 - 90 * (star - 1)) / 1000}s.`,
 	},
 	{
 		id: 'fire-spear',
@@ -76,8 +75,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		space: { w: 1, h: 4 },
 		attackInterval: (star) => Math.round(1400 - 90 * (star - 1)),
 		damage: (star) => pick(star, [10, 17, 28, 45, 72]),
-		desc: (star) =>
-			`Đâm ${pick(star, [10, 17, 28, 45, 72])} sát thương, 25% gây Cháy ${pick(star, [14, 22, 34, 52, 80])}/s trong 3s.`,
 		onHit: (star) => ({
 			chance: 0.25,
 			effects: [
@@ -104,8 +101,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		space: { w: 2, h: 1 },
 		attackInterval: (star) => Math.round(1300 - 70 * (star - 1)),
 		damage: (star) => pick(star, [14, 23, 38, 60, 95]),
-		desc: (star) =>
-			`Quạt ${pick(star, [14, 23, 38, 60, 95])} sát thương, 30% làm Chậm ${slowValue(star)}% trong 3s.`,
 		onHit: (star) => ({
 			chance: 0.3,
 			effects: [{ kind: 'status', status: 'slow', duration: 3000, value: slowValue(star), stacks: 1, target: 'enemy' }],
@@ -123,7 +118,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		space: { w: 1, h: 1 },
 		attackInterval: (star) => Math.round(950 - 50 * (star - 1)),
 		damage: (star) => pick(star, [8, 13, 21, 34, 55]),
-		desc: (star) => `Đâm nhanh, 45% gây Độc ${pick(star, [12, 19, 30, 48, 75])}/s trong 4s.`,
 		onHit: (star) => ({
 			chance: 0.45,
 			effects: [
@@ -150,7 +144,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		space: { w: 2, h: 3 },
 		attackInterval: (star) => Math.round(2300 - 140 * (star - 1)),
 		damage: (star) => pick(star, [34, 56, 92, 150, 245]),
-		desc: (star) => `Bổ chậm nhưng nặng ${pick(star, [34, 56, 92, 150, 245])} sát thương.`,
 	},
 	{
 		id: 'twin-claws',
@@ -164,8 +157,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		space: { w: 2, h: 1 },
 		attackInterval: (star) => Math.round(750 - 40 * (star - 1)),
 		damage: (star) => pick(star, [9, 15, 24, 39, 63]),
-		desc: (star) =>
-			`Cào liên tục ${pick(star, [9, 15, 24, 39, 63])} sát thương, cộng +${pick(star, [4, 7, 11, 17, 27])}% tốc đánh.`,
 		passive: (star) => ({ haste: pick(star, [4, 7, 11, 17, 27]) }),
 	},
 
@@ -180,7 +171,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 3,
 		space: { w: 2, h: 2 },
-		desc: (star) => `Giáp khởi đầu ${pick(star, [180, 240, 300, 450, 675])}.`,
 		passive: (star) => ({ shield: pick(star, [180, 240, 300, 450, 675]) }),
 	},
 	{
@@ -193,8 +183,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 5,
 		space: { w: 2, h: 2 },
-		desc: (star) =>
-			`Giáp ${pick(star, [240, 340, 460, 700, 1050])}, giảm ${pick(star, [3, 5, 7, 10, 15])}% sát thương.`,
 		passive: (star) => ({ shield: pick(star, [240, 340, 460, 700, 1050]), dr: pick(star, [3, 5, 7, 10, 15]) }),
 	},
 	{
@@ -207,8 +195,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 8,
 		space: { w: 2, h: 3 },
-		desc: (star) =>
-			`Giáp ${pick(star, [320, 470, 660, 980, 1450])}, giảm ${pick(star, [6, 9, 12, 16, 22])}% sát thương.`,
 		passive: (star) => ({ shield: pick(star, [320, 470, 660, 980, 1450]), dr: pick(star, [6, 9, 12, 16, 22]) }),
 	},
 
@@ -223,7 +209,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 1 },
-		desc: (star) => `+${pick(star, [6, 10, 16, 26, 42])} sát thương cho mọi đòn đánh.`,
 		passive: (star) => ({ atk: pick(star, [6, 10, 16, 26, 42]) }),
 	},
 	{
@@ -236,7 +221,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 1 },
-		desc: (star) => `+${pick(star, [8, 12, 17, 24, 34])}% tốc độ đánh.`,
 		passive: (star) => ({ haste: pick(star, [8, 12, 17, 24, 34]) }),
 	},
 	{
@@ -249,7 +233,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
-		desc: (star) => `+${pick(star, [8, 12, 18, 25, 35])}% tỉ lệ chí mạng (×1.8 sát thương).`,
 		passive: (star) => ({ critRate: pick(star, [8, 12, 18, 25, 35]) }),
 	},
 	{
@@ -262,7 +245,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 1 },
-		desc: (star) => `Hút ${pick(star, [6, 9, 13, 18, 25])}% sát thương gây ra thành máu.`,
 		passive: (star) => ({ lifesteal: pick(star, [6, 9, 13, 18, 25]) }),
 	},
 	{
@@ -275,7 +257,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 7,
 		space: { w: 1, h: 1 },
-		desc: (star) => `Giảm ${pick(star, [5, 8, 11, 15, 21])}% sát thương nhận vào.`,
 		passive: (star) => ({ dr: pick(star, [5, 8, 11, 15, 21]) }),
 	},
 	{
@@ -288,8 +269,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
-		desc: (star) =>
-			`+${pick(star, [3, 5, 8, 12, 19])} Kiếm Thế/s và +${pick(star, [5, 8, 12, 18, 27])}% tỉ lệ Chấn Đao.`,
 		passive: (star) => ({
 			seRegen: pick(star, [3, 5, 8, 12, 19]),
 			counterChance: pick(star, [5, 8, 12, 18, 27]),
@@ -307,7 +286,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 6,
 		space: { w: 2, h: 2 },
-		desc: (star) => `Hào khí: vũ khí LIỀN KỀ +${pick(star, [10, 15, 22, 32, 48])}% sát thương.`,
 		aura: (star) => ({ target: 'adjacentWeapon', mods: { atkPct: pick(star, [10, 15, 22, 32, 48]) } }),
 	},
 	{
@@ -320,7 +298,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 4,
 		space: { w: 1, h: 2 },
-		desc: (star) => `Mỗi ${(9000 - 700 * (star - 1)) / 1000}s tạo khiên ${pick(star, [60, 100, 160, 260, 420])}.`,
 		interval: (star) => 9000 - 700 * (star - 1),
 		active: (star) => [{ kind: 'shield', amount: pick(star, [60, 100, 160, 260, 420]) }],
 	},
@@ -334,7 +311,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 2 },
-		desc: (star) => `Mỗi ${(9500 - 900 * (star - 1)) / 1000}s cắn ${pick(star, [22, 36, 58, 94, 150])} sát thương.`,
 		interval: (star) => 9500 - 900 * (star - 1),
 		active: (star) => [{ kind: 'damage', amount: pick(star, [22, 36, 58, 94, 150]) }],
 	},
@@ -348,8 +324,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
-		desc: (star) =>
-			`Mỗi ${(7500 - 600 * (star - 1)) / 1000}s tẩm Độc ${pick(star, [35, 55, 85, 135, 215])}/s trong 4s.`,
 		interval: (star) => 7500 - 600 * (star - 1),
 		active: (star) => [
 			{
@@ -372,8 +346,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 1 },
-		desc: (star) =>
-			`Mỗi ${(8500 - 700 * (star - 1)) / 1000}s nổi cuồng phong: +${pick(star, [20, 26, 33, 42, 54])}% tốc đánh 4s.`,
 		interval: (star) => 8500 - 700 * (star - 1),
 		active: (star) => [
 			{
@@ -396,8 +368,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 8,
 		space: { w: 2, h: 2 },
-		desc: (star) =>
-			`Mỗi ${(9500 - 800 * (star - 1)) / 1000}s: bản thân + vật phẩm LIỀN KỀ được Giải Chậm/Đóng Băng, hồi ${pick(star, [15, 25, 40, 65, 105])} máu.`,
 		interval: (star) => 9500 - 800 * (star - 1),
 		passive: (star) => ({ dr: pick(star, [2, 3, 4, 6, 9]) }),
 		active: (star) => [
@@ -415,8 +385,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 7,
 		space: { w: 1, h: 1 },
-		desc: (star) =>
-			`Mỗi ${(11000 - 800 * (star - 1)) / 1000}s Đóng Băng địch ${(1 + 0.15 * (star - 1)).toFixed(2)}s và gây ${pick(star, [15, 25, 40, 65, 105])} sát thương.`,
 		interval: (star) => 11000 - 800 * (star - 1),
 		active: (star) => [
 			{ kind: 'damage', amount: pick(star, [15, 25, 40, 65, 105]) },
@@ -440,8 +408,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 7,
 		space: { w: 1, h: 2 },
-		desc: (star) =>
-			`Mỗi ${(9000 - 700 * (star - 1)) / 1000}s phản chiếu 1 đòn (${pick(star, [100, 130, 170, 220, 290])}% sát thương vũ khí) và làm Giòn địch 5s.`,
 		interval: (star) => 9000 - 700 * (star - 1),
 		active: (star) => [
 			{ kind: 'damage', amount: 0, atkScale: pick(star, [1, 1.3, 1.7, 2.2, 2.9]) },
@@ -458,7 +424,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 7,
 		space: { w: 2, h: 1 },
-		desc: (star) => `Vật phẩm LIỀN KỀ (không phải vũ khí) +${pick(star, [25, 45, 75, 120, 195])} máu tối đa.`,
 		aura: (star) => ({ target: 'adjacentNonWeapon', mods: { maxHp: pick(star, [25, 45, 75, 120, 195]) } }),
 	},
 
@@ -473,7 +438,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 1 },
-		desc: (star) => `Mỗi ${(6500 - 500 * (star - 1)) / 1000}s hồi ${pick(star, [40, 70, 115, 185, 300])} máu.`,
 		interval: (star) => 6500 - 500 * (star - 1),
 		active: (star) => [{ kind: 'heal', amount: pick(star, [40, 70, 115, 185, 300]) }],
 	},
@@ -487,7 +451,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 5,
 		space: { w: 1, h: 1 },
-		desc: (star) => `Mỗi ${(10000 - 700 * (star - 1)) / 1000}s nạp ${pick(star, [25, 40, 60, 90, 135])} Kiếm Thế.`,
 		interval: (star) => 10000 - 700 * (star - 1),
 		active: (star) => [{ kind: 'swordEnergy', amount: pick(star, [25, 40, 60, 90, 135]) }],
 	},
@@ -501,8 +464,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 6,
 		space: { w: 1, h: 2 },
-		desc: (star) =>
-			`Mỗi ${(9000 - 700 * (star - 1)) / 1000}s tạo khiên ${pick(star, [80, 130, 210, 330, 510])} và hồi máu ${pick(star, [10, 18, 30, 50, 80])}/s trong 4s.`,
 		interval: (star) => 9000 - 700 * (star - 1),
 		active: (star) => [
 			{ kind: 'shield', amount: pick(star, [80, 130, 210, 330, 510]) },

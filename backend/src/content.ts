@@ -161,9 +161,6 @@ const ITEM_FIELDS: Record<string, FieldCheck> = {
 	/** One art per item: `public/icons/items/<id>.<ext>` — art files are never per star rank. */
 	art: asBoolean,
 	artExt: (field, value) => asOneOf(field, value, ART_EXTS),
-	/** Description per star — 5 strings. */
-	desc: (field, value) =>
-		asPerStar(field, value, (index, raw) => asString(`${field}[${index}★]`, raw, 300)),
 	damage: (field, value) =>
 		asPerStar(field, value, (index, raw) => asNumber(`${field}[${index}★]`, raw, 0, 100_000)),
 	attackInterval: (field, value) =>

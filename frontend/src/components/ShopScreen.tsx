@@ -110,7 +110,6 @@ export function ShopScreen() {
 											{size.w}×{size.h} ô
 										</span>
 									</div>
-									<p className="m-0 mt-1 text-[12.5px] text-muted">{template.desc(offer.star)}</p>
 								</div>
 							</div>
 

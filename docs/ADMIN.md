@@ -26,17 +26,18 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `artExt`, `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
+| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `artExt`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
 | **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in
-`game/items.ts`.
+`game/items.ts`. An item has **no description field**: nothing on the shop card or the detail
+dialog reads one, so the five text boxes that used to hold it were removed.
 
 ### Inputs, field by field
 
 | Field | Control |
 | --- | --- |
-| `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a text input for `desc`, a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
+| `damage`, `attackInterval`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
 | `art` (one picture per item) | a **có/không select** — the file is `public/icons/items/<id>.<ext>`, ❌ art is not per star rank |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |

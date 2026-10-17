@@ -5,9 +5,9 @@ import { storageShape, repairStorageSlots } from '../game/storage'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { RotateCcw, X } from './icons'
-import { ItemIcon } from './ItemIcon'
+import { ItemTile } from './ItemTile'
 import type { HeldItem } from './useHeldItem'
-import { ITEM_STAR_TEXT, cn, iconButtonClass, itemTileClass } from './ui'
+import { iconButtonClass, cn } from './ui'
 
 export interface InventoryGridProps {
 	items: ItemInstance[]
@@ -68,26 +68,10 @@ export function InventoryGrid({
 					draggable={false}
 					data-inv-tile={item.uid}
 					{...box.buttonProps}
-					className={cn(
-						'surface-item relative flex size-full cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-line p-1 text-center select-none',
-						itemTileClass(template.cls, template.quality),
-					)}
+					className="relative block size-full cursor-pointer"
 					title={`${template.name} ${size.w}×${size.h}`}
-					data-item-quality={template.quality}
 				>
-					<span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-						<ItemIcon templateId={item.templateId} />
-					</span>
-					{/* Same as `LoadoutGrid`: stars under the picture, name in the tooltip. */}
-					<span
-						data-item-stars={item.star}
-						className={cn(
-							'shrink-0 text-[10px] leading-none tracking-[-1px] whitespace-nowrap drop-shadow-[0_1px_1px_rgb(0_0_0/70%)]',
-							ITEM_STAR_TEXT[item.star],
-						)}
-					>
-						{'★'.repeat(item.star)}
-					</span>
+					<ItemTile templateId={item.templateId} star={item.star} />
 					{onRotate || onSell ? (
 						<span className="absolute right-0.5 bottom-0.5 flex gap-1 opacity-0 transition-opacity duration-100 group-hover/inv:opacity-100">
 							{onRotate ? (

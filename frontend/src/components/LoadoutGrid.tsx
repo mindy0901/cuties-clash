@@ -3,9 +3,9 @@ import { getTemplate } from '../game/items'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { RotateCcw, X } from './icons'
-import { ItemIcon } from './ItemIcon'
+import { ItemTile } from './ItemTile'
 import type { HeldItem } from './useHeldItem'
-import { ITEM_STAR_TEXT, cn, iconButtonClass, itemTileClass } from './ui'
+import { cn, iconButtonClass } from './ui'
 
 /** Number of columns of the loadout board in the preparation room. */
 export const LOADOUT_WIDTH = 4
@@ -69,27 +69,10 @@ export function LoadoutGrid({
 					type="button"
 					draggable={false}
 					{...box.buttonProps}
-					className={cn(
-						'surface-item relative flex size-full flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-line p-1 text-center select-none',
-						interactive && 'cursor-pointer',
-						itemTileClass(template.cls, template.quality),
-					)}
+					className={cn('relative block size-full', interactive && 'cursor-pointer')}
 					title={`${template.name} ${size.w}×${size.h}`}
-					data-item-quality={template.quality}
 				>
-					<span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-						<ItemIcon templateId={item.templateId} artSrc={artSrc} />
-					</span>
-					{/* Stars take the line under the picture; the name lives in the `title` tooltip. */}
-					<span
-						data-item-stars={item.star}
-						className={cn(
-							'shrink-0 text-[10px] leading-none tracking-[-1px] whitespace-nowrap drop-shadow-[0_1px_1px_rgb(0_0_0/70%)]',
-							ITEM_STAR_TEXT[item.star],
-						)}
-					>
-						{'★'.repeat(item.star)}
-					</span>
+					<ItemTile templateId={item.templateId} star={item.star} artSrc={artSrc} />
 					{interactive && (onRotate || onSell) ? (
 						<span className="absolute right-0.5 bottom-0.5 flex gap-1 opacity-0 transition-opacity duration-100 group-hover/slot:opacity-100">
 							{onRotate ? (

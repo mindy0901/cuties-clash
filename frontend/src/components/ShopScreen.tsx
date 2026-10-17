@@ -1,13 +1,13 @@
 import { useNavigate } from '@tanstack/react-router'
 import { estimatePower } from '../game/build'
 import { REROLL_COST, SHOP_SIZE } from '../game/economy'
-import { CLASS_LABELS, QUALITY_LABELS, getTemplate, starLabel } from '../game/items'
+import { CLASS_LABELS, QUALITY_LABELS, getTemplate } from '../game/items'
 import { MAX_PET_LEVEL, getPet } from '../game/pets'
 import { getStage } from '../game/stages'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
-import { ItemIcon } from './ItemIcon'
+import { ItemGridPreview } from './ArtPreview'
 import { Dices, Paw } from './icons'
-import { ITEM_STAR_TEXT, btnClass, btnGoldClass, btnSmClass, cn, itemTileClass, panelClass, panelHeadClass, panelTitleClass } from './ui'
+import { btnClass, btnGoldClass, btnSmClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
 
 /**
  * The dedicated shop page (`/shop`).
@@ -67,7 +67,9 @@ export function ShopScreen() {
 				</div>
 			</section>
 
-			<div className="grid gap-2.5 lg:grid-cols-2">
+			{/* `items-start`: a card is as tall as its own tile — a 1×1 item must not inherit the height of the
+			    1×4 spear beside it, leaving a band of empty panel. */}
+			<div className="grid items-start gap-2.5 lg:grid-cols-2">
 				{run.shop.map((offer, index) => {
 					const template = getTemplate(offer.templateId)
 					const affordable = run.currency >= offer.cost
@@ -82,25 +84,11 @@ export function ShopScreen() {
 							)}
 						>
 							<div className="flex items-start gap-3">
-								<div
-									className={cn(
-										'surface-item grid size-14 shrink-0 place-items-center rounded-[10px] border p-1',
-										itemTileClass(template.cls, template.quality),
-									)}
-								>
-									<ItemIcon templateId={offer.templateId} emojiClass="text-3xl" />
-								</div>
+								{/* The tile the player already knows from the bag — shape, colours and stars. */}
+								<ItemGridPreview templateId={offer.templateId} star={offer.star} cellSize={36} bare />
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-1.5 font-semibold">
 										{template.name}
-										<span
-											className={cn(
-												'rounded-md border border-line px-1.5 py-px text-[11px]',
-												ITEM_STAR_TEXT[offer.star],
-											)}
-										>
-											{starLabel(offer.star)}
-										</span>
 										<span className="rounded-md border border-line px-1.5 py-px text-[11px] text-muted">
 											{CLASS_LABELS[template.cls]}
 										</span>

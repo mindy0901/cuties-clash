@@ -45,7 +45,8 @@ describe('ItemDetailDialog', () => {
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
 		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
-		expect(screen.getByText('2★')).toBeTruthy()
+		// The rank is drawn on the tile, the same way the bag draws it — no separate "2★" label.
+		expect(document.querySelector('[data-item-quality] [data-item-stars="2"]')).toBeTruthy()
 		// Speed is the design value (attacks per second), so the player also gets the swing time.
 		expect(screen.getByText('Tốc độ đánh')).toBeTruthy()
 		expect(screen.getByText('0.76 đòn/giây')).toBeTruthy()

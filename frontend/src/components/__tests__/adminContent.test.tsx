@@ -598,7 +598,7 @@ describe('importing a picture', () => {
 		// The preview is the game's own board: a real item box with the tile classes.
 		const box = preview.querySelector('[data-item-box]')
 		expect(box, 'the preview must be a real grid tile').toBeTruthy()
-		const tile = box!.querySelector('button')
+		const tile = box!.querySelector('[data-item-quality]')
 		expect(tile?.className).toContain('surface-item')
 		expect(tile?.className).toContain('bg-rank-1') // Đao Gỗ is quality 1 → silver tile
 		expect(tile?.querySelector('img')?.getAttribute('src')).toBe('/icons/items/wooden-blade.png')

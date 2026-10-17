@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
 import { sellValue, templateFootprint } from '../game/bag'
-import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starLabel, starPrice, swingMs } from '../game/items'
+import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starPrice, swingMs } from '../game/items'
 import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
-import { ArtIcon } from './ArtIcon'
-import { itemArtSrc } from '../game/art'
+import { ItemGridPreview } from './ArtPreview'
 import { Cost } from './icons'
-import { ITEM_STAR_TEXT, btnClass, btnSmClass, cn, dialogClass, itemTileClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
+import { btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
 
 /**
  * **Item details** — opened by **clicking** an item in the inventory or the loadout.
@@ -48,27 +47,18 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					</button>
 				</div>
 
-				<div className="flex items-center gap-3.5">
-					<div
-						className={cn(
-							'surface-item grid size-20 shrink-0 place-items-center rounded-[14px] border p-2',
-							itemTileClass(template.cls, template.quality),
-						)}
-					>
-						<ArtIcon
-							src={itemArtSrc(item.templateId)}
-							emoji={template.icon}
-							emojiClass="text-4xl"
-							alt={template.name}
-						/>
-					</div>
+				<div className="flex items-start gap-3.5">
+					{/* The bag's own tile — a square thumbnail squeezed a 1×3 sword into a box. */}
+					<ItemGridPreview
+						templateId={item.templateId}
+						star={item.star}
+						rotated={item.rotated}
+						cellSize={44}
+						bare
+					/>
 					<div className="min-w-0">
-						<div className="flex items-baseline gap-2">
-							<span className="text-[20px] font-semibold">{template.name}</span>
-							<span className={cn('font-semibold', ITEM_STAR_TEXT[item.star])}>
-								{starLabel(item.star)}
-							</span>
-						</div>
+						{/* The tile beside it already shows the rank as stars — ❌ no second "2★" label. */}
+						<span className="text-[20px] font-semibold">{template.name}</span>
 						<div className="mt-1 flex flex-wrap items-center gap-1.5">
 							<span className={tagClass}>{CLASS_LABELS[template.cls]}</span>
 							<span className={tagClass}>

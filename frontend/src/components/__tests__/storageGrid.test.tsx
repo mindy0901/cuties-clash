@@ -246,13 +246,19 @@ describe('moving items between the inventory and the loadout cell by cell', () =
 })
 
 describe('the tile background follows the item quality', () => {
-	/** Tile button of an item (both boards draw the same component). */
+	/**
+	 * The tile itself — both boards draw the same `ItemTile`.
+	 *
+	 * ⚠️ The button is only the hit area now: the quality background and the class border live on the
+	 * tile inside it, so the shop card and the dialog can draw the very same element.
+	 */
 	function anyTile(uid: string): HTMLElement {
-		const found = document.querySelector<HTMLElement>(
+		const button = document.querySelector<HTMLElement>(
 			`button[data-inv-tile="${uid}"], [data-item-box="${uid}"] button`,
 		)
-		if (!found) throw new Error(`tile ${uid} not found`)
-		return found
+		const tile = button?.querySelector<HTMLElement>('[data-item-quality]')
+		if (!tile) throw new Error(`tile ${uid} not found`)
+		return tile
 	}
 
 	it('paints silver for quality 1 and gold-orange for quality 5', () => {

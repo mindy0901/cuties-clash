@@ -299,4 +299,47 @@ describe('importing a picture', () => {
 		await waitFor(() => expect(deletes).toHaveLength(1))
 		expect(deletes[0]).toContain('/api/admin/content/item/wooden-blade/art')
 	})
+
+	it('previews the picture inside the real grid tile, not a bare box', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const preview = document.querySelector('[data-admin-art-preview]')!
+		// The preview is the game's own board: a real item box with the tile classes.
+		const box = preview.querySelector('[data-item-box]')
+		expect(box, 'the preview must be a real grid tile').toBeTruthy()
+		const tile = box!.querySelector('button')
+		expect(tile?.className).toContain('surface-item')
+		expect(tile?.className).toContain('bg-rank-1') // Đao Gỗ is quality 1 → silver tile
+		expect(tile?.querySelector('img')?.getAttribute('src')).toBe('/icons/items/wooden-blade.png')
+		// The board is exactly the item's footprint (Đao Gỗ is 1×3) — no empty cells around it.
+		expect(preview.querySelectorAll('[data-cell]')).toHaveLength(3)
+		expect(preview.querySelectorAll('[data-cell]').length).toBe(1 * 3)
+	})
+
+	it('lets the editor preview every star colour', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const stars = () => document.querySelector('[data-admin-art-preview] [data-item-stars]')
+		expect(stars()?.textContent, '1★ by default').toBe('★')
+		expect(stars()?.className).toContain('text-rank-1')
+
+		fireEvent.click(document.querySelector('[data-admin-preview-star="5"]')!)
+		expect(stars()?.textContent).toBe('★★★★★')
+		expect(stars()?.className).toContain('text-rank-5')
+	})
+
+	it('previews a pet in the pet cell used by the pet panel', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(screen.getByRole('button', { name: 'Thú cưng' }))
+		await waitFor(() => {
+			expect(document.querySelector('[data-admin-art-preview] [data-pet-tile]')).toBeTruthy()
+		})
+	})
 })

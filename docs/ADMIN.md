@@ -94,6 +94,24 @@ Removing a picture (↺ **Bỏ ảnh đã tải**) puts the entity back on its b
 ⚠️ The server only checks that the bytes really are a **square PNG from 32 to 512 px, at most
 512 KB** — it holds no image processing and no game rules. A non-PNG arrives as `400 invalid_art`.
 
+### Previewing
+
+The picture is always shown **where it will appear**, never as a bare thumbnail:
+
+- an **item** → the game's own grid tile (`ArtPreview` → `LoadoutGrid`): real cell size, the quality
+  background, the class border, the star row and the name. The board is exactly the item's
+  **footprint** (a 2×3 great sabre → a 2-column × 3-row board, a 1×3 sword → a 1×3 strip), so the
+  preview shows **the weapon and the cells it takes — ❌ no empty cells around it**;
+- a **pet** → the square pet cell used by the pet panel (`PetTile`).
+
+The row **Xem ở 1★ … 5★** switches the star rank, so you can check that the art still reads against
+every star colour. The crop dialog shows the same preview **live** (debounced) before you save, so a
+bad crop is caught without uploading anything.
+
+⚠️ The preview draws through the real components on purpose — a look-alike box hides exactly what can
+go wrong (a picture that clashes with the quality tint, stars lost against a bright picture, an item
+that does not fit its footprint).
+
 ## How it is stored (fields)
 
 - `GET /api/content` — public overlay for the game client: `{ items: {id: payload}, pets: {…} }`.

@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useAdminContent, useDeleteArt, useResetContent, useSaveContent, useSessionState, useUploadArt } from '../api/queries'
 import { ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, starLabel } from '../game/items'
-import { itemArtSrc, petArtSrc } from '../game/art'
 import { PETS, getPet } from '../game/pets'
 import type { ItemTemplate, PetDef, Quality, Star } from '../game/types'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
-import { ArtIcon } from './ArtIcon'
+import { ArtPreview } from './ArtPreview'
 import { ArtImportDialog } from './ArtImportDialog'
 import {
 	ITEM_QUALITY_SWATCH,
+	ITEM_STAR_TEXT,
 	btnClass,
 	btnGoldClass,
 	btnSmClass,
@@ -342,6 +342,8 @@ function AdminContentEditor() {
 	const pushToast = useGameStore((state) => state.pushToast)
 	const bumpContent = useUiStore((state) => state.bumpContent)
 	const [importOpen, setImportOpen] = useState(false)
+	/** Star rank the picture is previewed at — the art is the same, the stars only change colour. */
+	const [previewStar, setPreviewStar] = useState<Star>(1)
 
 	const ids = useMemo(
 		() => (kind === 'item' ? ITEM_TEMPLATES.map((template) => template.id) : PETS.map((pet) => pet.id)),
@@ -529,58 +531,75 @@ function AdminContentEditor() {
 						) : null}
 					</div>
 
-					{/* Picture: one per entity, uploaded and cropped in the browser. */}
-					<div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-line bg-black/25 p-2.5">
-						<div className="grid size-16 shrink-0 place-items-center rounded-[10px] border border-line bg-ink-700 p-1">
-							<ArtIcon
-								src={kind === 'item' ? itemArtSrc(activeId) : petArtSrc(activeId)}
-								emoji={kind === 'item' ? (ITEM_BY_ID[activeId]?.icon ?? '❔') : getPet(activeId).icon}
-								emojiClass="text-3xl"
-								alt="Ảnh hiện tại"
-							/>
-						</div>
-						<div className="flex min-w-0 flex-1 flex-col gap-1">
-							<div className="flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									data-admin-import-art
-									className={cn(btnClass, btnSmClass, btnGoldClass)}
-									onClick={() => setImportOpen(true)}
-									disabled={uploadArt.isPending || deleteArt.isPending}
-								>
-									🖼️ Tải ảnh lên
-								</button>
-								{artRow ? (
+					{/* Picture: one per entity, previewed **in the real grid tile** so it can be judged in context. */}
+					<div className="flex flex-col gap-2 rounded-[10px] border border-line bg-black/25 p-2.5">
+						<div className="flex flex-wrap items-start gap-3">
+							<div data-admin-art-preview className="shrink-0">
+								<ArtPreview kind={kind} id={activeId} star={previewStar} />
+							</div>
+							<div className="flex min-w-0 flex-1 flex-col gap-1.5">
+								<div className="flex flex-wrap items-center gap-2">
 									<button
 										type="button"
-										data-admin-remove-art
-										className={cn(btnClass, btnSmClass)}
-										onClick={() => {
-											deleteArt.mutate(
-												{ kind, id: activeId },
-												{
-													onSuccess: () => {
-														bumpContent()
-														pushToast(`Đã bỏ ảnh tải lên của "${activeId}"`, 'good')
-													},
-													onError: (error) =>
-														setMessage({ text: error.message, bad: true }),
-												},
-											)
-										}}
+										data-admin-import-art
+										className={cn(btnClass, btnSmClass, btnGoldClass)}
+										onClick={() => setImportOpen(true)}
 										disabled={uploadArt.isPending || deleteArt.isPending}
 									>
-										↺ Bỏ ảnh đã tải
+										🖼️ Tải ảnh lên
 									</button>
-								) : null}
+									{artRow ? (
+										<button
+											type="button"
+											data-admin-remove-art
+											className={cn(btnClass, btnSmClass)}
+											onClick={() => {
+												deleteArt.mutate(
+													{ kind, id: activeId },
+													{
+														onSuccess: () => {
+															bumpContent()
+															pushToast(`Đã bỏ ảnh tải lên của "${activeId}"`, 'good')
+														},
+														onError: (error) =>
+															setMessage({ text: error.message, bad: true }),
+													},
+												)
+											}}
+											disabled={uploadArt.isPending || deleteArt.isPending}
+										>
+											↺ Bỏ ảnh đã tải
+										</button>
+									) : null}
+								</div>
+								<span className="text-[11.5px] text-muted">
+									{artRow
+										? `Ảnh tải lên · ${artRow.width}×${artRow.height} · v${artRow.version} · ${
+												artRow.updatedBy ?? '—'
+											}`
+										: 'Đang dùng ảnh đóng gói sẵn (hoặc emoji). Ảnh tải lên được cắt vuông 256×256, giữ nền trong suốt.'}
+								</span>
+								{/* Star rank only recolours the stars and adds more of them — check that the art still reads. */}
+								<div className="flex flex-wrap items-center gap-1">
+									<span className="mr-1 text-[11.5px] text-muted">Xem ở</span>
+									{STARS.map((rank) => (
+										<button
+											key={rank}
+											type="button"
+											data-admin-preview-star={rank}
+											className={cn(
+												btnClass,
+												btnSmClass,
+												'px-2 py-0.5 text-[11.5px]',
+												rank === previewStar && btnGoldClass,
+											)}
+											onClick={() => setPreviewStar(rank)}
+										>
+											<span className={ITEM_STAR_TEXT[rank]}>{starLabel(rank)}</span>
+										</button>
+									))}
+								</div>
 							</div>
-							<span className="text-[11.5px] text-muted">
-								{artRow
-									? `Ảnh tải lên · ${artRow.width}×${artRow.height} · v${artRow.version} · ${
-											artRow.updatedBy ?? '—'
-										}`
-									: 'Đang dùng ảnh đóng gói sẵn (hoặc emoji). Ảnh tải lên được cắt vuông 256×256, giữ nền trong suốt.'}
-							</span>
 						</div>
 					</div>
 
@@ -657,6 +676,9 @@ function AdminContentEditor() {
 			{importOpen ? (
 				<ArtImportDialog
 					entityName={kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name}
+					kind={kind}
+					entityId={activeId}
+					star={previewStar}
 					onCancel={() => setImportOpen(false)}
 					onSave={async (png) => {
 						await uploadArt.mutateAsync({ kind, id: activeId, png })

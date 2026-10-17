@@ -9,20 +9,26 @@ import { cn } from './ui'
  *
  * ⚠️ **One art per item**, so the star rank is not a parameter: upgrading an item only adds stars
  * and changes their colour on the tile, it never swaps the picture (see `docs/ASSETS.md`).
+ *
+ * `artSrc` overrides the picture — the admin page uses it to preview an image **before** it is
+ * saved, through the very same tile as the game.
  */
 export function ItemIcon({
 	templateId,
+	artSrc,
 	emojiClass = 'text-[22px]',
 	className,
 }: {
 	templateId: string
+	/** Explicit picture to draw instead of the item's own (`null` = no art, use the emoji). */
+	artSrc?: string | null
 	emojiClass?: string
 	className?: string
 }) {
 	const template = getTemplate(templateId)
 	return (
 		<ArtIcon
-			src={itemArtSrc(templateId)}
+			src={artSrc === undefined ? itemArtSrc(templateId) : artSrc}
 			emoji={template.icon}
 			emojiClass={emojiClass}
 			className={cn('pointer-events-none', className)}
@@ -34,15 +40,26 @@ export function ItemIcon({
 /** Pet icon. */
 export function PetIcon({
 	petId,
+	artSrc,
 	emojiClass = 'text-[22px]',
 	className,
 }: {
 	petId: string
+	/** Explicit picture to draw instead of the pet's own. */
+	artSrc?: string | null
 	emojiClass?: string
 	className?: string
 }) {
 	const pet = getPet(petId)
-	return <ArtIcon src={petArtSrc(petId)} emoji={pet.icon} emojiClass={emojiClass} className={className} alt={pet.name} />
+	return (
+		<ArtIcon
+			src={artSrc === undefined ? petArtSrc(petId) : artSrc}
+			emoji={pet.icon}
+			emojiClass={emojiClass}
+			className={className}
+			alt={pet.name}
+		/>
+	)
 }
 
 /** Pet skill icon. */

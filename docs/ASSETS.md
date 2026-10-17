@@ -98,7 +98,8 @@ draws **more stars** on the tile and **recolours** them (`ITEM_STAR_TEXT`, silve
 
 **Uploaded pictures win over these files.** The admin page can import a picture per item/pet (cropped
 to a 256×256 PNG in the browser, stored in Postgres) — `itemArtSrc`/`petArtSrc` return
-**uploaded → bundled → emoji**. See [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
+**uploaded → bundled → emoji**. The admin page previews the picture **inside the real grid tile or pet
+cell**, at any star rank — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
 
 ❌ The old mechanism used one file per star rank (`<id>-1.png` … `<id>-4.png`, a different material
 tier per rank). It turned a single weapon into four unrelated pictures and left 5★ with no picture

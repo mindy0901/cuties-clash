@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
+import type { Star } from '../game/types'
+import { ArtPreview } from './ArtPreview'
 import { ART_SIZE, croppedPng } from './cropImage'
 import { btnClass, btnGoldClass, btnSmClass, cn, dialogClass, hintClass, overlayClass, rowClass } from './ui'
 
@@ -9,6 +11,11 @@ const MAX_SOURCE_BYTES = 10 * 1024 * 1024
 export interface ArtImportDialogProps {
 	/** Human name of the item/pet, shown in the title. */
 	entityName: string
+	/** Which entity this picture is for — the preview draws the real tile / pet cell. */
+	kind: 'item' | 'pet'
+	entityId: string
+	/** Star rank to preview at (only changes the star colour). */
+	star: Star
 	/** Called with the finished square PNG. Resolving closes the dialog. */
 	onSave: (png: Blob) => Promise<void>
 	onCancel: () => void
@@ -22,24 +29,54 @@ export interface ArtImportDialogProps {
  * even on a high-DPI screen.
  *
  * ⚠️ The chosen file is never uploaded as-is — only the cropped PNG leaves the browser.
+ *
+ * ⚠️ The preview is drawn through the **real** tile (`ArtPreview` → the game's own grid/pet cell), so
+ * what you see is exactly what lands in the shop and the loadout grid.
  */
-export function ArtImportDialog({ entityName, onSave, onCancel }: ArtImportDialogProps) {
+export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCancel }: ArtImportDialogProps) {
 	const [source, setSource] = useState<{ url: string; name: string } | null>(null)
 	const [crop, setCrop] = useState({ x: 0, y: 0 })
 	const [zoom, setZoom] = useState(1)
 	const [rotation, setRotation] = useState(0)
 	const [area, setArea] = useState<Area | null>(null)
+	const [preview, setPreview] = useState<string | null>(null)
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const objectUrl = useRef<string | null>(null)
+	const previewUrl = useRef<string | null>(null)
 
 	// Object URLs keep the file in memory until they are revoked.
 	useEffect(
 		() => () => {
 			if (objectUrl.current) URL.revokeObjectURL(objectUrl.current)
+			if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
 		},
 		[],
 	)
+
+	/**
+	 * Live preview: crop into a throw-away canvas shortly after the drag/zoom settles.
+	 *
+	 * Debounced because `onCropComplete` fires on every mouse move — cropping 256 px per frame would
+	 * make dragging stutter.
+	 */
+	useEffect(() => {
+		if (!source || !area) return
+		const timer = setTimeout(() => {
+			void (async () => {
+				try {
+					const png = await croppedPng(source.url, area, { rotation, size: ART_SIZE })
+					if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+					const url = URL.createObjectURL(png)
+					previewUrl.current = url
+					setPreview(url)
+				} catch {
+					// No canvas (jsdom) or a broken file — the preview simply does not update.
+				}
+			})()
+		}, 140)
+		return () => clearTimeout(timer)
+	}, [source, area, rotation])
 
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
@@ -57,6 +94,10 @@ export function ArtImportDialog({ entityName, onSave, onCancel }: ArtImportDialo
 		}
 		if (file.size > MAX_SOURCE_BYTES) {
 			setError(`Ảnh quá lớn (${Math.round(file.size / 1024 / 1024)} MB). Giới hạn là 10 MB.`)
+			return
+		}
+		if (typeof URL.createObjectURL !== 'function') {
+			setError('Trình duyệt này không đọc được ảnh đã chọn.')
 			return
 		}
 		if (objectUrl.current) URL.revokeObjectURL(objectUrl.current)
@@ -163,6 +204,19 @@ export function ArtImportDialog({ entityName, onSave, onCancel }: ArtImportDialo
 								/>
 							</label>
 						</div>
+					</div>
+				) : null}
+
+				{/* What the picture will look like **in the game** — the real tile / pet cell. */}
+				{source ? (
+					<div className="flex items-center gap-3 rounded-[10px] border border-line bg-black/25 p-2.5">
+						<div data-art-preview className="shrink-0">
+							<ArtPreview kind={kind} id={entityId} star={star} artSrc={preview} />
+						</div>
+						<span className="text-[12px] text-muted">
+							Xem trước trong ô thật (nền theo phẩm, sao theo cấp). Ảnh được cắt vuông {ART_SIZE}×
+							{ART_SIZE} khi bấm Lưu.
+						</span>
 					</div>
 				) : null}
 

@@ -27,6 +27,13 @@ export interface LoadoutGridProps {
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
 	className?: string
+	/**
+	 * Draw this picture on every tile instead of the item's own art.
+	 *
+	 * Only the admin page uses it, to preview an image that has **not been saved yet** in a real
+	 * tile. ❌ Not a second way to draw tiles: the markup stays here.
+	 */
+	artSrc?: string | null
 }
 
 /**
@@ -48,6 +55,7 @@ export function LoadoutGrid({
 	onRotate,
 	onSell,
 	className,
+	artSrc,
 }: LoadoutGridProps) {
 	const placed = items.filter((item) => item.slot >= 0 && item.slot < width * rows)
 
@@ -78,7 +86,7 @@ export function LoadoutGrid({
 						{'★'.repeat(item.star)}
 					</span>
 					<span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-						<ItemIcon templateId={item.templateId} />
+						<ItemIcon templateId={item.templateId} artSrc={artSrc} />
 					</span>
 					<span className="max-w-full truncate text-[10px] leading-[1.1] text-muted">{template.name}</span>
 					{interactive && (onRotate || onSell) ? (

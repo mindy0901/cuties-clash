@@ -3,6 +3,7 @@ import { STAT_LABELS, formatStat } from '../game/stats'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import type { StatKey } from '../game/types'
 import { PetIcon } from './ItemIcon'
+import { PetTile } from './PetTile'
 import { btnBlockClass, btnClass, btnPrimaryClass, cn, panelClass, panelHeadClass, panelTitleClass, statClass, statGridClass, tagClass } from './ui'
 
 const SHOWN_STATS: StatKey[] = ['atk', 'atkPct', 'critRate', 'haste', 'lifesteal', 'dr', 'counterChance']
@@ -37,9 +38,7 @@ export function PetPanel() {
 			</div>
 
 			<div className="flex items-center gap-2.5">
-				<div className="surface-pet grid size-[52px] place-items-center rounded-[14px] border border-line p-1">
-					<PetIcon petId={pet.id} emojiClass="text-[30px]" />
-				</div>
+				<PetTile petId={pet.id} />
 				<div>
 					<div className="font-semibold">
 						{pet.name} · {pet.skill.name}

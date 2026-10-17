@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { sellValue, templateFootprint } from '../game/bag'
+import { sellValue } from '../game/bag'
 import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starPrice, swingMs } from '../game/items'
 import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
@@ -25,7 +25,9 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 	if (!item) return null
 
 	const template = getTemplate(item.templateId)
-	const size = templateFootprint(item.templateId, item.rotated)
+	// Default shape of the item, **not** the orientation it happens to have in the bag: the tile next
+	// to this line is drawn upright, so the numbers have to describe the same shape.
+	const size = template.space
 	const passive = template.passive?.(item.star)
 	const mods = passive ? STAT_KEYS.filter((key) => passive[key] !== undefined) : []
 	// 0 damage means the item has **no** attack (a weapon turned passive by the admin): no rows.
@@ -48,14 +50,12 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 				</div>
 
 				<div className="flex items-start gap-3.5">
-					{/* The bag's own tile — a square thumbnail squeezed a 1×3 sword into a box. */}
-					<ItemGridPreview
-						templateId={item.templateId}
-						star={item.star}
-						rotated={item.rotated}
-						cellSize={44}
-						bare
-					/>
+					{/*
+						The bag's own tile — a square thumbnail squeezed a 1×3 sword into a box.
+						⚠️ Default orientation on purpose: an item turned in the bag still shows upright
+						here, because the picture is cropped to this shape.
+					*/}
+					<ItemGridPreview templateId={item.templateId} star={item.star} cellSize={44} bare />
 					<div className="min-w-0">
 						{/* The tile beside it already shows the rank as stars — ❌ no second "2★" label. */}
 						<span className="text-[20px] font-semibold">{template.name}</span>

@@ -58,6 +58,18 @@ describe('ItemDetailDialog', () => {
 		expect(screen.queryByText(/Đâm 17 sát thương/)).toBeNull()
 	})
 
+	it('draws the item in its default shape even when it lies sideways in the bag', () => {
+		// A turned sword is 3×1 in the bag; the dialog has to show the item as it is defined (1×3),
+		// because the picture is cropped to that shape.
+		reset([], [{ ...item('turned', 'wooden-blade'), rotated: true }])
+		render(<ItemDetailDialog uid="turned" onClose={() => {}} />)
+
+		const preview = document.querySelector('[data-item-quality]')!.parentElement as HTMLElement
+		expect(preview.style.width, 'one cell wide').toBe('44px')
+		expect(preview.style.height, 'three cells tall').toBe('132px')
+		expect(screen.getByText('1×3 ô')).toBeTruthy()
+	})
+
 	it('lists the bonus stats of an item with a passive', () => {
 		reset([], [item('jade', 'jade-sword')])
 		render(<ItemDetailDialog uid="jade" onClose={() => {}} />)

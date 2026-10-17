@@ -10,6 +10,10 @@ import { cn } from './ui'
  * Preview a picture **where it will actually appear**: the same tile the bag draws (quality
  * background, class border, art, stars), sized to the item's **own footprint**.
  *
+ * ⚠️ Always the item's **default orientation**, never the rotation the player picked in the bag: the
+ * picture is cropped to that shape, so a turned tile would stretch a portrait sword across a wide
+ * one. A preview answers "what is this item", not "how is it lying right now".
+ *
  * ⚠️ WHY IT IS NOT A LOOK-ALIKE BOX: a square thumbnail hides exactly what can go wrong — an item
  * spanning 2×3 cells, a bright picture over the quality tint, stars lost against the art.
  */
@@ -19,7 +23,6 @@ export function ItemGridPreview({
 	artSrc,
 	cellSize = CELL_SIZE,
 	bare = false,
-	rotated = false,
 	className,
 }: {
 	templateId: string
@@ -36,18 +39,16 @@ export function ItemGridPreview({
 	 * board of its own instead of the tile the player already knows from the bag.
 	 */
 	bare?: boolean
-	/** Footprint turned 90° — the preview has to cover the cells the item really takes. */
-	rotated?: boolean
 	className?: string
 }) {
-	const size = templateFootprint(templateId, rotated)
+	const { w, h } = templateFootprint(templateId, false)
 
 	if (bare) {
 		// Emoji (an item with no picture yet) has to shrink with the cell: ❌ a literal class map, not
 		// a `${px}` string — Tailwind only emits classes it can read in the source.
 		const iconClass = cellSize >= 48 ? 'text-[22px]' : cellSize >= 32 ? 'text-[16px]' : 'text-[12px]'
 		return (
-			<div className={cn('shrink-0', className)} style={{ width: size.w * cellSize, height: size.h * cellSize }}>
+			<div className={cn('shrink-0', className)} style={{ width: w * cellSize, height: h * cellSize }}>
 				<ItemTile templateId={templateId} star={star} artSrc={artSrc} iconClass={iconClass} />
 			</div>
 		)
@@ -57,9 +58,9 @@ export function ItemGridPreview({
 	// no empty cells around it to distract from the picture.
 	return (
 		<LoadoutGrid
-			width={size.w}
-			rows={size.h}
-			items={[{ uid: 'preview', templateId, star, slot: 0, rotated, paid: 0 }]}
+			width={w}
+			rows={h}
+			items={[{ uid: 'preview', templateId, star, slot: 0, rotated: false, paid: 0 }]}
 			artSrc={artSrc}
 			className={className}
 		/>

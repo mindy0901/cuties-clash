@@ -680,11 +680,18 @@ function AdminContentEditor() {
 									{field.key === 'damage' && dpm.some((value) => value !== null) ? (
 										<span
 											data-admin-dpm
-											className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11.5px] text-gold-soft"
+											className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12.5px]"
 										>
-											<span className="font-semibold">DPM</span>
+											<span className="font-semibold text-muted">DPM</span>
+											{/* Each rank is drawn in its own star colour, the same palette as the stars. */}
 											{dpm.map((value, index) => (
-												<span key={index} className="tabular-nums">
+												<span
+													key={index}
+													className={cn(
+														'font-semibold tabular-nums',
+														ITEM_STAR_TEXT[(index + 1) as Star],
+													)}
+												>
 													{index + 1}★ {value === null ? '—' : value.toLocaleString('vi-VN')}
 												</span>
 											))}

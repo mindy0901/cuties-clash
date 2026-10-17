@@ -187,6 +187,13 @@ describe('editing content', () => {
 			[...document.querySelectorAll('[data-admin-dpm] > span')].map((node) => node.textContent)
 		expect(line()).toEqual(['DPM', '1★ 480', '2★ 851', '3★ 1.455', '4★ 2.439', '5★ 4.105'])
 
+		// Each rank is printed in its own star colour, so a number's rank reads at a glance.
+		expect(
+			[...document.querySelectorAll('[data-admin-dpm] > span')].map(
+				(node) => node.className.match(/text-rank-\d/)?.[0] ?? null,
+			),
+		).toEqual([null, 'text-rank-1', 'text-rank-2', 'text-rank-3', 'text-rank-4', 'text-rank-5'])
+
 		fireEvent.change(document.querySelectorAll<HTMLInputElement>('[data-admin-field="damage"]')[0]!, {
 			target: { value: '24' },
 		})

@@ -189,10 +189,16 @@ describe('drag and drop', () => {
 		expect(result.items.find((item) => item.uid === 'two')?.slot).toBe(0)
 	})
 
-	it('cannot merge once the item is 4★', () => {
+	it('cannot merge once the item is 5★', () => {
+		const a = createItemInstance('wooden-blade', 5, 'a')
+		const b = createItemInstance('wooden-blade', 5, 'b', 3)
+		expect(isMergeable(a, b)).toBe(false)
+	})
+
+	it('two 4★ items still merge into a 5★ one', () => {
 		const a = createItemInstance('wooden-blade', 4, 'a')
 		const b = createItemInstance('wooden-blade', 4, 'b', 3)
-		expect(isMergeable(a, b)).toBe(false)
+		expect(isMergeable(a, b)).toBe(true)
 	})
 
 	it('only merges when the star ranks match', () => {

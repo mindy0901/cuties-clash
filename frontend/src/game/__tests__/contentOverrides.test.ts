@@ -20,7 +20,7 @@ afterEach(() => applyContentOverrides(null))
 const ATK_OVERRIDE = { atk: 7 }
 
 /** Per-star lookup helper: `Star` values in order, so tests need no literal casts. */
-const STARS: Star[] = [1, 2, 3, 4]
+const STARS: Star[] = [1, 2, 3, 4, 5]
 
 describe('merging an overlay into a template', () => {
 	it('changes plain data fields', () => {
@@ -32,24 +32,39 @@ describe('merging an overlay into a template', () => {
 		expect(merged.icon).toBe(getTemplate('wooden-blade').icon)
 	})
 
-	it('rebuilds per-star functions from a 4-entry array', () => {
+	it('rebuilds per-star functions from a 5-entry array', () => {
 		const merged = mergeItem(getTemplate('wooden-blade'), {
-			damage: [11, 22, 33, 44],
-			attackInterval: [900, 800, 700, 600],
-			desc: ['a', 'b', 'c', 'd'],
+			damage: [11, 22, 33, 44, 55],
+			attackInterval: [900, 800, 700, 600, 500],
+			desc: ['a', 'b', 'c', 'd', 'e'],
 		})
-		expect(STARS.map((star) => merged.damage!(star))).toEqual([11, 22, 33, 44])
-		expect(STARS.map((star) => merged.attackInterval!(star))).toEqual([900, 800, 700, 600])
+		expect(STARS.map((star) => merged.damage!(star))).toEqual([11, 22, 33, 44, 55])
+		expect(STARS.map((star) => merged.attackInterval!(star))).toEqual([900, 800, 700, 600, 500])
 		expect(merged.desc(3 as Star)).toBe('c')
+		expect(merged.desc(5 as Star)).toBe('e')
 	})
 
 	it('rebuilds passive and aura per star', () => {
 		const merged = mergeItem(getTemplate('wooden-blade'), {
-			passive: [ATK_OVERRIDE, {}, {}, {}],
-			aura: [{ target: 'adjacent', mods: { atk: 3 } }, {}, {}, {}],
+			passive: [ATK_OVERRIDE, {}, {}, {}, {}],
+			aura: [{ target: 'adjacent', mods: { atk: 3 } }, {}, {}, {}, {}],
 		})
 		expect(merged.passive!(1)).toEqual(ATK_OVERRIDE)
 		expect(merged.aura!(1)).toEqual({ target: 'adjacent', mods: { atk: 3 } })
+	})
+
+	it('rejects a per-star array that is not exactly 5 entries long', () => {
+		const base = getTemplate('wooden-blade')
+		const merged = mergeItem(base, { damage: [11, 22, 33, 44] })
+		expect(merged.damage).toBe(base.damage)
+	})
+
+	it('accepts a quality override and ignores an out-of-range one', () => {
+		expect(mergeItem(getTemplate('wooden-blade'), { quality: 5 }).quality).toBe(5)
+		// A broken value keeps the quality from code instead of breaking the tile.
+		expect(mergeItem(getTemplate('wooden-blade'), { quality: 9 }).quality).toBe(
+			getTemplate('wooden-blade').quality,
+		)
 	})
 
 	it('skips only the broken field and still applies the rest', () => {
@@ -91,7 +106,7 @@ describe('merging an overlay into a template', () => {
 describe('the overlay reaches gameplay', () => {
 	it('weapon stats follow the overlay', () => {
 		const before = buildPlayerCombatant('fire-pup', 1, [createItemInstance('wooden-blade', 1, 'a', 0)])
-		applyContentOverrides({ items: { 'wooden-blade': { damage: [99, 99, 99, 99] } } })
+		applyContentOverrides({ items: { 'wooden-blade': { damage: [99, 99, 99, 99, 99] } } })
 		const after = buildPlayerCombatant('fire-pup', 1, [createItemInstance('wooden-blade', 1, 'a', 0)])
 
 		// Base damage comes from the template in code; after the overlay the blade must use the

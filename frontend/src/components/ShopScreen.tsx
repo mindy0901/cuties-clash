@@ -1,12 +1,12 @@
 import { useNavigate } from '@tanstack/react-router'
 import { estimatePower } from '../game/build'
 import { REROLL_COST, SHOP_SIZE } from '../game/economy'
-import { CLASS_LABELS, getTemplate, starLabel } from '../game/items'
+import { CLASS_LABELS, QUALITY_LABELS, getTemplate, starLabel } from '../game/items'
 import { MAX_PET_LEVEL, getPet } from '../game/pets'
 import { getStage } from '../game/stages'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { ItemIcon } from './ItemIcon'
-import { btnClass, btnGoldClass, btnSmClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
+import { btnClass, btnGoldClass, btnSmClass, cn, itemTileClass, panelClass, panelHeadClass, panelTitleClass } from './ui'
 
 /**
  * The dedicated shop page (`/shop`).
@@ -81,7 +81,12 @@ export function ShopScreen() {
 							)}
 						>
 							<div className="flex items-start gap-3">
-								<div className="grid size-14 shrink-0 place-items-center rounded-[10px] border border-line bg-ink-700 p-1">
+								<div
+									className={cn(
+										'surface-item grid size-14 shrink-0 place-items-center rounded-[10px] border p-1',
+										itemTileClass(template.cls, template.quality, offer.star),
+									)}
+								>
 									<ItemIcon templateId={offer.templateId} star={offer.star} emojiClass="text-3xl" />
 								</div>
 								<div className="min-w-0 flex-1">
@@ -92,6 +97,9 @@ export function ShopScreen() {
 										</span>
 										<span className="rounded-md border border-line px-1.5 py-px text-[11px] text-muted">
 											{CLASS_LABELS[template.cls]}
+										</span>
+										<span className="rounded-md border border-line px-1.5 py-px text-[11px] text-muted">
+											Phẩm {QUALITY_LABELS[template.quality]}
 										</span>
 										<span className="rounded-md border border-line px-1.5 py-px text-[11px] text-muted">
 											{size.w}×{size.h} ô
@@ -120,9 +128,10 @@ export function ShopScreen() {
 					<h2 className={panelTitleClass}>Mẹo mua sắm</h2>
 				</div>
 				<p className="m-0 text-[13px] text-muted">
-					Mua 2 món <strong>giống hệt nhau</strong> rồi thả chồng lên nhau trong kho để nhập thành +1★ — bản 4★
-					mạnh hơn hẳn bản 1★. Món dài (kiếm 1×3, thân đao 1×4) nên xoay ngang khi kho chật. Kho chỉ có 4 cột nên
-					hãy cân nhắc trước khi mua món to như đại đao 2×3.
+					Mua 2 món <strong>giống hệt nhau</strong> rồi thả chồng lên nhau trong kho để nhập thành +1★ — bản 5★
+					mạnh hơn hẳn bản 1★. Nền ô cho biết <strong>phẩm</strong> của món: Bạc, Xanh lá, Lam, Tím rồi Vàng cam.
+					Món dài (kiếm 1×3, thân đao 1×4) nên xoay ngang khi kho chật. Kho chỉ có 4 cột nên hãy cân nhắc trước khi
+					mua món to như đại đao 2×3.
 				</p>
 			</section>
 		</div>

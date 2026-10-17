@@ -244,3 +244,38 @@ describe('moving items between the inventory and the loadout cell by cell', () =
 		expect(new Set(inventory.map((entry) => entry.slot)).size, 'no overlapping cells').toBe(2)
 	})
 })
+
+describe('the tile background follows the item quality', () => {
+	/** Tile button of an item (both boards draw the same component). */
+	function anyTile(uid: string): HTMLElement {
+		const found = document.querySelector<HTMLElement>(
+			`button[data-inv-tile="${uid}"], [data-item-box="${uid}"] button`,
+		)
+		if (!found) throw new Error(`tile ${uid} not found`)
+		return found
+	}
+
+	it('paints silver for quality 1 and gold-orange for quality 5', () => {
+		// `jade-haste` is quality 1, `great-axe` quality 5 (see `game/items.ts`).
+		reset([item('starter', 'jade-haste', 0)], [item('late', 'great-axe', 20)])
+		renderPrep()
+
+		expect(anyTile('starter').dataset.itemQuality).toBe('1')
+		expect(anyTile('starter').className, 'quality 1 = silver').toContain('bg-quality-1')
+		expect(anyTile('starter').className).not.toContain('bg-quality-5')
+
+		expect(anyTile('late').dataset.itemQuality).toBe('5')
+		expect(anyTile('late').className, 'quality 5 = gold-orange').toContain('bg-quality-5')
+	})
+
+	it('still borders the tile by item class, and glows only at 4★ and 5★', () => {
+		reset([], [item('jade', 'jade-haste', 0), { ...item('maxed', 'jade-haste', 1), star: 5 }])
+		renderPrep()
+
+		// Border = item class, background = quality: the two never replace each other.
+		expect(anyTile('maxed').className).toContain('border-[#6b4a8c]')
+		expect(anyTile('jade').className).toContain('border-[#6b4a8c]')
+		expect(anyTile('jade').className).not.toContain('shadow-[0_0_12px')
+		expect(anyTile('maxed').className, '5★ keeps the glow').toContain('shadow-[0_0_12px')
+	})
+})

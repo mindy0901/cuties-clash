@@ -30,24 +30,36 @@ describe('content payload validation', () => {
 		})
 	})
 
-	it('accepts per-star fields: exactly 4 entries in 1★ → 4★ order', () => {
-		expect(validateContentPayload('item', { damage: [10, 20, 30, 40] })).toEqual({
-			damage: [10, 20, 30, 40],
+	it('accepts per-star fields: exactly 5 entries in 1★ → 5★ order', () => {
+		expect(validateContentPayload('item', { damage: [10, 20, 30, 40, 55] })).toEqual({
+			damage: [10, 20, 30, 40, 55],
 		})
 	})
 
+	it('accepts a quality band from 1 to 5 and rejects anything else', () => {
+		expect(validateContentPayload('item', { quality: 3 })).toEqual({ quality: 3 })
+		expect(() => validateContentPayload('item', { quality: 6 })).toThrow(/between 1 and 5/)
+		expect(() => validateContentPayload('item', { quality: 1.5 })).toThrow(/whole number/)
+	})
+
+	it('accepts the whole star range in stars, but no star outside it', () => {
+		expect(validateContentPayload('item', { stars: [5, 1, 3] })).toEqual({ stars: [1, 3, 5] })
+		expect(() => validateContentPayload('item', { stars: [1, 6] })).toThrow(/between 1 and 5/)
+	})
+
 	it('rejects fields that are not editable', () => {
-		expect(() => validateContentPayload('item', { damage2: [1, 2, 3, 4] })).toThrow(/not editable/)
+		expect(() => validateContentPayload('item', { damage2: [1, 2, 3, 4, 5] })).toThrow(/not editable/)
 	})
 
 	it('rejects an unknown stat key inside passive', () => {
-		expect(() => validateContentPayload('item', { passive: [{ atk: 5 }, {}, {}, {}] })).toThrow(
+		expect(() => validateContentPayload('item', { passive: [{ atk: 5 }, {}, {}, {}, {}] })).toThrow(
 			/unknown|least one stat/,
 		)
 	})
 
 	it('rejects a per-star array with the wrong length', () => {
-		expect(() => validateContentPayload('item', { damage: [10, 20] })).toThrow(/exactly 4/)
+		expect(() => validateContentPayload('item', { damage: [10, 20] })).toThrow(/exactly 5/)
+		expect(() => validateContentPayload('item', { damage: [10, 20, 30, 40] })).toThrow(/exactly 5/)
 	})
 
 	it('rejects an invalid footprint', () => {
@@ -68,6 +80,7 @@ describe('content payload validation', () => {
 
 	it('exposes the editable field list the admin page renders', () => {
 		expect(allowedFields('item')).toContain('cost')
+		expect(allowedFields('item')).toContain('quality')
 		expect(allowedFields('item')).not.toContain('active')
 		expect(allowedFields('pet')).toContain('skill')
 	})
@@ -114,7 +127,7 @@ describe('content API', () => {
 				const saved = await app.inject({
 					method: 'PUT',
 					url: '/api/admin/content/item/wooden-blade',
-					payload: { name: 'Wooden Blade Mk2', cost: 7, damage: [15, 25, 35, 55] },
+					payload: { name: 'Wooden Blade Mk2', cost: 7, quality: 4, damage: [15, 25, 35, 55, 80] },
 					cookies: sessionCookies(sessionToken),
 				})
 				expect(saved.statusCode).toBe(200)
@@ -124,7 +137,8 @@ describe('content API', () => {
 				expect(published.items['wooden-blade']).toEqual({
 					name: 'Wooden Blade Mk2',
 					cost: 7,
-					damage: [15, 25, 35, 55],
+					quality: 4,
+					damage: [15, 25, 35, 55, 80],
 				})
 
 				// The admin page sees the row and who edited it.

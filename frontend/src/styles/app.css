@@ -29,6 +29,14 @@
 	--color-hp-low: #d0533f;
 	--color-se: #6fb3e0;
 
+	/* Item quality bands: 1 = silver … 5 = gold-orange. Drive the tile background
+	   (`ITEM_QUALITY_BG` in `src/components/ui.ts`) and the admin swatches. */
+	--color-quality-1: #93a3b5;
+	--color-quality-2: #4fae5f;
+	--color-quality-3: #4a82d0;
+	--color-quality-4: #8a5cd6;
+	--color-quality-5: #d9761f;
+
 	--radius-panel: 12px;
 	--radius-dialog: 16px;
 
@@ -136,9 +144,15 @@
 	background-image: radial-gradient(circle at 30% 30%, var(--color-gold-soft), var(--color-gold));
 }
 
-/** Item cell background: a highlight at the top. */
+/**
+ * Item cell background: only the highlight at the top.
+ *
+ * ⚠️ Deliberately has **no opaque base colour**: the tile colour comes from the item's quality
+ * (`ITEM_QUALITY_BG` → `bg-quality-*`). Keeping an opaque `linear-gradient(ink-700, ink-700)`
+ * here would paint over that colour and every tile would look the same.
+ */
 @utility surface-item {
-	background-image: radial-gradient(circle at 50% 20%, rgb(255 255 255 / 10%), transparent 60%), linear-gradient(var(--color-ink-700), var(--color-ink-700));
+	background-image: radial-gradient(circle at 50% 20%, rgb(255 255 255 / 10%), transparent 60%);
 }
 
 /** Pet cell background. */

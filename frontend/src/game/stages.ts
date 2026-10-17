@@ -43,7 +43,14 @@ const ENEMY_POOLS: string[][] = [
 	['great-axe', 'twin-claws', 'warden-plate', 'jade-guard', 'forge-fang', 'storm-bell', 'mirror-shard', 'frost-seal', 'divine-forger', 'venom-vial', 'jade-vampire'],
 ]
 
-/** Stage index → item star for enemy loadouts (the player is expected to out-scale 4★ items). */
+/**
+ * Stage index → item star for enemy loadouts (the player is expected to out-scale the early stars).
+ *
+ * ⚠️ The ceiling stays at **4★** although items can be merged up to 5★: one enemy star rank is worth
+ * far more than the stage curve. Measured at stages 49-60 (pet level 5, every item 5★, 24 seeds):
+ * a 4★ enemy loadout is beaten **81-100 %** of the time, a 5★ one **0 %**, even without any 5★
+ * weapon in it. 5★ is the player's reward for merging — see `docs/BALANCE.md` §2.
+ */
 function enemyStar(index: number): Star {
 	if (index >= 46) return 4
 	if (index >= 31) return 3
@@ -132,6 +139,7 @@ export function makeRivalBlueprint(power: number, stageIndex: number, seed: numb
 	const pool = itemTemplatesUpToTier(tier)
 	const count = 3 + rng.int(4)
 	const items: ItemBlueprint[] = []
+	// Capped at 4★ for the same reason as `enemyStar`: a 5★ rival loadout is unwinnable.
 	const starCap = (tier === 3 ? 4 : tier === 2 ? 3 : 2) as Star
 	for (let i = 0; i < count; i += 1) {
 		const star = (1 + rng.int(starCap)) as Star

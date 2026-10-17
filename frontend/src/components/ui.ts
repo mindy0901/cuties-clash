@@ -1,5 +1,7 @@
 /** Tailwind class strings shared across screens. */
 
+import type { Quality, Star } from '../game/types'
+
 /** Joins classes conditionally, skipping empty values. */
 export function cn(...parts: (string | false | null | undefined)[]): string {
 	return parts.filter(Boolean).join(' ')
@@ -67,6 +69,48 @@ export const ITEM_BORDER_BY_CLASS: Record<string, string> = {
 	souljade: 'border-[#6b4a8c]',
 	curio: 'border-[#8c7a3d]',
 	potion: 'border-[#3d8c6a]',
+}
+
+/**
+ * Tile **background** per item quality: 1 = silver … 5 = gold-orange.
+ *
+ * ⚠️ Full class names, never a dynamic `` `bg-quality-${q}` `` — Tailwind only emits classes it
+ * can see literally in the source. The colour tokens live in `src/styles/app.css` (`@theme`).
+ */
+export const ITEM_QUALITY_BG: Record<Quality, string> = {
+	1: 'bg-quality-1/22',
+	2: 'bg-quality-2/22',
+	3: 'bg-quality-3/22',
+	4: 'bg-quality-4/22',
+	5: 'bg-quality-5/28',
+}
+
+/** Glow drawn around a tile at the top star ranks, so a maxed item stands out. */
+export const ITEM_MAX_STAR_GLOW = 'shadow-[0_0_12px_rgb(217_162_39/55%)]'
+
+/**
+ * Background colour of one quality, used by the admin page to **show the mapping** next to the
+ * quality select. Solid (no alpha) so the swatch is readable on its own.
+ */
+export const ITEM_QUALITY_SWATCH: Record<Quality, string> = {
+	1: 'bg-quality-1',
+	2: 'bg-quality-2',
+	3: 'bg-quality-3',
+	4: 'bg-quality-4',
+	5: 'bg-quality-5',
+}
+
+/**
+ * Colour of an item tile, shared by every place that draws one (Trang bị, Kho đồ, shop, the
+ * enemy grid in battle, the detail dialog) so they can never drift apart:
+ * the **quality** colours the background, the **class** the border, and 4★/5★ keep the glow.
+ */
+export function itemTileClass(cls: string, quality: Quality, star: Star): string {
+	return cn(
+		ITEM_QUALITY_BG[quality] ?? '',
+		ITEM_BORDER_BY_CLASS[cls] ?? '',
+		star >= 4 && ITEM_MAX_STAR_GLOW,
+	)
 }
 
 export const STATUS_CHIP_DEBUFF = 'border-danger/60 text-[#f0b6ac]'

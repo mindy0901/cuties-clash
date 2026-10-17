@@ -4,7 +4,7 @@ import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ArtIcon } from './ArtIcon'
 import { itemArtSrc } from '../game/art'
-import { ITEM_BORDER_BY_CLASS, btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
+import { btnClass, btnSmClass, cn, dialogClass, itemTileClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
 
 /**
  * **Item details** — opened by **clicking** an item in the inventory or the loadout.
@@ -47,8 +47,7 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					<div
 						className={cn(
 							'surface-item grid size-20 shrink-0 place-items-center rounded-[14px] border p-2',
-							ITEM_BORDER_BY_CLASS[template.cls],
-							item.star === 4 && 'shadow-[0_0_12px_rgb(217_162_39/55%)]',
+							itemTileClass(template.cls, template.quality, item.star),
 						)}
 					>
 						<ArtIcon

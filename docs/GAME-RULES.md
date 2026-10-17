@@ -8,7 +8,7 @@
 
 | Mechanic | Details |
 | --- | --- |
-| Star merge | 2 items with the **same template + same star** → `+1★`, up to **4★**. Different ones **swap positions** |
+| Star merge | 2 items with the **same template + same star** → `+1★`, up to **5★**. Different ones **swap positions** |
 | Price | `starPrice(cost, star) = cost × star`. Selling back = **50%** of `paid` (the total actually paid) |
 | Kho đồ | **Trang bị** (what is carried) is a **4-column** grid, the number of rows follows the pet level: 3→5 (12–20 cells). **Kho đồ** (storage) is also a **free 8-column grid**, **unlimited**: the grid grows taller by itself when items sit lower |
 | Where an item lives | Buying in the shop → it is **carried onto Trang bị automatically if there is room**, otherwise it goes into Kho đồ. ❌ **Only items in `run.equipped` take part in battle** (passive, aura, weapon); items in `run.inventory` have no effect |
@@ -41,7 +41,42 @@
 | PvP | `makeRivalBlueprint(power, stage, seed)` — **does not** change `stage`/`clearedStage` |
 | Maps | 60 stages split across 3 maps (`MAPS`), 20 stages per map |
 
-## 4. Vietnamese in the UI
+## 4. Star ranks and item quality
+
+**Star rank** is earned during a run: merge two copies of the same template at the same star and the
+result is one rank higher. **5★ is the cap** (`MAX_STAR` in `game/items.ts`).
+
+| Star | Price in the shop | Notes |
+| --- | --- | --- |
+| 1★ | `cost × 1` | Starting rank, also what the shop mostly offers early |
+| 2★–4★ | `cost × star` | Can also be bought directly later (shop star chances by map) |
+| 5★ | `cost × 5` | Only reachable by merging two 4★ copies |
+
+Every per-star value in `game/items.ts` is declared as an array with **one entry per star rank**
+(`pick(star, [1★, 2★, 3★, 4★, 5★])`), so a missing rank is a type error rather than a silent fallback.
+Art ships for star ranks **1–4**; a 5★ item renders the template's emoji (`stars` in `items.ts`).
+
+⚠️ **5★ belongs to the player only.** The shop stops at 4★, and enemy loadouts stop at 4★
+(`enemyStar` in `game/stages.ts`) — a 5★ enemy loadout makes the last map unwinnable for every build,
+so it is deliberately not used. Measured numbers: `docs/BALANCE.md` §1.
+
+**Quality** (`quality` on `ItemTemplate`, fixed per template — ❌ it does *not* follow the star rank):
+it only decides the **colour of the item tile**, so the catalogue reads at a glance. It is data, and
+the admin page can edit it.
+
+| Quality | Colour | Colour token | Typical templates |
+| --- | --- | --- | --- |
+| 1 | Bạc (silver) | `--color-quality-1` | Starter gear: Đao Gỗ, Giáp Da, Lộ Sương, Hồn Ngọc Thôi Sách |
+| 2 | Xanh lá (green) | `--color-quality-2` | Thương Lửa, Hồn Ngọc Phẫn Nộ, Đèn Quỷ |
+| 3 | Lam (blue) | `--color-quality-3` | Everything from the middle maps (tier 2) |
+| 4 | Tím (purple) | `--color-quality-4` | Late-map support: Hồn Ngọc Hộ Thể, Hàn Ngọc Phù, Mảnh Gương, Cờ Lụa, Thuốc Sắt |
+| 5 | Vàng cam (gold-orange) | `--color-quality-5` | Late-map power: Phủ Nặng, Song Trảo, Giáp Vệ Binh, Thần Đúc Sư |
+
+⚠️ Colours live in `@theme` in `src/styles/app.css` and are applied through the **lookup tables**
+`ITEM_QUALITY_BG` / `ITEM_QUALITY_SWATCH` in `src/components/ui.ts` — ❌ never build a class name
+dynamically (``  `bg-quality-${q}`  ``), Tailwind only emits classes it can read in the source.
+
+## 5. Vietnamese in the UI
 
 Every string shown to the player — **including API error messages** — must be Vietnamese. ❌ No English
 mixed in (except proper nouns such as *Stormchant*, *Paw Tally*).
@@ -49,14 +84,15 @@ mixed in (except proper nouns such as *Stormchant*, *Paw Tally*).
 Fixed terminology (use exactly these words): Vũ khí · Hộ giáp · Hồn Ngọc · Pháp Bảo · Đan Dược · Kiếm
 Thế · Chấn Đao · Trọng kích · Thú cưng · Màn · Bản đồ · Trang bị · Kho đồ · Sức mạnh · Paw Tally.
 
-## 5. Rule → source mapping
+## 6. Rule → source mapping
 
 | Rule | File |
 | --- | --- |
 | Star merge, price, selling back, grid collision | `game/bag.ts` |
 | Kho đồ is a **free grid**: row count, placement, drag/drop/rotate inside Kho đồ | `game/storage.ts` |
 | Splitting Trang bị ↔ Kho đồ | `game/loadout.ts` |
-| Item templates, star tiers | `game/items.ts` |
+| Item templates, star tiers, **quality band** | `game/items.ts` |
+| Quality colours and the shared tile class | `components/ui.ts`, `styles/app.css` |
 | Pets, levels, number of grid rows | `game/pets.ts` |
 | Stages, maps, PvP blueprint | `game/stages.ts` |
 | Merging passive + aura → stats | `game/build.ts` |

@@ -33,7 +33,7 @@ const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 const ITEM_CLASSES = ['weapon', 'armor', 'souljade', 'curio', 'potion'] as const
 const AURA_TARGETS = ['adjacent', 'adjacentWeapon', 'adjacentNonWeapon', 'all'] as const
 const ART_EXTS = ['png', 'svg', 'webp'] as const
-const STARS = [1, 2, 3, 4] as const
+const STARS = [1, 2, 3, 4, 5] as const
 
 /** Must match `StatKey` in `frontend/src/game/stats.ts`. */
 const STAT_KEYS = [
@@ -107,14 +107,14 @@ function asOneOf<T extends string>(field: string, value: unknown, allowed: reado
 }
 
 /**
- * A **per-star** field: exactly 4 entries, each checked by `check`.
+ * A **per-star** field: exactly 5 entries, each checked by `check`.
  *
- * Why 4: templates in code declare values per star rank (1★…4★) and the client rebuilds the
+ * Why 5: templates in code declare values per star rank (1★…5★) and the client rebuilds the
  * function from this array. A missing or extra entry would silently lose a star rank.
  */
 function asPerStar<T>(field: string, value: unknown, check: (index: number, raw: unknown) => T): T[] {
 	if (!Array.isArray(value) || value.length !== STARS.length) {
-		fieldError(field, 'must be an array of exactly 4 entries, in 1★ → 4★ order')
+		fieldError(field, `must be an array of exactly ${STARS.length} entries, in 1★ → 5★ order`)
 	}
 	return (value as unknown[]).map((raw, index) => check(index + 1, raw))
 }
@@ -146,7 +146,7 @@ function asSpace(field: string, value: unknown): { w: number; h: number } {
 
 function asStars(field: string, value: unknown): number[] {
 	if (!Array.isArray(value)) fieldError(field, 'must be an array of star ranks')
-	const stars = [...new Set(value as unknown[])].map((raw) => asInteger(field, raw, 1, 4))
+	const stars = [...new Set(value as unknown[])].map((raw) => asInteger(field, raw, 1, 5))
 	if (stars.length !== (value as unknown[]).length) fieldError(field, 'must not repeat a star rank')
 	return stars.sort((a, b) => a - b)
 }
@@ -161,11 +161,13 @@ const ITEM_FIELDS: Record<string, FieldCheck> = {
 	icon: (field, value) => asString(field, value, 8),
 	cls: (field, value) => asOneOf(field, value, ITEM_CLASSES),
 	tier: (field, value) => asInteger(field, value, 1, 3),
+	/** Rarity band that colours the tile: 1 = silver … 5 = gold-orange. */
+	quality: (field, value) => asInteger(field, value, 1, 5),
 	cost: (field, value) => asInteger(field, value, 1, 999),
 	space: asSpace,
 	stars: asStars,
 	artExt: (field, value) => asOneOf(field, value, ART_EXTS),
-	/** Description per star — 4 strings. */
+	/** Description per star — 5 strings. */
 	desc: (field, value) =>
 		asPerStar(field, value, (index, raw) => asString(`${field}[${index}★]`, raw, 300)),
 	damage: (field, value) =>

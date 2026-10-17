@@ -6,7 +6,7 @@ import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { ItemIcon } from './ItemIcon'
 import type { HeldItem } from './useHeldItem'
-import { ITEM_BORDER_BY_CLASS, cn } from './ui'
+import { cn, itemTileClass } from './ui'
 
 export interface InventoryGridProps {
 	items: ItemInstance[]
@@ -69,10 +69,10 @@ export function InventoryGrid({
 					{...box.buttonProps}
 					className={cn(
 						'surface-item relative flex size-full cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-line p-1 text-center select-none',
-						ITEM_BORDER_BY_CLASS[template.cls],
-						item.star === 4 && 'shadow-[0_0_12px_rgb(217_162_39/55%)]',
+						itemTileClass(template.cls, template.quality, item.star),
 					)}
 					title={`${template.name} ${size.w}×${size.h}`}
+					data-item-quality={template.quality}
 				>
 					<span className="absolute top-0.5 right-1 text-[9px] tracking-[-1px] text-gold-soft">
 						{'★'.repeat(item.star)}

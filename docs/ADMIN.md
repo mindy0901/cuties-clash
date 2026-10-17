@@ -25,16 +25,40 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls`, `tier`, `cost`, `space`, `stars`, `artExt`, `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
+| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `stars`, `artExt`, `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
 | **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
-
-Per-star fields (`damage`, `attackInterval`, `interval`, `passive`, `aura`, `desc`) are edited as
-**4 values (1★ → 4★)**: a comma separated list of numbers, or JSON for the structured ones. In
-code these are functions (`damage: (star) => …`); the client rebuilds them from the array, so the
-JSON stored in the database never contains code.
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in
 `game/items.ts`.
+
+### Inputs, field by field
+
+| Field | Control |
+| --- | --- |
+| `desc`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a text input for `desc`, a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
+| `stars` (which ranks have art) | **5 checkboxes** — ❌ not raw JSON |
+| `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
+| `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |
+
+Per-star fields are edited as **5 values (1★ → 5★)**. In code these are functions
+(`damage: (star) => …`); the client rebuilds them from the array, so the JSON stored in the database
+never contains code. A single box with comma separated values was replaced by one input per star:
+with one box, a missing comma shifted every later rank silently.
+
+**Quality** is a fixed property of the template (❌ independent of the item's star rank) that only
+decides the **tile colour**:
+
+| Quality | Colour | Token |
+| --- | --- | --- |
+| 1 | Bạc | `--color-quality-1` |
+| 2 | Xanh lá | `--color-quality-2` |
+| 3 | Lam | `--color-quality-3` |
+| 4 | Tím | `--color-quality-4` |
+| 5 | Vàng cam | `--color-quality-5` |
+
+The coloured background follows the item everywhere it is drawn — Trang bị, Kho đồ, the shop list,
+the detail dialog and the enemy grid in battle — through the shared `itemTileClass()` in
+`src/components/ui.ts`. The palette lives in `@theme` in `src/styles/app.css`.
 
 ## How it is stored
 
@@ -50,8 +74,14 @@ never deletes content, it only removes the override.
 these numbers run inside `simulateBattle` for every player, so a value of the wrong type would
 break fights for everyone. It does **not** balance numbers and does **not** contain game rules.
 
+⚠️ A **per-star** field must arrive as an array of **exactly 5 entries** in `1★ → 5★` order — a
+shorter array is rejected, otherwise a star rank would silently disappear. `quality` is a whole
+number from **1 to 5**.
+
 ⚠️ The client sends **only the fields that differ from the code default**. Sending every field
-would freeze them, and later code changes to untouched fields would silently stop working.
+would freeze them, and later code changes to untouched fields would silently stop working. A
+per-star field is compared as a **whole array**, so editing one rank sends all five — the server
+stores the field as a single array and a partial one would lose the other ranks.
 
 ## Where the overlay is applied
 

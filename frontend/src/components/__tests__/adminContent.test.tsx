@@ -121,16 +121,112 @@ describe('editing content', () => {
 		expect(puts[0]!.body).toEqual({ cost: 9 })
 	})
 
+	it('gives every per-star field one control per star rank', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		for (const key of ['damage', 'attackInterval', 'desc']) {
+			const controls = document.querySelectorAll(`[data-admin-field="${key}"]`)
+			expect(controls, `${key} must have one control per star`).toHaveLength(5)
+		}
+		// The star rank is written above each control, so a value can never be attributed wrongly.
+		for (const star of [1, 2, 3, 4, 5]) {
+			expect(document.querySelector(`[data-admin-star="${star}"]`)).toBeTruthy()
+		}
+		expect(document.querySelector('[data-admin-field="damage"][data-admin-star="5"]')).toBeTruthy()
+	})
+
+	it('sends the whole per-star array when a single star rank changes', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const damage = document.querySelectorAll<HTMLInputElement>('[data-admin-field="damage"]')
+		expect([...damage].map((input) => input.value)).toEqual(['12', '20', '32', '50', '78'])
+		fireEvent.change(damage[4]!, { target: { value: '99' } })
+		fireEvent.click(screen.getByText(/Lưu/))
+
+		await waitFor(() => expect(puts).toHaveLength(1))
+		expect(puts[0]!.body).toEqual({ damage: [12, 20, 32, 50, 99] })
+	})
+
+	it('edits which star ranks have art with checkboxes', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const boxes = document.querySelectorAll<HTMLInputElement>('[data-admin-field="stars"]')
+		expect(boxes).toHaveLength(5)
+		expect([...boxes].map((box) => box.checked)).toEqual([true, true, true, true, false])
+
+		fireEvent.click(boxes[4]!)
+		fireEvent.click(screen.getByText(/Lưu/))
+
+		await waitFor(() => expect(puts).toHaveLength(1))
+		expect(puts[0]!.body).toEqual({ stars: [1, 2, 3, 4, 5] })
+	})
+
+	it('refuses to save an empty art list instead of sending a no-op override', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const boxes = document.querySelectorAll<HTMLInputElement>('[data-admin-field="stars"]')
+		boxes.forEach((box) => {
+			if (box.checked) fireEvent.click(box)
+		})
+		fireEvent.click(screen.getByText(/Lưu/))
+
+		expect(await screen.findByText(/chọn ít nhất một sao/)).toBeTruthy()
+		expect(puts, 'nothing is sent when the form is invalid').toHaveLength(0)
+	})
+
+	it('edits the footprint with two number inputs instead of raw JSON', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const width = document.querySelector<HTMLInputElement>('[data-admin-size="w"]')!
+		const height = document.querySelector<HTMLInputElement>('[data-admin-size="h"]')!
+		expect([width.value, height.value]).toEqual(['1', '3'])
+
+		fireEvent.change(height, { target: { value: '4' } })
+		fireEvent.click(screen.getByText(/Lưu/))
+
+		await waitFor(() => expect(puts).toHaveLength(1))
+		expect(puts[0]!.body).toEqual({ space: { w: 1, h: 4 } })
+	})
+
+	it('shows the quality colour mapping and sends the chosen quality', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const select = document.querySelector<HTMLSelectElement>('[data-admin-field="quality"]')!
+		expect(select.options).toHaveLength(5)
+		expect(select.value).toBe('1')
+		expect(document.querySelector('[data-admin-quality-swatch]')!.className).toContain('bg-quality-1')
+
+		fireEvent.change(select, { target: { value: '5' } })
+		expect(document.querySelector('[data-admin-quality-swatch]')!.className).toContain('bg-quality-5')
+
+		fireEvent.click(screen.getByText(/Lưu/))
+		await waitFor(() => expect(puts).toHaveLength(1))
+		expect(puts[0]!.body).toEqual({ quality: 5 })
+	})
+
 	it('reports an invalid per-star value instead of sending it', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		const damage = document.querySelector<HTMLInputElement>('[data-admin-field="damage"]')!
-		fireEvent.change(damage, { target: { value: '1, 2' } })
+		// 999 999 is above the range the server accepts for damage.
+		const damage = document.querySelector<HTMLInputElement>('[data-admin-field="damage"][data-admin-star="3"]')!
+		fireEvent.change(damage, { target: { value: '999999' } })
 		fireEvent.click(screen.getByText(/Lưu/))
 
-		expect(await screen.findByText(/cần đúng 4 giá trị/)).toBeTruthy()
+		expect(await screen.findByText(/3★ phải ≤ 100000/)).toBeTruthy()
 		expect(puts, 'nothing is sent when the form is invalid').toHaveLength(0)
 	})
 

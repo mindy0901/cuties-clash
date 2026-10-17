@@ -41,7 +41,7 @@ describe('item art', () => {
 
 	it('never declares art for a star rank that does not exist', () => {
 		const declared = new Set(templatesWithStars.flatMap((template) => template.stars ?? []))
-		for (const star of declared) expect([1, 2, 3, 4]).toContain(star)
+		for (const star of declared) expect([1, 2, 3, 4, 5]).toContain(star)
 	})
 
 	it('every item file in public/ has a matching template', () => {
@@ -92,7 +92,7 @@ describe('falls back to the emoji when art is missing', () => {
 	it('returns null for a star rank outside the declared list', () => {
 		const template = ITEM_TEMPLATES.find((entry) => entry.stars?.length)
 		if (!template) return
-		const missingStar = ([1, 2, 3, 4] as Star[]).find((star) => !template.stars!.includes(star))
+		const missingStar = ([1, 2, 3, 4, 5] as Star[]).find((star) => !template.stars!.includes(star))
 		if (missingStar) expect(itemArtSrc(template.id, missingStar)).toBeNull()
 	})
 })

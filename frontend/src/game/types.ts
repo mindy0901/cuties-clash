@@ -3,7 +3,16 @@
  * Mechanics are re-implemented from the public event rules; all art/text is original.
  */
 
-export type Star = 1 | 2 | 3 | 4
+export type Star = 1 | 2 | 3 | 4 | 5
+
+/**
+ * Rarity band that colours the item tile: 1 = silver … 5 = gold-orange.
+ *
+ * ⚠️ Different from `Star`: the star rank is **earned during a run** (merging two copies),
+ * while `quality` is a **fixed property of the template** taken from `tier`/`cls`. It never
+ * changes and only drives colours + labels.
+ */
+export type Quality = 1 | 2 | 3 | 4 | 5
 
 export type ItemClass = 'weapon' | 'armor' | 'souljade' | 'curio' | 'potion'
 
@@ -87,6 +96,11 @@ export interface ItemTemplate {
 	artExt?: 'png' | 'svg' | 'webp'
 	/** Shop pool tier: 1 = available from the start, 3 = late maps. */
 	tier: 1 | 2 | 3
+	/**
+	 * Rarity band that colours the tile (1 = silver … 5 = gold-orange). Fixed per template,
+	 * derived from `tier`/`cls`; ❌ does not depend on the item's star rank.
+	 */
+	quality: Quality
 	/** Base price in Paw Tally at 1★. Higher stars cost `cost * star`. */
 	cost: number
 	/** Cells the item covers; the player may rotate it by 90° while dragging. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ITEM_TEMPLATES, getTemplate, starPrice } from '../items'
+import { ITEM_TEMPLATES, STARS, getTemplate, starPrice } from '../items'
 import { rollShop, SHOP_SIZE } from '../economy'
 import { FINAL_STAGE, MAPS, STAGES, getStage, stageTier } from '../stages'
 import { PETS, petLevelStats, petUpgradeCost } from '../pets'
@@ -9,7 +9,7 @@ describe('item catalogue', () => {
 		const ids = ITEM_TEMPLATES.map((template) => template.id)
 		expect(new Set(ids).size).toBe(ids.length)
 		for (const template of ITEM_TEMPLATES) {
-			for (const star of [1, 2, 3, 4] as const) {
+			for (const star of STARS) {
 				expect(template.desc(star).length).toBeGreaterThan(0)
 			}
 			if (template.attackInterval) expect(template.damage, template.id).toBeDefined()
@@ -17,11 +17,31 @@ describe('item catalogue', () => {
 		}
 	})
 
+	it('gives every template a quality band from 1 to 5', () => {
+		for (const template of ITEM_TEMPLATES) {
+			expect(template.quality, template.id).toBeGreaterThanOrEqual(1)
+			expect(template.quality, template.id).toBeLessThanOrEqual(5)
+		}
+		// The catalogue has to show a real spread, not one single band.
+		expect(new Set(ITEM_TEMPLATES.map((template) => template.quality)).size).toBeGreaterThanOrEqual(4)
+	})
+
+	it('keeps the per-star numbers growing with the star rank', () => {
+		for (const template of ITEM_TEMPLATES) {
+			const damage = STARS.map((star) => template.damage?.(star)).filter((value) => value !== undefined)
+			for (let index = 1; index < damage.length; index += 1) {
+				expect(damage[index], `${template.id} 5★ damage`).toBeGreaterThan(damage[index - 1]!)
+			}
+		}
+	})
+
 	it('scales prices with the star rank and armour tiers with the event numbers', () => {
 		expect(starPrice(3, 1)).toBe(3)
 		expect(starPrice(3, 4)).toBe(12)
+		expect(starPrice(3, 5)).toBe(15)
 		expect(getTemplate('hide-vest').passive?.(1).shield).toBe(180)
 		expect(getTemplate('hide-vest').passive?.(4).shield).toBe(450)
+		expect(getTemplate('hide-vest').passive?.(5).shield).toBe(675)
 	})
 })
 

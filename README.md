@@ -148,7 +148,7 @@ Drag down into **Kho đồ** to store it; drag up from Kho đồ onto the grid t
 1. **Buy items** on the Cửa hàng screen with **Paw Tally (萌主币)** earned from each stage — items go onto Trang bị automatically if there is room.
 2. **Arrange Trang bị**: each item occupies a **rectangular block of cells** (sword 1×3, great sabre 2×3, blade shaft 1×4, jade/pill 1×1).
 3. **Rotate 90°** with **right click** or the **⟳** button when space is tight — **even while holding the mouse button and dragging**. Rotation only works when the new orientation fits. A long item (**1×4**) that does not fit the open Trang bị grid **must be rotated** before it can be dropped — the game does not rotate it for you.
-4. **Merge 2 identical items** (drop one on top of the other) → `+1★` (up to **4★**). Selling back returns **50%** of the Paw Tally.
+4. **Merge 2 identical items** (drop one on top of the other) → `+1★` (up to **5★**). Selling back returns **50%** of the Paw Tally.
 5. **Đấu Thú Cưng** — pets fight automatically. Replay the whole sequence at ×1/×2/×4/×8 speed.
 6. **60 stages / 3 maps** (Tụ Khốt Châu → Hỏa La Quốc → Stormchant), stages 10/20/30… are **bosses**.
 7. **PvP friendly matches** against a rival generated from your own power (does not affect stage progression).
@@ -174,7 +174,7 @@ Balance numbers live in [`frontend/src/game/items.ts`](frontend/src/game/items.t
 frontend/                     # The `frontend` package
 ├─ src/game/                  # Pure-logic game core (no React dependency)
 │  ├─ types.ts                # Domain types
-│  ├─ items.ts                # 24 items × 4★ (Vũ khí / Hộ giáp / Hồn Ngọc / Pháp Bảo / Đan Dược)
+│  ├─ items.ts                # 27 items, 5 star ranks, 5 quality bands (Vũ khí / Hộ giáp / Hồn Ngọc / Pháp Bảo / Đan Dược)
 │  ├─ pets.ts                 # 3 pets, 5 levels, number of storage rows per level (4 columns)
 │  ├─ stages.ts               # 60 stages / 3 maps + PvP blueprint
 │  ├─ build.ts                # Merge passive + aura → combat stats

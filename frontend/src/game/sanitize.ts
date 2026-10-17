@@ -1,5 +1,5 @@
 import { REROLL_COST, rollShop } from './economy'
-import { ITEM_BY_ID } from './items'
+import { ITEM_BY_ID, MAX_STAR } from './items'
 import { repairStorageSlots } from './storage'
 import { PETS, getPet, petLevelStats } from './pets'
 import { FINAL_STAGE } from './stages'
@@ -104,7 +104,7 @@ function sanitizeItems(value: unknown, limit: number | null): ItemInstance[] {
 		result.push({
 			uid: item.uid,
 			templateId: item.templateId,
-			star: clampInt(item.star, 1, 4, 1) as ItemInstance['star'],
+			star: clampInt(item.star, 1, MAX_STAR, 1) as ItemInstance['star'],
 			slot: fits ? slot : -1,
 			rotated: fits ? Boolean(item.rotated) : false,
 			paid: clampInt(item.paid, 0, 1_000_000, 0),
@@ -123,7 +123,7 @@ function sanitizeShop(value: unknown, stage: number, seed: number): ShopOffer[] 
 		if (!isKnownTemplate(offer.templateId)) return rollShop(stage, seed)
 		offers.push({
 			templateId: offer.templateId,
-			star: clampInt(offer.star, 1, 4, 1) as ShopOffer['star'],
+			star: clampInt(offer.star, 1, MAX_STAR, 1) as ShopOffer['star'],
 			cost: clampInt(offer.cost, 0, 100_000, REROLL_COST),
 			sold: Boolean(offer.sold),
 		})

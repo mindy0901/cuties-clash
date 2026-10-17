@@ -1,11 +1,19 @@
 import { useMemo, useState } from 'react'
 import { useAdminContent, useResetContent, useSaveContent, useSessionState } from '../api/queries'
-import { ITEM_BY_ID, ITEM_TEMPLATES } from '../game/items'
+import {
+	ITEM_BY_ID,
+	ITEM_TEMPLATES,
+	QUALITY_LABELS,
+	QUALITY_VALUES,
+	STARS,
+	starLabel,
+} from '../game/items'
 import { PETS, getPet } from '../game/pets'
-import type { ItemTemplate, PetDef, Star } from '../game/types'
+import type { ItemTemplate, PetDef, Quality, Star } from '../game/types'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import {
+	ITEM_QUALITY_SWATCH,
 	btnClass,
 	btnGoldClass,
 	btnSmClass,
@@ -19,8 +27,25 @@ import {
 
 type Kind = 'item' | 'pet'
 
-/** Input control used for a field. */
-type FieldKind = 'text' | 'int' | 'number' | 'select' | 'perStarNumber' | 'json'
+/**
+ * Input control used for a field.
+ *
+ * ⚠️ Per-star fields are **not** one comma separated box: every star rank gets its own control,
+ * laid out in a row. With a single box a typo (a missing comma) silently shifted every rank after
+ * it, and the editor could not tell which number belonged to which star.
+ */
+type FieldKind =
+	| 'text'
+	| 'int'
+	| 'number'
+	| 'select'
+	| 'json'
+	| 'perStarNumber'
+	| 'perStarText'
+	| 'perStarJson'
+	| 'stars'
+	| 'size'
+	| 'quality'
 
 interface FieldDef {
 	/** Payload key — must match the server whitelist in `backend/src/content.ts`. */
@@ -30,6 +55,8 @@ interface FieldDef {
 	kind: FieldKind
 	min?: number
 	max?: number
+	/** `perStarNumber` only: the server stores these as whole numbers. */
+	integer?: boolean
 	options?: { value: string; label: string }[]
 	hint?: string
 }
@@ -53,6 +80,15 @@ const BOOLEAN_OPTIONS = [
 	{ value: 'false', label: 'không' },
 ]
 
+/** The five quality bands, labelled with the colour the tile will use. */
+const QUALITY_OPTIONS = QUALITY_VALUES.map((quality) => ({
+	value: String(quality),
+	label: `${quality} · ${QUALITY_LABELS[quality]}`,
+}))
+
+/** Editable site of the bag footprint. */
+const SIZE_LIMITS = { w: { min: 1, max: 4 }, h: { min: 1, max: 5 } } as const
+
 /**
  * Editable **item** fields.
  *
@@ -64,21 +100,17 @@ const ITEM_FIELDS: FieldDef[] = [
 	{ key: 'icon', label: 'Emoji dự phòng', kind: 'text', hint: 'dùng khi chưa có art' },
 	{ key: 'cls', label: 'Lớp', kind: 'select', options: CLASS_OPTIONS },
 	{ key: 'tier', label: 'Bậc bán', kind: 'int', min: 1, max: 3, hint: '1 = có từ đầu, 3 = bản đồ cuối' },
+	{ key: 'quality', label: 'Phẩm', kind: 'quality', hint: 'màu nền ô của món' },
 	{ key: 'cost', label: 'Giá gốc (1★)', kind: 'int', min: 1, max: 999 },
-	{ key: 'space', label: 'Kích thước ô', kind: 'json', hint: '{"w":1,"h":3} — w 1–4, h 1–5' },
-	{ key: 'stars', label: 'Sao có art riêng', kind: 'json', hint: '[1,2,3,4] — rỗng nếu chỉ dùng emoji' },
+	{ key: 'space', label: 'Kích thước ô', kind: 'size', hint: 'w 1–4, h 1–5' },
+	{ key: 'stars', label: 'Sao có art riêng', kind: 'stars', hint: 'bỏ trống thì chỉ dùng emoji' },
 	{ key: 'artExt', label: 'Đuôi art', kind: 'select', options: ART_EXT_OPTIONS },
-	{ key: 'desc', label: 'Mô tả', kind: 'json', hint: 'mảng 4 chuỗi — ❌ không tự tính lại theo chỉ số' },
-	{ key: 'damage', label: 'Sát thương (1★→4★)', kind: 'perStarNumber', min: 0, max: 100_000 },
-	{ key: 'attackInterval', label: 'Nhịp đánh ms (1★→4★)', kind: 'perStarNumber', min: 100, max: 60_000 },
-	{ key: 'interval', label: 'Nhịp hiệu lực ms (1★→4★)', kind: 'perStarNumber', min: 100, max: 60_000 },
-	{ key: 'passive', label: 'Chỉ số cộng thêm', kind: 'json', hint: '[{ "atk": 2 }, …] × 4 sao' },
-	{
-		key: 'aura',
-		label: 'Hào khí liền kề',
-		kind: 'json',
-		hint: '[{ "target": "adjacent", "mods": {…} }, …] × 4',
-	},
+	{ key: 'desc', label: 'Mô tả', kind: 'perStarText', hint: 'một ô cho mỗi sao — ❌ không tự tính lại theo chỉ số' },
+	{ key: 'damage', label: 'Sát thương', kind: 'perStarNumber', min: 0, max: 100_000 },
+	{ key: 'attackInterval', label: 'Nhịp đánh (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
+	{ key: 'interval', label: 'Nhịp hiệu lực (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
+	{ key: 'passive', label: 'Chỉ số cộng thêm', kind: 'perStarJson', hint: 'một ô JSON cho mỗi sao' },
+	{ key: 'aura', label: 'Hào khí liền kề', kind: 'perStarJson', hint: 'một ô JSON cho mỗi sao' },
 ]
 
 /** Editable **pet** fields — every one of them is data, so all of them can be edited. */
@@ -110,55 +142,70 @@ const PET_FIELDS: FieldDef[] = [
 
 const FIELDS: Record<Kind, FieldDef[]> = { item: ITEM_FIELDS, pet: PET_FIELDS }
 
-/** Form state: every value as a string so any input can display it. */
-type Draft = Record<string, string>
+/** Form state: every field holds **one string per control**; scalar fields hold a single entry. */
+type Draft = Record<string, string[]>
 
-/** Value stored in code for a field, as text for the input. */
-function defaultText(kind: Kind, id: string, field: FieldDef): string {
-	if (kind === 'item') {
-		const base = ITEM_BY_ID[id]
-		if (!base) return ''
-		switch (field.kind) {
-			case 'perStarNumber': {
-				const source = (base as unknown as Record<string, (star: Star) => number>)[field.key]
-				return source ? [1, 2, 3, 4].map((star) => source(star as Star)).join(', ') : ''
-			}
-			case 'json':
-				return JSON.stringify(jsonValue(base, field.key) ?? '')
-			default: {
-				const value = (base as unknown as Record<string, unknown>)[field.key]
-				return value === undefined ? '' : String(value)
-			}
-		}
-	}
+/** Default values of a field, as the strings its controls display. */
+function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
+	const base: ItemTemplate | PetDef = kind === 'item' ? ITEM_BY_ID[id]! : getPet(id)
+	if (!base) return ['']
 
-	const base = getPet(id)
 	switch (field.kind) {
+		case 'perStarNumber': {
+			const source = (base as unknown as Record<string, ((star: Star) => number) | undefined>)[field.key]
+			return STARS.map((star) => (source ? String(source(star)) : ''))
+		}
+		case 'perStarText': {
+			const source = (base as unknown as Record<string, ((star: Star) => string) | undefined>)[field.key]
+			return STARS.map((star) => (source ? source(star) : ''))
+		}
+		case 'perStarJson': {
+			const source = (base as unknown as Record<string, ((star: Star) => unknown) | undefined>)[field.key]
+			return STARS.map((star) => (source ? JSON.stringify(source(star)) : ''))
+		}
+		case 'stars': {
+			const stars = (base as ItemTemplate).stars ?? []
+			return STARS.map((star) => String(stars.includes(star)))
+		}
+		case 'size': {
+			const space = (base as ItemTemplate).space
+			return [String(space.w), String(space.h)]
+		}
+		case 'quality':
+			return [String((base as ItemTemplate).quality)]
 		case 'json':
-			return JSON.stringify(jsonValue(base, field.key) ?? '')
+			return [JSON.stringify((base as unknown as Record<string, unknown>)[field.key] ?? '')]
 		default: {
 			const value = (base as unknown as Record<string, unknown>)[field.key]
-			return value === undefined ? '' : String(value)
+			return [value === undefined ? '' : String(value)]
 		}
 	}
-}
-
-/** JSON view of a field: per-star arrays for functions, the value itself otherwise. */
-function jsonValue(base: ItemTemplate | PetDef, key: string): unknown {
-	if (key === 'space') return (base as ItemTemplate).space
-	if (key === 'stars') return (base as ItemTemplate).stars ?? []
-	const source = (base as unknown as Record<string, unknown>)[key]
-	if (typeof source === 'function') {
-		const fn = source as (star: Star) => unknown
-		return [1, 2, 3, 4].map((star) => fn(star as Star))
-	}
-	return source
 }
 
 function defaultDraft(kind: Kind, id: string): Draft {
 	const draft: Draft = {}
-	for (const field of FIELDS[kind]) draft[field.key] = defaultText(kind, id, field)
+	for (const field of FIELDS[kind]) draft[field.key] = defaultValues(kind, id, field)
 	return draft
+}
+
+/** Error message for one value, prefixed with the star rank it belongs to. */
+function invalid(star: Star | undefined, message: string): never {
+	throw new Error(star ? `${star}★ ${message}` : message)
+}
+
+function textValue(raw: string, star?: Star): string {
+	const value = raw.trim()
+	if (value.length === 0) invalid(star, 'không được để trống')
+	return value
+}
+
+function numberValue(field: FieldDef, raw: string, star?: Star): number {
+	const value = Number(raw.trim())
+	if (!Number.isFinite(value)) invalid(star, 'phải là số')
+	if (field.integer && !Number.isInteger(value)) invalid(star, 'phải là số nguyên')
+	if (field.min !== undefined && value < field.min) invalid(star, `phải ≥ ${field.min}`)
+	if (field.max !== undefined && value > field.max) invalid(star, `phải ≤ ${field.max}`)
+	return value
 }
 
 /**
@@ -167,6 +214,9 @@ function defaultDraft(kind: Kind, id: string): Draft {
  * ⚠️ WHY NOT SEND EVERYTHING: a row should only hold what the editor actually changed. Sending
  * the whole set would freeze every field, so a later code change to an untouched field would
  * silently stop having any effect.
+ *
+ * ⚠️ A per-star field is compared as a **whole array**: one edited rank sends all five, because
+ * the server stores the field as one array and a partial array would lose the other ranks.
  */
 function buildPayload(
 	kind: Kind,
@@ -175,54 +225,83 @@ function buildPayload(
 ): { payload: Record<string, unknown>; errors: string[] } {
 	const payload: Record<string, unknown> = {}
 	const errors: string[] = []
+	const defaults = defaultDraft(kind, id)
 
 	for (const field of FIELDS[kind]) {
-		const raw = (draft[field.key] ?? '').trim()
-		if (raw === defaultText(kind, id, field).trim()) continue
+		const values = draft[field.key] ?? []
+		if (JSON.stringify(values) === JSON.stringify(defaults[field.key] ?? [])) continue
 
 		try {
 			switch (field.kind) {
 				case 'text':
-					if (raw.length === 0) throw new Error('không được để trống')
-					payload[field.key] = raw
+					payload[field.key] = textValue(values[0] ?? '')
 					break
-				case 'int': {
-					const value = Number.parseInt(raw, 10)
-					if (!Number.isFinite(value)) throw new Error('phải là số nguyên')
-					payload[field.key] = value
+				case 'int':
+				case 'number':
+					payload[field.key] = numberValue(field, values[0] ?? '')
 					break
-				}
-				case 'number': {
-					const value = Number(raw)
-					if (!Number.isFinite(value)) throw new Error('phải là số')
-					payload[field.key] = value
-					break
-				}
 				case 'select': {
 					// `có/không` selects send booleans, anything else sends the string.
+					const raw = (values[0] ?? '').trim()
 					const isBoolean = field.options?.every(
 						(option) => option.value === 'true' || option.value === 'false',
 					)
 					payload[field.key] = isBoolean ? raw === 'true' : raw
 					break
 				}
-				case 'perStarNumber': {
-					const parts = raw.split(',').map((part) => part.trim())
-					if (parts.length !== 4) throw new Error('cần đúng 4 giá trị, ngăn bằng dấu phẩy')
-					if (parts.some((part) => !Number.isFinite(Number(part)))) throw new Error('phải là số')
-					payload[field.key] = parts.map((part) => Number(part))
+				case 'json':
+					payload[field.key] = JSON.parse(textValue(values[0] ?? ''))
+					break
+				case 'perStarNumber':
+					payload[field.key] = STARS.map((rank, index) =>
+						numberValue(field, values[index] ?? '', rank),
+					)
+					break
+				case 'perStarText':
+					payload[field.key] = STARS.map((rank, index) => textValue(values[index] ?? '', rank))
+					break
+				case 'perStarJson':
+					payload[field.key] = STARS.map((rank, index) =>
+						JSON.parse(textValue(values[index] ?? '', rank)),
+					)
+					break
+				case 'stars': {
+					const chosen = STARS.filter((_rank, index) => (values[index] ?? '') === 'true')
+					if (chosen.length === 0) {
+						throw new Error('chọn ít nhất một sao có art (hoặc bấm "Về mặc định" để trả về emoji)')
+					}
+					payload[field.key] = chosen
 					break
 				}
-				case 'json':
-					payload[field.key] = JSON.parse(raw)
+				case 'size':
+					payload[field.key] = {
+						w: integerInRange(values[0] ?? '', SIZE_LIMITS.w, 'w'),
+						h: integerInRange(values[1] ?? '', SIZE_LIMITS.h, 'h'),
+					}
 					break
+				case 'quality': {
+					const quality = integerInRange(values[0] ?? '', { min: 1, max: 5 }, 'phẩm')
+					payload[field.key] = quality
+					break
+				}
 			}
 		} catch (error) {
-			errors.push(`${field.label}: ${error instanceof Error ? error.message : 'giá trị không hợp lệ'}`)
+			const detail = error instanceof Error ? error.message : 'giá trị không hợp lệ'
+			errors.push(`${field.label}: ${detail}`)
 		}
 	}
 
 	return { payload, errors }
+}
+
+/** Whole number inside a fixed range, used by the two `space` inputs. */
+function integerInRange(raw: string, range: { min: number; max: number }, axis: string): number {
+	const value = Number(raw.trim())
+	if (!Number.isInteger(value)) throw new Error(`${axis} phải là số nguyên`)
+	if (value < range.min || value > range.max) {
+		throw new Error(`${axis} phải trong khoảng ${range.min}–${range.max}`)
+	}
+	return value
 }
 
 /**
@@ -313,7 +392,9 @@ function AdminContentEditor() {
 
 	const dirty = useMemo(() => {
 		const base = defaultDraft(kind, activeId)
-		return Object.keys(base).some((key) => (draft[key] ?? '') !== base[key])
+		return Object.keys(base).some(
+			(key) => JSON.stringify(draft[key] ?? []) !== JSON.stringify(base[key] ?? []),
+		)
 	}, [draft, kind, activeId])
 
 	const onSave = () => {
@@ -452,17 +533,26 @@ function AdminContentEditor() {
 
 					<div className="grid gap-2 md:grid-cols-2">
 						{FIELDS[kind].map((field) => (
-							<label key={field.key} className="flex flex-col gap-1 text-[12.5px]">
+							<div
+								key={field.key}
+								className={cn('flex flex-col gap-1 text-[12.5px]', isPerStar(field) && 'md:col-span-2')}
+							>
 								<span className="text-muted">
 									{field.label}
 									{field.hint ? <span className="ml-1 opacity-70">· {field.hint}</span> : null}
 								</span>
 								<FieldInput
 									field={field}
-									value={draft[field.key] ?? ''}
-									onChange={(value) => setDraft((current) => ({ ...current, [field.key]: value }))}
+									values={draft[field.key] ?? []}
+									onChange={(index, value) =>
+										setDraft((current) => {
+											const next = [...(current[field.key] ?? [])]
+											next[index] = value
+											return { ...current, [field.key]: next }
+										})
+									}
 								/>
-							</label>
+							</div>
 						))}
 					</div>
 
@@ -514,24 +604,141 @@ function AdminContentEditor() {
 	)
 }
 
+/** Whether a field edits a value per star rank and therefore needs a full-width row of controls. */
+function isPerStar(field: FieldDef): boolean {
+	return (
+		field.kind === 'perStarNumber' ||
+		field.kind === 'perStarText' ||
+		field.kind === 'perStarJson' ||
+		field.kind === 'stars'
+	)
+}
+
+const inputClass = 'w-full rounded-lg border border-line bg-black/40 px-2 py-1.5 text-[13px]'
+
+/** Small label above one per-star control, so the rank is never ambiguous. */
+function RankLabel({ star }: { star: Star }) {
+	return <span className="text-[10.5px] text-muted">{starLabel(star)}</span>
+}
+
 function FieldInput({
 	field,
-	value,
+	values,
 	onChange,
 }: {
 	field: FieldDef
-	value: string
-	onChange: (value: string) => void
+	values: string[]
+	onChange: (index: number, value: string) => void
 }) {
-	const className = 'w-full rounded-lg border border-line bg-black/40 px-2 py-1.5 text-[13px]'
+	if (isPerStar(field) && field.kind !== 'stars') {
+		return (
+			<div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
+				{STARS.map((star, index) => (
+					<label key={star} className="flex min-w-0 flex-col gap-0.5">
+						<RankLabel star={star} />
+						{field.kind === 'perStarJson' ? (
+							<textarea
+								data-admin-field={field.key}
+								data-admin-star={star}
+								className={cn(inputClass, 'min-h-[58px] font-mono text-[11px]')}
+								value={values[index] ?? ''}
+								onChange={(event) => onChange(index, event.target.value)}
+							/>
+						) : (
+							<input
+								data-admin-field={field.key}
+								data-admin-star={star}
+								className={inputClass}
+								type={field.kind === 'perStarNumber' ? 'number' : 'text'}
+								min={field.kind === 'perStarNumber' ? field.min : undefined}
+								max={field.kind === 'perStarNumber' ? field.max : undefined}
+								value={values[index] ?? ''}
+								onChange={(event) => onChange(index, event.target.value)}
+							/>
+						)}
+					</label>
+				))}
+			</div>
+		)
+	}
+
+	if (field.kind === 'stars') {
+		return (
+			<div className="flex flex-wrap gap-1.5">
+				{STARS.map((star, index) => (
+					<label
+						key={star}
+						className="flex items-center gap-1.5 rounded-lg border border-line bg-black/30 px-2 py-1"
+					>
+						<input
+							type="checkbox"
+							data-admin-field={field.key}
+							data-admin-star={star}
+							checked={values[index] === 'true'}
+							onChange={(event) => onChange(index, String(event.target.checked))}
+						/>
+						<RankLabel star={star} />
+					</label>
+				))}
+			</div>
+		)
+	}
+
+	if (field.kind === 'size') {
+		return (
+			<div className="flex items-center gap-2">
+				{(['w', 'h'] as const).map((axis, index) => (
+					<label key={axis} className="flex items-center gap-1">
+						<span className="text-[11.5px] text-muted">{axis}</span>
+						<input
+							type="number"
+							data-admin-field={field.key}
+							data-admin-size={axis}
+							className={cn(inputClass, 'w-16')}
+							min={SIZE_LIMITS[axis].min}
+							max={SIZE_LIMITS[axis].max}
+							value={values[index] ?? ''}
+							onChange={(event) => onChange(index, event.target.value)}
+						/>
+					</label>
+				))}
+			</div>
+		)
+	}
+
+	if (field.kind === 'quality') {
+		const quality = (Number(values[0]) || 1) as Quality
+		return (
+			<div className="flex items-center gap-2">
+				<select
+					data-admin-field={field.key}
+					className={cn(inputClass, 'flex-1')}
+					value={values[0] ?? ''}
+					onChange={(event) => onChange(0, event.target.value)}
+				>
+					{QUALITY_OPTIONS.map((option) => (
+						<option key={option.value} value={option.value}>
+							{option.label}
+						</option>
+					))}
+				</select>
+				{/* Shows the mapping quality → colour straight away, without opening the game. */}
+				<span
+					data-admin-quality-swatch
+					title={QUALITY_LABELS[quality]}
+					className={cn('size-6 shrink-0 rounded-md border border-line', ITEM_QUALITY_SWATCH[quality])}
+				/>
+			</div>
+		)
+	}
 
 	if (field.kind === 'select') {
 		return (
 			<select
 				data-admin-field={field.key}
-				className={className}
-				value={value}
-				onChange={(event) => onChange(event.target.value)}
+				className={inputClass}
+				value={values[0] ?? ''}
+				onChange={(event) => onChange(0, event.target.value)}
 			>
 				{field.options?.map((option) => (
 					<option key={option.value} value={option.value}>
@@ -546,28 +753,25 @@ function FieldInput({
 		return (
 			<textarea
 				data-admin-field={field.key}
-				className={cn(className, 'min-h-[64px] font-mono text-[12px]')}
-				value={value}
-				onChange={(event) => onChange(event.target.value)}
+				className={cn(inputClass, 'min-h-[64px] font-mono text-[12px]')}
+				value={values[0] ?? ''}
+				onChange={(event) => onChange(0, event.target.value)}
 			/>
 		)
 	}
 
-	// ⚠️ Per-star fields hold a comma separated list ("12, 20, 32, 50"), so they must be plain
-	// text inputs: a `type="number"` input drops the commas and the value can never be edited.
-	const isText = field.kind === 'text' || field.kind === 'perStarNumber'
+	const isText = field.kind === 'text'
 
 	return (
 		<input
 			data-admin-field={field.key}
-			className={className}
+			className={inputClass}
 			type={isText ? 'text' : 'number'}
-			inputMode={isText ? 'decimal' : undefined}
 			min={isText ? undefined : field.min}
 			max={isText ? undefined : field.max}
 			step={field.kind === 'number' ? 'any' : undefined}
-			value={value}
-			onChange={(event) => onChange(event.target.value)}
+			value={values[0] ?? ''}
+			onChange={(event) => onChange(0, event.target.value)}
 		/>
 	)
 }

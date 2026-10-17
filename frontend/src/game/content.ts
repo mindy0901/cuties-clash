@@ -5,8 +5,8 @@
  * anonymous play, no network, or an empty database all have to keep the game complete. Server
  * content is only an overlay, and deleting a row returns the entity to its default.
  *
- * ⚠️ **Per-star** fields in code are **functions** (`damage: (star) => …`) while JSON can only
- * carry data (an array of exactly 4 entries, 1★ → 4★). `ITEM_UNPACKERS` rebuilds the function
+ * Per-star fields in code are **functions** (`damage: (star) => …`) while JSON can only
+ * carry data (an array of exactly 5 entries, 1★ → 5★). `ITEM_UNPACKERS` rebuilds the function
  * from the array — **one single lookup table**, so adding a new per-star field only means
  * touching one place.
  *
@@ -14,7 +14,7 @@
  * instead of throwing during render — throwing here means a blank page.
  */
 
-import type { ItemTemplate, PetDef, Star, StatMods, AuraTarget } from './types'
+import type { ItemTemplate, PetDef, Quality, Star, StatMods, AuraTarget } from './types'
 
 /** Raw override for one entity: values already type-checked by the server. */
 export type ContentOverride = Record<string, unknown>
@@ -53,10 +53,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** Rebuild a per-star function from an array of exactly 4 entries. */
+/** Number of star ranks every per-star field carries (1★ → 5★). */
+const STAR_COUNT = 5
+
+/** Rebuild a per-star function from an array with one entry per star rank. */
 function perStar<T>(values: unknown): (star: Star) => T {
-	if (!Array.isArray(values) || values.length !== 4) {
-		throw new Error('perStar: expected exactly 4 entries')
+	if (!Array.isArray(values) || values.length !== STAR_COUNT) {
+		throw new Error(`perStar: expected exactly ${STAR_COUNT} entries`)
 	}
 	const fixed = [...values] as T[]
 	return (star) => fixed[star - 1]!
@@ -64,8 +67,8 @@ function perStar<T>(values: unknown): (star: Star) => T {
 
 /** Per-star array of numbers. */
 function perStarNumber(values: unknown): (star: Star) => number {
-	if (!Array.isArray(values) || values.length !== 4) {
-		throw new Error('perStarNumber: expected exactly 4 entries')
+	if (!Array.isArray(values) || values.length !== STAR_COUNT) {
+		throw new Error(`perStarNumber: expected exactly ${STAR_COUNT} entries`)
 	}
 	if (!values.every((value) => typeof value === 'number' && Number.isFinite(value))) {
 		throw new Error('perStarNumber: entries must be numbers')
@@ -75,16 +78,16 @@ function perStarNumber(values: unknown): (star: Star) => number {
 
 /** Per-star array of `StatMods` tables. */
 function perStarStatMods(values: unknown): (star: Star) => StatMods {
-	if (!Array.isArray(values) || values.length !== 4 || !values.every(isRecord)) {
-		throw new Error('perStarStatMods: expected 4 stat tables')
+	if (!Array.isArray(values) || values.length !== STAR_COUNT || !values.every(isRecord)) {
+		throw new Error(`perStarStatMods: expected ${STAR_COUNT} stat tables`)
 	}
 	return perStar<StatMods>(values)
 }
 
 /** Per-star array of `{ target, mods }` aura entries. */
 function perStarAura(values: unknown): (star: Star) => { target: AuraTarget; mods: StatMods } {
-	if (!Array.isArray(values) || values.length !== 4 || !values.every(isRecord)) {
-		throw new Error('perStarAura: expected 4 { target, mods } entries')
+	if (!Array.isArray(values) || values.length !== STAR_COUNT || !values.every(isRecord)) {
+		throw new Error(`perStarAura: expected ${STAR_COUNT} { target, mods } entries`)
 	}
 	return perStar<{ target: AuraTarget; mods: StatMods }>(values)
 }
@@ -92,8 +95,12 @@ function perStarAura(values: unknown): (star: Star) => { target: AuraTarget; mod
 /** Lookup table: JSON data → the function `ItemTemplate` expects. */
 const ITEM_UNPACKERS: Record<string, (value: unknown) => unknown> = {
 	desc: (value) => {
-		if (!Array.isArray(value) || value.length !== 4 || !value.every((entry) => typeof entry === 'string')) {
-			throw new Error('desc: expected 4 strings')
+		if (
+			!Array.isArray(value) ||
+			value.length !== STAR_COUNT ||
+			!value.every((entry) => typeof entry === 'string')
+		) {
+			throw new Error(`desc: expected ${STAR_COUNT} strings`)
 		}
 		return perStar<string>(value)
 	},
@@ -127,9 +134,13 @@ export function mergeItem(base: ItemTemplate, override: ContentOverride | undefi
 				continue
 			}
 			if (key === 'stars') {
-				if (Array.isArray(value) && value.length > 0 && value.every((star) => star >= 1 && star <= 4)) {
+				if (Array.isArray(value) && value.length > 0 && value.every((star) => star >= 1 && star <= 5)) {
 					next.stars = [...value] as Star[]
 				}
+				continue
+			}
+			if (key === 'quality') {
+				if (isPositiveInt(value, 5)) next.quality = value as Quality
 				continue
 			}
 			if (key === 'name' || key === 'icon' || key === 'cls' || key === 'artExt') {

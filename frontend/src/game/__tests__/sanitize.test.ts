@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sanitizeRun } from '../sanitize'
 import { createItemInstance } from '../bag'
 import { SHOP_SIZE } from '../economy'
+import { MAX_STAR } from '../items'
 import { FINAL_STAGE } from '../stages'
 import { PETS, getPet, petLevelStats } from '../pets'
 import type { RunState } from '../types'
@@ -118,8 +119,19 @@ describe('sanitizeRun — preventing a blank page', () => {
 			...validRun(),
 			inventory: [{ ...createItemInstance('jade-fury', 1, 'x'), star: 99 as never, paid: -5 }],
 		})
-		expect(run.inventory[0].star).toBe(4)
+		expect(run.inventory[0].star).toBe(MAX_STAR)
 		expect(run.inventory[0].paid).toBe(0)
+	})
+
+	it('keeps a save that holds a 5★ item instead of rejecting or downgrading it', () => {
+		const maxed = { ...createItemInstance('great-axe', 5, 'maxed', 0), paid: 40 }
+		const run = sanitizeRun({
+			...validRun(),
+			equipped: [maxed],
+			inventory: [createItemInstance('jade-fury', 5, 'stored')],
+		})
+		expect(run.equipped.map((item) => ({ star: item.star, paid: item.paid }))).toEqual([{ star: 5, paid: 40 }])
+		expect(run.inventory[0].star).toBe(5)
 	})
 
 	it('an empty or broken shop is rolled again with a full offer list', () => {

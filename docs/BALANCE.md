@@ -8,10 +8,27 @@
 | --- | --- |
 | Early game | High — the player must see themselves getting stronger |
 | Stages **23–47** | **~50–70%** — the main tension zone |
-| Late game (already 4★) | Gradually easier — a reward for building correctly |
+| Late game (already 4★/5★) | Gradually easier — a reward for building correctly |
 
 ❌ Avoid both extremes: **0%** (stuck, players quit) and **a uniform 100%** (boring, no reason left to
 optimise the Trang bị).
+
+⚠️ **Enemy stars are the sharpest knob in the game.** A whole loadout going up one star rank is worth
+far more than several stages of `maxHp` / `attackDamage` growth, and it snaps from "always winnable" to
+"never winnable" instead of sliding. Measured at stages 49-60 with a maxed player (pet level 5, every
+item 5★, full grid, 16-24 seeds):
+
+| Enemy loadout | Player win rate |
+| --- | --- |
+| Everything at **4★** | **81-100%** (stage 60 boss 13%) |
+| Weapons 4★, everything else 5★ | **0%** |
+| One single item at 5★ | 0-100%, depending on which item |
+| Everything at **5★** | **0%** |
+
+⇒ The enemy ladder therefore still stops at **4★** (`enemyStar` in `game/stages.ts`): **5★ is the
+player's reward** for merging two 4★ copies, not a tier the enemy may reach. Put a 5★ enemy in and the
+last map becomes impossible for *every* build, so "add a 5th enemy tier" is not a one-line change — it
+needs the whole late-game curve retuned and re-measured.
 
 ## 2. Process
 
@@ -34,7 +51,7 @@ optimise the Trang bị).
 ```
 maxHp        ≈ 400 + (index - 1) × 54      boss ×1.35
 attackDamage ≈   8 + (index - 1) × 0.95    boss ×1.12
-enemy stars   1★ when index < 16 · 2★ < 31 · 3★ < 46 · 4★ from 46
+enemy stars   1★ when index < 16 · 2★ < 31 · 3★ < 46 · 4★ from 46   (player-only 5★, see §1)
 enemyItems    ⌊(index + 3) / 7⌋            max 6
 ```
 

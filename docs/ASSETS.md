@@ -95,6 +95,10 @@ again. `frontend/src/game/__tests__/artAlpha.test.ts` guards it: every image mus
 Each item takes **one icon type** from the pack, and each star level takes a **different material
 tier** — so a 4★ item looks completely different from a 1★ one at a glance.
 
+⚠️ Art ships for star ranks **1–4** only. A **5★** item is legitimate in game (two 4★ copies merge
+into it, see `docs/GAME-RULES.md` §4) but `stars` in `items.ts` stops at 4, so it draws the
+template's **emoji**. Adding 5★ art later means adding the files **and** declaring `5` in `stars`.
+
 **Material tier per star:**
 
 | Star | Material tier |
@@ -103,6 +107,7 @@ tier** — so a 4★ item looks completely different from a 1★ one at a glance
 | ★★ | `green_jade` |
 | ★★★ | `ebony_steel` |
 | ★★★★ | `divine_gold_inlaid_wood` |
+| ★★★★★ | — (falls back to the emoji) |
 
 Exceptions (mixed materials): `poison-dagger` starts at `rusty_stone`; `twin-claws` uses
 `worn_leather` → `forged_iron` → `shining_silver`.
@@ -204,7 +209,7 @@ added little by little, and the game has never shown an empty cell.
 {
   id: 'wooden-blade',
   icon: '🗡️',                    // fallback, always keep
-  stars: [1, 2, 3, 4],          // art exists for all 4 stars
+  stars: [1, 2, 3, 4],          // art exists for star ranks 1–4 (5★ uses the emoji)
   artExt: 'png',                // optional, defaults to 'png'
 }
 

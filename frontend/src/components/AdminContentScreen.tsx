@@ -570,7 +570,7 @@ function AdminContentEditor() {
 													{
 														onSuccess: () => {
 															bumpContent()
-															pushToast(`Đã bỏ ảnh tải lên của "${activeId}"`, 'good')
+															pushToast(`Đã xoá ảnh đã tải của "${activeId}"`, 'good')
 														},
 														onError: (error) =>
 															setMessage({ text: error.message, bad: true }),
@@ -579,7 +579,7 @@ function AdminContentEditor() {
 											}}
 											disabled={uploadArt.isPending || deleteArt.isPending}
 										>
-											↺ Bỏ ảnh đã tải
+											🗑️ Xoá ảnh đã tải
 										</button>
 									) : null}
 								</div>

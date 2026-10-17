@@ -462,24 +462,36 @@ describe('uploaded art', () => {
 		withApp(
 			async ({ app, db }) => {
 				const { sessionToken } = await seed(db, 'quantri@example.com')
+				const cookies = sessionCookies(sessionToken)
 				await app.inject({
 					method: 'PUT',
 					url: ART_URL,
 					headers: PNG_HEADERS,
 					payload: pngOfSize(256, 256),
-					cookies: sessionCookies(sessionToken),
+					cookies,
 				})
-				const removed = await app.inject({
-					method: 'DELETE',
-					url: ART_URL,
-					cookies: sessionCookies(sessionToken),
-				})
+
+				// The bytes really are in the table — otherwise the checks below would prove nothing.
+				const stored = await db.contentArt.findUnique({ where: { id: `item:${ART_ID}` } })
+				expect(stored?.bytes.length).toBeGreaterThan(0)
+
+				const removed = await app.inject({ method: 'DELETE', url: ART_URL, cookies })
 				expect(removed.statusCode).toBe(200)
+
+				// ⚠️ The **row itself** must be gone, not just hidden from the API: a leftover row keeps the
+				// picture in the database (and in every backup) long after the admin removed it.
+				expect(await db.contentArt.findUnique({ where: { id: `item:${ART_ID}` } })).toBeNull()
 
 				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
 				expect(overlay.art[`item:${ART_ID}`]).toBeUndefined()
 				const gone = await app.inject({ method: 'GET', url: `/api/content/art/item/${ART_ID}` })
 				expect(gone.statusCode).toBe(404)
+
+				// Deleting twice is not an error either.
+				const again = await app.inject({ method: 'DELETE', url: ART_URL, cookies })
+				expect(again.statusCode).toBe(200)
+				const remaining = await db.contentArt.count({ where: { id: `item:${ART_ID}` } })
+				expect(remaining).toBe(0)
 			},
 			{ config: adminConfig },
 		))

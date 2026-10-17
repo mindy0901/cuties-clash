@@ -91,7 +91,7 @@ content, so a file would disappear on every rebuild. An icon is a few tens of KB
 upload — including one that replaces a deleted picture — is a *different* URL and the response can be
 cached **forever** (`immutable`): players never see a stale picture and never re-download one.
 
-⚠️ It must **not** be a counter: the counter restarts at 1 after "Bỏ ảnh đã tải", so a re-upload would
+⚠️ It must **not** be a counter: the counter restarts at 1 after "Xoá ảnh đã tải", so a re-upload would
 restore an already cached URL and the browser would keep showing the **deleted** picture. That really
 happened (an uploaded axe kept showing after it was replaced by a sword), and
 `backend/tests/content.spec.ts` now has a regression test for it.
@@ -101,7 +101,10 @@ happened (an uploaded axe kept showing after it was replaced by a sword), and
 picture stored inside it would vanish the next time someone edited `damage`; and **Về mặc định**
 (deleting the override) must not delete an uploaded image.
 
-Removing a picture (↺ **Bỏ ảnh đã tải**) puts the entity back on its bundled file, then the emoji.
+Removing a picture (🗑️ **Xoá ảnh đã tải**) **deletes the row and its bytes** from `content_art`, so the
+entity goes back to its bundled file, then the emoji. Deleting twice is not an error, and nothing
+keeps the deleted bytes alive: the URL is dropped from the public overlay, and a later upload gets a
+new `?v=` tag.
 
 ⚠️ The server only checks that the bytes really are a **PNG from 8 to 512 px per side, at most
 2 MB** — it holds no image processing and no game rules, and it does **not** require a square

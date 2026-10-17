@@ -1,13 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { COUNTER_COST } from '../game/battle'
 import { combatItemUid } from '../game/build'
-import { getTemplate, starLabel } from '../game/items'
+import { getTemplate } from '../game/items'
 import { STATUS_ICON, STATUS_TEXT } from '../game/labels'
-import { getPet } from '../game/pets'
+import { GRID_MAX_ROWS, GRID_WIDTH, getPet } from '../game/pets'
 import { useGameStore } from '../store/gameStore'
-import type { SideState, StatusKey } from '../game/types'
+import { useUiStore } from '../store/uiStore'
+import type { ItemBlueprint, ItemInstance, SideState, StatusKey } from '../game/types'
+import { AvatarCard, type AvatarSkill } from './AvatarCard'
 import { ItemIcon, PetIcon, SkillIcon } from './ItemIcon'
-import { btnClass, btnGoldClass, btnPrimaryClass, btnSmClass, cn, gearRowClass, panelClass } from './ui'
+import { LoadoutGrid } from './LoadoutGrid'
+import {
+	btnClass,
+	btnGoldClass,
+	btnPrimaryClass,
+	btnSmClass,
+	cn,
+	hintClass,
+	panelClass,
+	panelTitleClass,
+} from './ui'
 
 const DEBUFFS: StatusKey[] = ['slow', 'freeze', 'poison', 'burn', 'brittle']
 const DAMAGE_KINDS = new Set(['attack', 'charged', 'counter', 'active'])
@@ -15,139 +27,99 @@ const SPEEDS = [1, 2, 4, 8]
 /** Nhịp diễn lại: mỗi 60 ms thực thi một nhịp thời gian mô phỏng ở tốc độ ×1. */
 const TICK_MS = 60
 
-/** Ảnh đại diện: thú cưng có art riêng, đối thủ PvP thì dùng emoji. */
-type Avatar = { kind: 'pet'; petId: string } | { kind: 'emoji'; emoji: string }
-
-interface GearPiece {
+/** Kỹ năng hiện ở đáy khung đại diện — kèm `uid` để tra tiến độ hồi trong `SideState.cooldowns`. */
+interface SkillChip {
 	uid: string
-	/** Có `templateId` = một món đồ; không có = kỹ năng của thú cưng. */
-	templateId?: string
-	star?: 1 | 2 | 3 | 4
-	/** Dùng cho ô kỹ năng. */
-	petId?: string
-	name: string
+	icon: ReactNode
 	label: string
 }
 
-function gearFromBlueprints(items: { templateId: string; star: number; slot: number }[]): GearPiece[] {
-	return items.map((entry) => ({
+/** Trang bị của đối thủ (`ItemBlueprint`) → món hiển thị được trên lưới. */
+function toGridItems(entries: ItemBlueprint[]): ItemInstance[] {
+	return entries.map((entry) => ({
 		uid: combatItemUid(entry.templateId, entry.slot),
 		templateId: entry.templateId,
-		star: entry.star as 1 | 2 | 3 | 4,
-		name: getTemplate(entry.templateId).name,
-		label: starLabel(entry.star as 1 | 2 | 3 | 4),
+		star: entry.star,
+		slot: entry.slot,
+		rotated: entry.rotated ?? false,
+		paid: 0,
 	}))
 }
 
-function DuelistView({
-	name,
-	avatar,
-	subtitle,
-	state,
-	gear,
-	floater,
-	hit,
-}: {
-	name: string
-	avatar: Avatar
-	subtitle: string
-	state: SideState
-	gear: GearPiece[]
-	floater?: { key: number; value: number } | null
-	hit: boolean
-}) {
+/**
+ * Ô kỹ năng của **món**: chỉ món có **hiệu lực chủ động** mới hiện, vì chỉ chúng có nhịp riêng.
+ *
+ * `uid` phải trùng cách `buildCombatant` đặt uid cho món (`combatItemUid`) thì mới tra được tiến
+ * độ hồi chiêu mà màn đấu nhận từ `SideState.cooldowns`.
+ */
+function activeItemChips(items: ItemInstance[]): SkillChip[] {
+	return items
+		.filter((item) => getTemplate(item.templateId).active)
+		.map((item) => ({
+			uid: combatItemUid(item.templateId, item.slot),
+			icon: <ItemIcon templateId={item.templateId} star={item.star} emojiClass="text-base" />,
+			label: `${getTemplate(item.templateId).name} — hiệu lực chủ động`,
+		}))
+}
+
+/** Gắn tiến độ hồi chiêu (0–100) của từng ô kỹ năng theo trạng thái hiện tại của bên đó. */
+function withCharge(state: SideState, chips: SkillChip[]): AvatarSkill[] {
+	return chips.map((chip) => {
+		const cooldown = state.cooldowns.find((entry) => entry.uid === chip.uid)
+		const charge =
+			cooldown && cooldown.total > 0 ? 100 - (cooldown.remaining / cooldown.total) * 100 : 100
+		return { ...chip, charge }
+	})
+}
+
+/**
+ * Thanh máu + Kiếm Thế của **một bên**, đặt hai đầu thanh trên.
+ *
+ * Bên địch soi gương (`items-end` + `ml-auto`) để hai thanh cùng rút về phía huy hiệu ở giữa —
+ * giống ảnh tham chiếu, và nhìn là biết bên nào đang mất máu.
+ */
+function HpPanel({ side, state }: { side: 'player' | 'enemy'; state: SideState }) {
+	const enemy = side === 'enemy'
 	const hpPercent = Math.max(0, Math.min(100, (state.hp / state.maxHp) * 100))
 	const sePercent = Math.max(0, Math.min(100, (state.se / state.maxSe) * 100))
 
 	return (
-		<div className="surface-panel relative flex flex-col gap-2.5 rounded-panel border border-line p-3">
-			{floater ? (
-				<span
-					className="pointer-events-none absolute top-2 right-2.5 animate-float-up text-xl font-extrabold text-danger-soft [text-shadow:0_2px_6px_rgb(0_0_0/80%)]"
-					key={floater.key}
-				>
-					−{floater.value}
-				</span>
-			) : null}
-
-			<div className="flex items-center gap-2.5">
+		<div className={cn('flex w-full min-w-0 flex-col gap-1.5', enemy && 'items-end')}>
+			<div className="relative h-4 w-full overflow-hidden rounded-md border border-line bg-black/60">
 				<div
 					className={cn(
-						'grid size-[54px] place-items-center rounded-[14px] border border-line bg-ink-600 p-1',
-						hit && 'animate-shake',
+						'h-full transition-[width] duration-300',
+						enemy && 'ml-auto',
+						hpPercent < 35 ? 'bar-hp-low' : 'bar-hp',
 					)}
-					key={hit ? `hit-${floater?.key}` : 'idle'}
-				>
-					{avatar.kind === 'pet' ? (
-						<PetIcon petId={avatar.petId} emojiClass="text-[30px]" />
-					) : (
-						<span className="text-[30px] leading-none">{avatar.emoji}</span>
-					)}
-				</div>
-				<div>
-					<div className="font-semibold">{name}</div>
-					<div className="text-xs text-muted">{subtitle}</div>
-				</div>
-			</div>
-
-			<div className="relative h-4 overflow-hidden rounded-lg border border-line bg-black/55">
-				<div
-					className={cn('h-full transition-[width] duration-300', hpPercent < 35 ? 'bar-hp-low' : 'bar-hp')}
 					style={{ width: `${hpPercent}%` }}
 				/>
-				<span className="absolute inset-0 grid place-items-center text-[11.5px] tabular-nums [text-shadow:0_1px_2px_rgb(0_0_0/80%)]">
+				<span className="absolute inset-0 grid place-items-center text-[11.5px] font-semibold tabular-nums [text-shadow:0_1px_2px_rgb(0_0_0/80%)]">
 					{Math.max(0, Math.round(state.hp))} / {Math.round(state.maxHp)}
-					{state.shield > 0 ? ` · 🔷 ${Math.round(state.shield)}` : ''}
 				</span>
 			</div>
 
 			<div
-				className="relative h-2 overflow-hidden rounded-lg border border-line bg-black/55"
+				className="relative h-2 w-full overflow-hidden rounded-md border border-line bg-black/60"
 				title={`Kiếm Thế — Chấn Đao cần ${COUNTER_COST}`}
 			>
-				<div className="bar-se h-full transition-[width] duration-300" style={{ width: `${sePercent}%` }} />
-				<span className="absolute inset-0 grid place-items-center text-[11.5px] tabular-nums [text-shadow:0_1px_2px_rgb(0_0_0/80%)]">
-					Kiếm Thế {Math.round(state.se)} / {state.maxSe}
+				<div
+					className={cn('bar-se h-full transition-[width] duration-300', enemy && 'ml-auto')}
+					style={{ width: `${sePercent}%` }}
+				/>
+			</div>
+
+			<div className={cn('flex flex-wrap items-center gap-1.5', enemy && 'justify-end')}>
+				<span
+					className="flex items-center gap-1 rounded-full border border-line bg-black/35 px-2 py-0.5 text-[11.5px] tabular-nums"
+					title="Giáp"
+				>
+					🛡 {Math.round(state.shield)}
 				</span>
-			</div>
-
-			<div className={gearRowClass}>
-				{gear.map((piece) => {
-					const cooldown = state.cooldowns.find((entry) => entry.uid === piece.uid)
-					const ready = !cooldown || cooldown.remaining <= 0
-					const progress =
-						cooldown && cooldown.total > 0 ? 100 - (cooldown.remaining / cooldown.total) * 100 : 100
-					return (
-						<div
-							className={cn(
-								'relative flex flex-col items-center gap-0.5 overflow-hidden rounded-[9px] border border-line bg-ink-700 px-1 pt-1.5 pb-2.5 text-[10px] text-muted',
-								ready && 'border-gold-soft shadow-[0_0_10px_rgb(217_162_39/35%)]',
-							)}
-							key={piece.uid}
-							title={piece.name}
-						>
-							<span className="grid size-6 place-items-center">
-								{piece.templateId && piece.star ? (
-									<ItemIcon templateId={piece.templateId} star={piece.star} emojiClass="text-xl" />
-								) : (
-									<SkillIcon petId={piece.petId ?? ''} emojiClass="text-xl" />
-								)}
-							</span>
-							<span>{piece.label}</span>
-							<span
-								className="absolute bottom-0 left-0 h-1 bg-gold transition-[width] duration-200"
-								style={{ width: `${progress}%` }}
-							/>
-						</div>
-					)
-				})}
-			</div>
-
-			<div className="flex min-h-6 flex-wrap gap-1.5">
 				{state.statuses.map((status) => (
 					<span
 						className={cn(
-							'flex items-center gap-1 rounded-full border border-line bg-black/35 px-2 py-0.5 text-[11.5px]',
+							'flex items-center gap-1 rounded-full border bg-black/35 px-2 py-0.5 text-[11.5px]',
 							DEBUFFS.includes(status.key)
 								? 'border-danger/60 text-[#f0b6ac]'
 								: 'border-jade/55 text-[#a6e3d5]',
@@ -164,11 +136,75 @@ function DuelistView({
 	)
 }
 
+/** Huy hiệu giữa hai thanh máu: hai ảnh đại diện nhỏ, tên hai bên, và nhịp thời gian trận. */
+function VersusBadge({
+	petId,
+	opponentEmoji,
+	playerName,
+	opponentName,
+	title,
+	time,
+	outcome,
+}: {
+	petId: string
+	opponentEmoji: string
+	playerName: string
+	opponentName: string
+	title: string
+	time: number
+	outcome: string | null
+}) {
+	return (
+		<div className="flex flex-col items-center gap-1">
+			<div className="flex items-center gap-2">
+				<span
+					className="grid size-11 place-items-center rounded-[12px] border border-gold/40 bg-ink-700 p-1"
+					title={playerName}
+				>
+					<PetIcon petId={petId} emojiClass="text-[24px]" />
+				</span>
+				<span className="grid h-11 min-w-[104px] place-items-center rounded-[12px] border border-gold/50 bg-linear-to-b from-[#3a2a16] to-ink-800 px-3 font-extrabold tracking-[0.12em] text-gold-soft">
+					{title}
+				</span>
+				<span
+					className="grid size-11 place-items-center rounded-[12px] border border-line bg-ink-700 text-[24px] leading-none"
+					title={opponentName}
+				>
+					{opponentEmoji}
+				</span>
+			</div>
+			<div className="flex w-full items-start justify-between gap-3 text-[11.5px] text-muted">
+				<span className="max-w-[128px] truncate">{playerName}</span>
+				<span className="max-w-[128px] truncate text-right">{opponentName}</span>
+			</div>
+			<span className="text-[11px] tabular-nums text-muted">
+				{(time / 1000).toFixed(1)}s
+				{outcome ? ` · ${outcome}` : ''}
+			</span>
+		</div>
+	)
+}
+
+/**
+ * Vách ngăn giữa hai lưới trang bị — chỉ để trang trí, thay cho cột đá giữa ảnh tham chiếu.
+ */
+function ArenaDivider() {
+	return (
+		<div className="relative flex w-9 shrink-0 flex-col items-center justify-center rounded-lg border border-line bg-linear-to-b from-[#22302c] via-[#16211f] to-[#22302c]">
+			<span className="absolute inset-y-2 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-jade/25" />
+			<span className="relative grid size-7 place-items-center rounded-full border border-gold/50 bg-ink-800 text-[12px] text-gold-soft">
+				⚔
+			</span>
+		</div>
+	)
+}
+
 /** Diễn lại trận đã mô phỏng sẵn, rồi chốt kết quả. */
 export function BattleScreen() {
 	const battle = useGameStore((state) => state.battle)
 	const run = useGameStore((state) => state.run)
 	const commitBattle = useGameStore((state) => state.commitBattle)
+	const openItem = useUiStore((state) => state.openItem)
 
 	const events = useMemo(() => battle?.result.events ?? [], [battle])
 	const lastEventTime = events.length > 0 ? events[events.length - 1].t : 0
@@ -218,34 +254,52 @@ export function BattleScreen() {
 	const current = events[Math.min(index, Math.max(0, events.length - 1))] ?? events[0]
 	const previous = events[Math.max(0, Math.min(index, events.length - 1) - 1)] ?? current
 	const pet = getPet(run.petId)
+	const level = run.pets[run.petId] ?? 1
 
 	const playerItems = run.equipped.filter((item) => item.slot >= 0)
-	const playerGear: GearPiece[] = [
-		{ uid: 'skill', petId: pet.id, name: pet.skill.name, label: 'Kỹ năng' },
-		...gearFromBlueprints(playerItems),
-	]
-	const enemyGear = gearFromBlueprints(battle.opponentItems)
+	const enemyItems = toGridItems(battle.opponentItems)
+	const playerSkills = withCharge(current.player, [
+		{
+			uid: 'skill',
+			icon: <SkillIcon petId={pet.id} emojiClass="text-base" />,
+			label: `${pet.skill.name} — mỗi ${(pet.skill.interval / 1000).toFixed(1)}s`,
+		},
+		...activeItemChips(playerItems),
+	])
+	const enemySkills = withCharge(current.enemy, activeItemChips(enemyItems))
 
 	const damageEvent = DAMAGE_KINDS.has(current.kind) && current.amount ? current : null
 	const floaterSide = damageEvent ? (damageEvent.side === 'player' ? 'enemy' : 'player') : null
-	const playerFloater = damageEvent && floaterSide === 'player' ? { key: index, value: damageEvent.amount ?? 0 } : null
-	const enemyFloater = damageEvent && floaterSide === 'enemy' ? { key: index, value: damageEvent.amount ?? 0 } : null
+	const playerFloater =
+		damageEvent && floaterSide === 'player' ? { key: index, value: damageEvent.amount ?? 0 } : null
+	const enemyFloater =
+		damageEvent && floaterSide === 'enemy' ? { key: index, value: damageEvent.amount ?? 0 } : null
 
 	const visibleLog = events.slice(Math.max(0, index - 59), index + 1).reverse()
 	const winner = battle.result.winner
+	const finished = Boolean(winner) && index >= events.length - 1
+	const outcome = finished
+		? winner === 'player'
+			? 'THẮNG'
+			: winner === 'enemy'
+			  ? 'THUA'
+			  : 'HOÀ'
+		: null
+	const opponentEmoji = battle.mode === 'pvp' ? '🀄' : '👹'
+	const opponentLabel = battle.mode === 'pvp' ? 'Giao hữu' : `Màn ${battle.stageIndex}`
 
 	return (
 		<div className="flex flex-col gap-3.5">
-			<section className={panelClass}>
+			<section className={cn(panelClass, 'gap-3.5')}>
 				<div className="flex flex-wrap items-start justify-between gap-2.5">
 					<div>
-						<h2 className="text-base tracking-[0.02em]">
+						<h2 className={panelTitleClass}>
 							{battle.mode === 'stage' ? `Màn ${battle.stageIndex}` : 'Giao hữu PvP'} · vs{' '}
 							{battle.opponentName}
 						</h2>
-						<p className="m-0 text-[13px] text-muted">
-							Trận đấu tự động — bạn chỉ cần chuẩn bị túi đồ. Chấn Đao tốn {COUNTER_COST} Kiếm Thế, trọng kích
-							tốn 24–40.
+						<p className={hintClass}>
+							Trận đấu tự động — bạn chỉ cần chuẩn bị túi đồ. Chấn Đao tốn {COUNTER_COST} Kiếm
+							Thế, trọng kích tốn 24–40.
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-2">
@@ -259,7 +313,11 @@ export function BattleScreen() {
 								×{value}
 							</button>
 						))}
-						<button type="button" className={cn(btnClass, btnSmClass)} onClick={() => setPaused((v) => !v)}>
+						<button
+							type="button"
+							className={cn(btnClass, btnSmClass)}
+							onClick={() => setPaused((v) => !v)}
+						>
 							{paused ? '▶ Tiếp tục' : '⏸ Tạm dừng'}
 						</button>
 						<button
@@ -277,37 +335,65 @@ export function BattleScreen() {
 					</div>
 				</div>
 
-				<div className="grid items-start gap-3 lg:grid-cols-[1fr_78px_1fr] max-[820px]:grid-cols-1">
-					<DuelistView
-						name={pet.name}
-						avatar={{ kind: 'pet', petId: pet.id }}
-						subtitle={`Cấp ${run.pets[run.petId] ?? 1} · ${pet.skill.name}`}
-						state={current.player}
-						gear={playerGear}
-						floater={playerFloater}
-						hit={Boolean(playerFloater)}
+				{/* ── Thanh trên: máu hai bên + huy hiệu đối đầu ───────────────────── */}
+				<div className="grid items-center gap-3 lg:grid-cols-[1fr_auto_1fr]">
+					<HpPanel side="player" state={current.player} />
+					<VersusBadge
+						petId={pet.id}
+						opponentEmoji={opponentEmoji}
+						playerName={pet.name}
+						opponentName={battle.opponentName}
+						title={battle.mode === 'stage' ? 'ĐẤU TRƯỜNG' : 'GIAO HỮU'}
+						time={current.t}
+						outcome={outcome}
 					/>
-					<div className="grid place-items-center gap-2 font-extrabold tracking-[0.1em] text-gold">
-						<span>VS</span>
-						<span className="text-xs tracking-normal text-muted">{(current.t / 1000).toFixed(1)}s</span>
-						{winner && index >= events.length - 1 ? (
-							<span className={winner === 'player' ? 'text-gold-soft' : 'text-muted'}>
-								{winner === 'player' ? 'THẮNG' : winner === 'enemy' ? 'THUA' : 'HOÀ'}
+					<HpPanel side="enemy" state={current.enemy} />
+				</div>
+
+				{/* ── Sàn đấu: đại diện hai bên + lưới trang bị (dùng lại `LoadoutGrid`) ── */}
+				<div className="flex flex-wrap items-stretch justify-center gap-3">
+					<AvatarCard
+						side="player"
+						name={pet.name}
+						label={`Lv${level}`}
+						petId={pet.id}
+						skills={playerSkills}
+						hit={Boolean(playerFloater)}
+						floater={playerFloater}
+					/>
+
+					<div className="flex items-stretch gap-3 overflow-x-auto rounded-panel border border-line bg-black/30 p-3">
+						<div className="flex flex-col items-center gap-1.5">
+							<span className="text-[11.5px] text-muted">
+								{pet.name} · {playerItems.length} món
 							</span>
-						) : null}
+							<LoadoutGrid
+								width={GRID_WIDTH}
+								rows={GRID_MAX_ROWS}
+								items={playerItems}
+								interactive
+								onItemClick={(item) => openItem(item.uid)}
+							/>
+						</div>
+
+						<ArenaDivider />
+
+						<div className="flex flex-col items-center gap-1.5">
+							<span className="text-[11.5px] text-muted">
+								{battle.opponentName} · {enemyItems.length} món
+							</span>
+							<LoadoutGrid width={GRID_WIDTH} rows={GRID_MAX_ROWS} items={enemyItems} />
+						</div>
 					</div>
-					<DuelistView
+
+					<AvatarCard
+						side="enemy"
 						name={battle.opponentName}
-						avatar={{ kind: 'emoji', emoji: battle.mode === 'pvp' ? '🀄' : '👹' }}
-						subtitle={
-							battle.mode === 'pvp'
-								? 'Đối thủ giao hữu'
-								: `Màn ${battle.stageIndex} · ${battle.opponentItems.length} món đồ`
-						}
-						state={current.enemy}
-						gear={enemyGear}
-						floater={enemyFloater}
+						label={opponentLabel}
+						emoji={opponentEmoji}
+						skills={enemySkills}
 						hit={Boolean(enemyFloater)}
+						floater={enemyFloater}
 					/>
 				</div>
 

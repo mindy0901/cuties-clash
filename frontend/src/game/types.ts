@@ -127,6 +127,14 @@ export interface PetDef {
 	/** Có art kỹ năng trong `public/icons/skills/<id>-skill.<skillArtExt>`. */
 	skillArt?: boolean
 	skillArtExt?: 'png' | 'svg' | 'webp'
+	/**
+	 * Có art **đại diện** riêng trong `public/icons/pets/<id>-avatar.<avatarExt>`.
+	 *
+	 * Khung đấu sĩ (`AvatarCard`) ưu tiên ảnh này, chưa có thì lùi về `art` rồi emoji — nên thêm
+	 * ảnh đại diện chỉ cần đặt file + bật cờ, ❌ không phải sửa giao diện.
+	 */
+	avatar?: boolean
+	avatarExt?: 'png' | 'svg' | 'webp'
 	/** Stage index that must be cleared to unlock the pet (0 = starter). */
 	unlockStage: number
 	maxHp: number

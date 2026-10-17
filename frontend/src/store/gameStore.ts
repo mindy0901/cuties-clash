@@ -21,7 +21,7 @@ import { migrateV1ToV2, type PersistedV1 } from '../game/migrate'
 import { sanitizeRun } from '../game/sanitize'
 import { FINAL_STAGE, getStage, makeRivalBlueprint } from '../game/stages'
 import { simulateBattle } from '../game/battle'
-import type { BattleResult, RunState } from '../game/types'
+import type { BattleResult, ItemBlueprint, RunState } from '../game/types'
 
 export type Phase = 'prep' | 'battle' | 'result' | 'victory'
 
@@ -31,7 +31,7 @@ export type ItemHome = 'equipped' | 'inventory'
 export interface BattleState {
 	mode: 'stage' | 'pvp'
 	opponentName: string
-	opponentItems: { templateId: string; star: number; slot: number }[]
+	opponentItems: ItemBlueprint[]
 	stageIndex: number
 	result: BattleResult
 	committed: boolean

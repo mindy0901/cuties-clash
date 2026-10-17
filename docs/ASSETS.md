@@ -21,6 +21,18 @@ nguồn, giấy phép, cách đặt file và nghĩa vụ ghi công.
 - ⚠️ Thêm **thư mục tĩnh mới** trong `frontend/` thì kiểm image `fr` có `COPY` nó không — thiếu thì
   ảnh 404 và nginx trả `index.html` (HTTP vẫn 200, rất khó thấy).
 
+### Art đại diện của thú cưng (khung đấu sĩ)
+
+Khung đại diện trên sàn đấu (`components/AvatarCard.tsx`) lấy ảnh theo thứ tự:
+
+1. **Ảnh đại diện riêng** — `public/icons/pets/<petId>-avatar.png`, bật bằng `avatar: true` trong
+   `game/pets.ts` (đổi đuôi thì thêm `avatarExt`). Hàm tra: `avatarArtSrc`.
+2. **Art thú cưng** — `public/icons/pets/<petId>.png` (`art: true`), đã có sẵn.
+3. **Emoji dự phòng** — `icon` trong `pets.ts`.
+
+⇒ Bổ sung ảnh đại diện **không phải sửa component**: đặt file đúng tên rồi bật cờ. Khung đã bo
+viền nét đứt quanh vùng ảnh, nên chưa có ảnh vẫn trông là "chỗ dành cho ảnh" chứ không phải lỗi.
+
 ## Đang dùng
 
 ### ORHstudio — Wuxia Icon Series (CC0)

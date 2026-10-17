@@ -87,6 +87,25 @@ describe('battle screen playback', () => {
 		expect(useGameStore.getState().battle?.committed).toBe(true)
 	})
 
+	it('sàn đấu dùng lại lưới trang bị, kèm khung đại diện hai bên', async () => {
+		gearUp()
+		await renderApp()
+		fireEvent.click(screen.getByText(/Đấu Thú Cưng/))
+
+		// Sàn đấu dùng **chính `GridBoard`** của phòng chuẩn bị: một lưới cho mình, một cho đối thủ.
+		const boards = document.querySelectorAll<HTMLElement>('[data-grid-board]')
+		expect(boards, 'hai lưới trang bị trên sàn đấu').toHaveLength(2)
+
+		// Khung đại diện hai bên — holder đã sẵn sàng cho ảnh đại diện (hiện hiện art/emoji).
+		expect(document.querySelector('[data-avatar-card="player"]')).toBeTruthy()
+		expect(document.querySelector('[data-avatar-card="enemy"]')).toBeTruthy()
+		expect(document.querySelectorAll('[data-avatar-holder]')).toHaveLength(2)
+
+		// Lưới bên mình hiện **đúng** số món đang mang, không phải danh sách rời.
+		const equipped = useGameStore.getState().run.equipped.filter((item) => item.slot >= 0)
+		expect(boards[0].querySelectorAll('[data-item-box]')).toHaveLength(equipped.length)
+	})
+
 	it('quay về phòng chuẩn bị sau khi đóng kết quả', async () => {
 		gearUp()
 		await renderApp()

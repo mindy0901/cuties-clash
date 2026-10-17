@@ -302,8 +302,31 @@ describe('importing a picture', () => {
 		expect(await screen.findByText(/Ảnh tải lên · 256×256 · v3/)).toBeTruthy()
 		fireEvent.click(document.querySelector('[data-admin-remove-art]')!)
 
+		// Deleting loses the crop, so it asks first — and says what happens.
+		const dialog = await screen.findByRole('dialog', { name: /Xoá ảnh đã tải của/ })
+		expect(dialog.textContent).toContain('Không thể hoàn tác')
+
+		fireEvent.click(dialog.querySelector('[data-confirm-accept]')!)
+
 		await waitFor(() => expect(deletes).toHaveLength(1))
 		expect(deletes[0]).toContain('/api/admin/content/item/wooden-blade/art')
+	})
+
+	it('keeps the picture when the confirmation is cancelled', async () => {
+		const { deletes } = stubApi({ art: [UPLOADED] })
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		expect(await screen.findByText(/Ảnh tải lên · 256×256 · v3/)).toBeTruthy()
+		fireEvent.click(document.querySelector('[data-admin-remove-art]')!)
+
+		const dialog = await screen.findByRole('dialog', { name: /Xoá ảnh đã tải của/ })
+		fireEvent.click(dialog.querySelector('[data-confirm-cancel]')!)
+
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: /Xoá ảnh đã tải của/ })).toBeNull())
+		expect(deletes).toHaveLength(0)
+		// The button is still there, so nothing was removed.
+		expect(document.querySelector('[data-admin-remove-art]')).toBeTruthy()
 	})
 
 	it('previews the picture inside the real grid tile, not a bare box', async () => {

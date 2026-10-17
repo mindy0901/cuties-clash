@@ -104,7 +104,8 @@ picture stored inside it would vanish the next time someone edited `damage`; and
 Removing a picture (🗑️ **Xoá ảnh đã tải**) **deletes the row and its bytes** from `content_art`, so the
 entity goes back to its bundled file, then the emoji. Deleting twice is not an error, and nothing
 keeps the deleted bytes alive: the URL is dropped from the public overlay, and a later upload gets a
-new `?v=` tag.
+new `?v=` tag. It asks in `ConfirmDialog` first — the crop is lost, so the picture has to be taken
+from the original file again.
 
 ⚠️ The server only checks that the bytes really are a **PNG from 8 to 512 px per side, at most
 2 MB** — it holds no image processing and no game rules, and it does **not** require a square

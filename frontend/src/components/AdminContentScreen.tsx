@@ -7,6 +7,7 @@ import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import { ArtPreview } from './ArtPreview'
 import { ArtImportDialog } from './ArtImportDialog'
+import { ConfirmDialog } from './ConfirmDialog'
 import {
 	ITEM_QUALITY_SWATCH,
 	ITEM_STAR_TEXT,
@@ -354,6 +355,8 @@ function AdminContentEditor() {
 	const pushToast = useGameStore((state) => state.pushToast)
 	const bumpContent = useUiStore((state) => state.bumpContent)
 	const [importOpen, setImportOpen] = useState(false)
+	/** Deleting a picture cannot be undone (it has to be cropped again), so it asks first. */
+	const [removeArtOpen, setRemoveArtOpen] = useState(false)
 	/** Star rank the picture is previewed at — the art is the same, the stars only change colour. */
 	const [previewStar, setPreviewStar] = useState<Star>(1)
 
@@ -370,6 +373,9 @@ function AdminContentEditor() {
 	 * throws — which is a blank page, not a wrong label.
 	 */
 	const activeId = ids.includes(selected) ? selected : (ids[0] ?? '')
+
+	/** Human name of the edited entity — used by the picture dialogs. */
+	const entityName = kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name
 
 	/** Entities that currently have an override, mapped to the last editor's email. */
 	const overridden = useMemo(() => {
@@ -564,19 +570,7 @@ function AdminContentEditor() {
 											type="button"
 											data-admin-remove-art
 											className={cn(btnClass, btnSmClass)}
-											onClick={() => {
-												deleteArt.mutate(
-													{ kind, id: activeId },
-													{
-														onSuccess: () => {
-															bumpContent()
-															pushToast(`Đã xoá ảnh đã tải của "${activeId}"`, 'good')
-														},
-														onError: (error) =>
-															setMessage({ text: error.message, bad: true }),
-													},
-												)
-											}}
+											onClick={() => setRemoveArtOpen(true)}
 											disabled={uploadArt.isPending || deleteArt.isPending}
 										>
 											🗑️ Xoá ảnh đã tải
@@ -686,7 +680,7 @@ function AdminContentEditor() {
 
 			{importOpen ? (
 				<ArtImportDialog
-					entityName={kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name}
+					entityName={entityName}
 					kind={kind}
 					entityId={activeId}
 					star={previewStar}
@@ -702,6 +696,32 @@ function AdminContentEditor() {
 						bumpContent()
 						pushToast(`Đã cập nhật ảnh cho "${activeId}"`, 'good')
 						setImportOpen(false)
+					}}
+				/>
+			) : null}
+
+			{/*
+			 * ⚠️ Deleting is permanent and loses the crop: the admin has to pick and crop the original file
+			 * again. Nobody should reach that with one stray click.
+			 */}
+			{removeArtOpen ? (
+				<ConfirmDialog
+					title={`Xoá ảnh đã tải của "${entityName}"?`}
+					message="Ảnh sẽ bị xoá khỏi máy chủ và món này quay về ảnh đóng gói sẵn (hoặc emoji). Không thể hoàn tác — muốn có lại thì phải tải lên và cắt ảnh từ tệp gốc."
+					confirmLabel="Xoá ảnh"
+					onCancel={() => setRemoveArtOpen(false)}
+					onConfirm={() => {
+						setRemoveArtOpen(false)
+						deleteArt.mutate(
+							{ kind, id: activeId },
+							{
+								onSuccess: () => {
+									bumpContent()
+									pushToast(`Đã xoá ảnh đã tải của "${activeId}"`, 'good')
+								},
+								onError: (error) => setMessage({ text: error.message, bad: true }),
+							},
+						)
 					}}
 				/>
 			) : null}

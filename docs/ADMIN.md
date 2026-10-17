@@ -16,7 +16,8 @@ play all keep the game complete.
 
 2. Restart the API (`pnpm dev` inside `backend/`, or `docker compose restart be-dev`).
 3. Sign in in the game, then open the **⚙ Quản trị** button in the top bar, or go to
-   `/admin`.
+   `/admin`. The old `/quan-tri` URL still works — it redirects to `/admin` (same for
+   `/cua-hang` → `/shop`), so old bookmarks and open tabs keep working.
 
 ⚠️ `ADMIN_EMAILS` empty means **nobody** gets in — the page shows a message instead of the
 editor. That is deliberate: forgetting to configure it must never open the page to everyone.

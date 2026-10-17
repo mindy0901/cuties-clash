@@ -87,6 +87,30 @@ describe('navigation between the preparation room and the shop', () => {
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 	})
 
+	it('the old Vietnamese /cua-hang URL redirects to /shop', async () => {
+		await renderApp('/cua-hang')
+		expect(await screen.findByText('Cửa hàng vật phẩm')).toBeTruthy()
+		expect(window.location.pathname).toBe('/shop')
+	})
+
+	it('the old Vietnamese /quan-tri URL redirects to /admin', async () => {
+		await renderApp('/quan-tri')
+		// The session is unknown in tests, so the admin page shows its "checking" or locked state;
+		// the URL is what the redirect contract is about.
+		expect(await screen.findByRole('heading', { name: 'Quản trị nội dung' })).toBeTruthy()
+		expect(window.location.pathname).toBe('/admin')
+	})
+
+	it('a legacy redirect does not fill the history with the old URL', async () => {
+		await renderApp('/cua-hang')
+		await screen.findByText('Cửa hàng vật phẩm')
+
+		// Back from a redirect must leave the app rather than bounce to `/cua-hang` again.
+		window.history.back()
+		await new Promise((resolve) => setTimeout(resolve, 0))
+		expect(window.location.pathname).not.toBe('/cua-hang')
+	})
+
 	it('a not-yet-functional button reports "coming soon" instead of staying silent', async () => {
 		await renderApp('/')
 		fireEvent.click(screen.getByText(/Nhiệm Vụ/))

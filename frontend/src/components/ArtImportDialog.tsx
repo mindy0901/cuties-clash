@@ -157,8 +157,9 @@ export function ArtImportDialog({
 						</>
 					) : (
 						<>
-							Thú cưng dùng khung cắt <strong>vuông 1:1</strong> (ảnh lưu ra {output.width}×
-							{output.height} px) vì ảnh hiện ở vòng avatar và khung ảnh khi đấu — hai khung vuông
+							Thú cưng dùng khung cắt <strong>1:1</strong> (ảnh lưu ra {output.width}×{output.height}{' '}
+							px): ảnh hiện ở vòng avatar (tròn) và khung khi đấu (cao), cả hai đều phủ kín khung nên phần
+							thừa hai bên sẽ bị cắt
 						</>
 					)}
 					, giữ nền trong suốt nếu ảnh có. Kéo để chọn vùng, lăn chuột để thu phóng (thu nhỏ được tới 0.5× nếu
@@ -267,12 +268,16 @@ export function ArtImportDialog({
 								<figcaption className="text-[11.5px] text-muted">Vòng avatar ở phòng chuẩn bị</figcaption>
 							</figure>
 							<figure className="flex flex-col items-center gap-1.5">
-								<AvatarCard side="player" name={entityName} label="Lv1" petId={entityId} artSrc={preview} />
+								{/* Tall on purpose: in battle the card stretches to the height of the item grids, so
+								    the picture is a portrait crop — a square preview would hide that. */}
+								<div className="flex h-[230px] items-stretch">
+									<AvatarCard side="player" name={entityName} label="Lv1" petId={entityId} artSrc={preview} />
+								</div>
 								<figcaption className="text-[11.5px] text-muted">Khung ảnh khi đấu</figcaption>
 							</figure>
 							<span className="min-w-[160px] flex-1 text-[12px] text-muted">
-								Cả hai khung đều <strong>vuông</strong> nên ảnh được cắt 1:1 và phóng to để phủ kín
-								khung — đặt mặt nhân vật vào giữa khung cắt để không bị cắt mất khi hiện ở vòng tròn.
+								Ảnh <strong>phủ kín</strong> cả hai khung: vòng avatar là hình tròn, khung khi đấu cao
+								hơn nên bị cắt hai bên — đặt mặt nhân vật vào giữa khung cắt để không mất.
 							</span>
 						</div>
 					)

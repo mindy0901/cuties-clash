@@ -1,19 +1,7 @@
-import type { ReactNode } from 'react'
 import { avatarArtSrc, petArtSrc } from '../game/art'
 import { getPet } from '../game/pets'
 import { ArtIcon } from './ArtIcon'
 import { cn } from './ui'
-
-/** One skill slot at the bottom of the avatar frame (a pet skill, or an item with an active effect). */
-export interface AvatarSkill {
-	/** Key — matches `uid` in `SideState.cooldowns`, used to look up charge progress. */
-	uid: string
-	/** Icon to display; callers pass an `ItemIcon`/`SkillIcon`. */
-	icon: ReactNode
-	label: string
-	/** 0–100, 100 = ready to use. */
-	charge: number
-}
 
 export interface AvatarCardProps {
 	side: 'player' | 'enemy'
@@ -31,7 +19,6 @@ export interface AvatarCardProps {
 	 * battle draws. ❌ Not a second way to pick art.
 	 */
 	artSrc?: string | null
-	skills?: AvatarSkill[]
 	/** Flashes when the fighter just took a hit. */
 	hit?: boolean
 	/** Damage just taken — the number floating up inside the frame. */
@@ -53,7 +40,6 @@ export function AvatarCard({
 	petId,
 	emoji,
 	artSrc,
-	skills = [],
 	hit,
 	floater,
 }: AvatarCardProps) {
@@ -77,8 +63,10 @@ export function AvatarCard({
 			{/*
 			 * Avatar frame.
 			 *
-			 * ⚠️ **Square**, not a stretched column: the imported picture is a 1:1 crop, so a frame that
-			 * grew with the card left wide bands above and below the picture. `object-cover` fills it.
+			 * `flex-1` + `min-h` so the picture **fills the whole card**: the card stretches to the height
+			 * of the item grids beside it, and a square frame in the middle left the bottom half empty
+			 * (`min-h` is what keeps the frame from collapsing when the card is not stretched, e.g. in the
+			 * admin preview).
 			 *
 			 * `key` changes when a hit lands so the `shake` animation restarts (same approach as the
 			 * older panels).
@@ -86,7 +74,7 @@ export function AvatarCard({
 			<div
 				data-avatar-holder
 				className={cn(
-					'relative grid aspect-square w-full place-items-center overflow-hidden rounded-xl border border-dashed border-gold/30 bg-black/45',
+					'relative grid min-h-[132px] flex-1 place-items-center overflow-hidden rounded-xl border border-dashed border-gold/30 bg-black/45',
 					hit && 'animate-shake',
 				)}
 				key={hit ? `hit-${floater?.key}` : 'idle'}
@@ -107,24 +95,6 @@ export function AvatarCard({
 					</span>
 				) : null}
 			</div>
-
-			{skills.length > 0 ? (
-				<div className="flex flex-wrap justify-center gap-1.5">
-					{skills.map((skill) => (
-						<span
-							key={skill.uid}
-							title={skill.label}
-							className={cn(
-								'relative grid size-9 place-items-center overflow-hidden rounded-full border bg-ink-700',
-								skill.charge >= 100 ? 'border-gold-soft shadow-[0_0_10px_rgb(217_162_39/35%)]' : 'border-line',
-							)}
-						>
-							{skill.icon}
-							<span className="absolute bottom-0 left-0 h-1 bg-gold" style={{ width: `${skill.charge}%` }} />
-						</span>
-					))}
-				</div>
-			) : null}
 		</aside>
 	)
 }

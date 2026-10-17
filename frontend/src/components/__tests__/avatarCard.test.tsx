@@ -33,24 +33,21 @@ describe('the avatar frame', () => {
 		expect(holder().textContent).toContain('👹')
 	})
 
-	it('shows the name, the label and skill slots with charge progress', () => {
-		render(
-			<AvatarCard
-				side="player"
-				name="Cẩu Hỏa Sài"
-				label="Lv3"
-				petId="fire-pup"
-				skills={[
-					{ uid: 'skill', icon: <span>🔥</span>, label: 'Hỏa Khuyển Trảo', charge: 40 },
-				]}
-			/>,
-		)
+	it('shows the name and the label, and no extra image but the picture', () => {
+		render(<AvatarCard side="player" name="Cẩu Hỏa Sài" label="Lv3" petId="fire-pup" />)
 
 		expect(document.body.textContent).toContain('Cẩu Hỏa Sài')
 		expect(document.body.textContent).toContain('Lv3')
-		expect(document.body.textContent).toContain('🔥')
-		const [chip] = [...document.querySelectorAll<HTMLElement>('[title="Hỏa Khuyển Trảo"]')]
-		expect(chip, 'the skill slot must carry a title').toBeTruthy()
-		expect(chip.querySelector<HTMLElement>('[style*="width"]')?.style.width).toBe('40%')
+		// ❌ No skill icon row any more: the picture owns the whole card, so a second small image only
+		// sat on top of it.
+		expect(document.querySelectorAll('img')).toHaveLength(1)
+	})
+
+	it('fills the frame with the picture instead of letterboxing it', () => {
+		render(<AvatarCard side="player" name="Cẩu Hỏa Sài" petId="fire-pup" />)
+
+		const img = holder().querySelector('img')
+		expect(img?.className, 'the square crop has to cover the tall frame').toContain('object-cover')
+		expect(holder().className, 'and the frame grows with the card').toContain('flex-1')
 	})
 })

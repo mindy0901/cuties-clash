@@ -641,8 +641,8 @@ describe('importing a picture', () => {
 		fireEvent.click(await screen.findByText(/Tải ảnh lên/))
 
 		const dialog = await screen.findByRole('dialog', { name: /Tải ảnh cho/ })
-		// The crop is square for a pet, and the hint has to say so instead of talking about item cells.
-		expect(dialog.textContent).toContain('vuông 1:1')
+		// The crop is 1:1 for a pet, and the hint has to say so instead of talking about item cells.
+		expect(dialog.textContent).toContain('1:1')
 		expect(dialog.textContent).toContain('512×512')
 	})
 })

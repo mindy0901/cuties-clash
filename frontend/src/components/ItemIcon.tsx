@@ -10,6 +10,10 @@ import { cn } from './ui'
  * ⚠️ **One art per item**, so the star rank is not a parameter: upgrading an item only adds stars
  * and changes their colour on the tile, it never swaps the picture (see `docs/ASSETS.md`).
  *
+ * ⚠️ `fit="fill"`: an item tile is exactly the item's footprint (1×3, 2×3…), so the picture is
+ * stretched to cover **all of its cells** — with `contain` a square picture would sit in one cell in
+ * the middle of a long tile.
+ *
  * `artSrc` overrides the picture — the admin page uses it to preview an image **before** it is
  * saved, through the very same tile as the game.
  */
@@ -33,6 +37,7 @@ export function ItemIcon({
 			emojiClass={emojiClass}
 			className={cn('pointer-events-none', className)}
 			alt={template.name}
+			fit="fill"
 		/>
 	)
 }

@@ -55,6 +55,7 @@ export function HeldGhost({
 					emoji={template.icon}
 					emojiClass="text-2xl"
 					alt={template.name}
+					fit="fill"
 				/>
 			</div>
 		</div>

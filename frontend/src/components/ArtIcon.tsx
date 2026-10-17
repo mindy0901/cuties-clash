@@ -10,6 +10,15 @@ interface ArtIconProps {
 	emojiClass?: string
 	className?: string
 	alt?: string
+	/**
+	 * How the picture fills its box.
+	 *
+	 * `contain` (default) keeps the picture's own aspect ratio — right for square boxes such as a
+	 * pet cell. `fill` **stretches** it to the box, which is what an item tile needs: the tile is
+	 * exactly the item's footprint (1×3, 2×3…), so a square picture drawn with `contain` would sit
+	 * in a single cell in the middle of the tile instead of covering it.
+	 */
+	fit?: 'contain' | 'fill'
 }
 
 /**
@@ -18,7 +27,7 @@ interface ArtIconProps {
  * A broken image also falls back to the emoji (`onError`) — so a missing art file never leaves an
  * empty cell or a broken-image icon in the grid.
  */
-export function ArtIcon({ src, emoji, emojiClass, className, alt = '' }: ArtIconProps) {
+export function ArtIcon({ src, emoji, emojiClass, className, alt = '', fit = 'contain' }: ArtIconProps) {
 	const [failed, setFailed] = useState(false)
 
 	if (!src || failed) {
@@ -30,7 +39,11 @@ export function ArtIcon({ src, emoji, emojiClass, className, alt = '' }: ArtIcon
 			src={src}
 			alt={alt}
 			draggable={false}
-			className={cn('size-full object-contain [image-rendering:pixelated]', className)}
+			className={cn(
+				'size-full [image-rendering:pixelated]',
+				fit === 'fill' ? 'object-fill' : 'object-contain',
+				className,
+			)}
 			onError={() => setFailed(true)}
 		/>
 	)

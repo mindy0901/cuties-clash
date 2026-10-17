@@ -109,6 +109,12 @@ ever comes back. To change an item's art, **replace its one file** — no code c
 The art that was kept is the **plain-material variant** (what `<id>-1.png` used to be): it does not
 compete with the tile colour (quality) or the star colour (rank), so both signals stay readable.
 
+⚠️ **The picture is stretched to its tile** (`ArtIcon fit="fill"`, `object-fill`). A tile is exactly
+the item's footprint (1×3 sword, 2×3 sabre…), and the art itself is square — drawn with `contain` it
+would sit in **one cell in the middle** of a long tile. So a long weapon's picture is stretched along
+its long axis to cover every cell it occupies; square items look unchanged. Art for a specific item
+may therefore be drawn **at the item's proportions** to avoid stretching (a 1×3 icon for a 1×3 item).
+
 **Icon type for each item:**
 
 | Item | Pack | Type |

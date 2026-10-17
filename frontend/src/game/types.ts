@@ -14,7 +14,18 @@ export type Star = 1 | 2 | 3 | 4 | 5
  */
 export type Quality = 1 | 2 | 3 | 4 | 5
 
-export type ItemClass = 'weapon' | 'armor' | 'souljade' | 'curio' | 'potion'
+/**
+ * Item **type** — six groups, so a new item can be given stats and effects that suit its kind:
+ * - `melee` / `ranged` — the two weapons (they swing, and count as "weapon" for auras);
+ * - `focus` — pháp khí, usually a self-triggering effect or an aura;
+ * - `jewelry` — trang sức, mostly flat `passive` stats;
+ * - `armor` — giáp, defensive `passive`;
+ * - `potion` — đan dược, one-off triggers (heal, energy).
+ *
+ * ⚠️ Splitting weapons into two types is a **label for design**: `isWeaponClass()` is what the aura
+ * targeting asks, so a ranged weapon still buffs "weapon LIỀN KỀ" exactly like a melee one.
+ */
+export type ItemClass = 'melee' | 'ranged' | 'focus' | 'jewelry' | 'armor' | 'potion'
 
 /** Item footprint inside the bag, measured in bag cells. */
 export interface GridSpace {

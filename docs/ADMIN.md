@@ -26,7 +26,7 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `damage`, `speed`, `interval`, `passive`, `aura` | `active`, `onHit` |
+| **Item** | `name`, `icon`, `cls` (Loại), `tier`, `quality`, `cost`, `space`, `art`, `damage`, `speed`, `interval`, `passive`, `aura` | `active`, `onHit` |
 | **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in

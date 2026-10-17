@@ -30,7 +30,7 @@ export type ContentPayload = Record<string, unknown>
 /** Entity name: `wooden-blade`, `fire-pup` — lowercase letters, digits and dashes. */
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
 
-const ITEM_CLASSES = ['weapon', 'armor', 'souljade', 'curio', 'potion'] as const
+const ITEM_CLASSES = ['melee', 'ranged', 'focus', 'jewelry', 'armor', 'potion'] as const
 const AURA_TARGETS = ['adjacent', 'adjacentWeapon', 'adjacentNonWeapon', 'all'] as const
 const STARS = [1, 2, 3, 4, 5] as const
 

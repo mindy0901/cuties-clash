@@ -64,10 +64,11 @@ export const iconButtonClass =
 
 /** Border per item class. Must be full class names so Tailwind sees them at build time. */
 export const ITEM_BORDER_BY_CLASS: Record<string, string> = {
-	weapon: 'border-[#8c4a3d]',
+	melee: 'border-[#8c4a3d]',
+	ranged: 'border-[#8c6b3d]',
+	focus: 'border-[#6b4a8c]',
+	jewelry: 'border-[#8c7a3d]',
 	armor: 'border-[#4a6b8c]',
-	souljade: 'border-[#6b4a8c]',
-	curio: 'border-[#8c7a3d]',
 	potion: 'border-[#3d8c6a]',
 }
 

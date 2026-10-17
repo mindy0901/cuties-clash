@@ -18,11 +18,22 @@ export function starLabel(star: Star): string {
 }
 
 export const CLASS_LABELS: Record<ItemClass, string> = {
-	weapon: 'Vũ khí',
-	armor: 'Hộ giáp',
-	souljade: 'Hồn Ngọc',
-	curio: 'Pháp Bảo',
-	potion: 'Đan Dược',
+	melee: 'Vũ khí cận chiến',
+	ranged: 'Vũ khí tầm xa',
+	focus: 'Pháp khí',
+	jewelry: 'Trang sức',
+	armor: 'Giáp',
+	potion: 'Đan dược',
+}
+
+/**
+ * Whether a class swings at the enemy — the two weapon types.
+ *
+ * Used by the aura targets `adjacentWeapon` / `adjacentNonWeapon`, so splitting weapons into melee
+ * and ranged never changes which neighbours count as weapons.
+ */
+export function isWeaponClass(cls: ItemClass): boolean {
+	return cls === 'melee' || cls === 'ranged'
 }
 
 /** Merging two of the same item at 5★ is not possible. */
@@ -66,7 +77,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'wooden-blade',
 		name: 'Đao Gỗ',
-		cls: 'weapon',
+		cls: 'melee',
 		quality: 1,
 		icon: '🗡️',
 		art: true,
@@ -79,7 +90,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'fire-spear',
 		name: 'Thương Lửa',
-		cls: 'weapon',
+		cls: 'melee',
 		quality: 2,
 		icon: '🔥',
 		art: true,
@@ -105,7 +116,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'frost-fan',
 		name: 'Phiến Băng',
-		cls: 'weapon',
+		cls: 'ranged',
 		quality: 3,
 		icon: '❄️',
 		art: true,
@@ -122,7 +133,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'poison-dagger',
 		name: 'Chủy Độc',
-		cls: 'weapon',
+		cls: 'ranged',
 		quality: 3,
 		icon: '☠️',
 		art: true,
@@ -148,7 +159,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'great-axe',
 		name: 'Phủ Nặng',
-		cls: 'weapon',
+		cls: 'melee',
 		quality: 5,
 		icon: '🪓',
 		art: true,
@@ -161,7 +172,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'twin-claws',
 		name: 'Song Trảo',
-		cls: 'weapon',
+		cls: 'melee',
 		quality: 5,
 		icon: '🐾',
 		art: true,
@@ -215,7 +226,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'jade-fury',
 		name: 'Hồn Ngọc Phẫn Nộ',
-		cls: 'souljade',
+		cls: 'jewelry',
 		quality: 2,
 		icon: '💠',
 		art: true,
@@ -227,7 +238,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'jade-haste',
 		name: 'Hồn Ngọc Thôi Sách',
-		cls: 'souljade',
+		cls: 'jewelry',
 		quality: 1,
 		icon: '🌪️',
 		art: true,
@@ -239,7 +250,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'jade-crit',
 		name: 'Hồn Ngọc Chí Mạng',
-		cls: 'souljade',
+		cls: 'jewelry',
 		quality: 3,
 		icon: '🎯',
 		art: true,
@@ -251,7 +262,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'jade-vampire',
 		name: 'Hồn Ngọc Huyết Ẩm',
-		cls: 'souljade',
+		cls: 'jewelry',
 		quality: 3,
 		icon: '🩸',
 		art: true,
@@ -263,7 +274,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'jade-guard',
 		name: 'Hồn Ngọc Hộ Thể',
-		cls: 'souljade',
+		cls: 'jewelry',
 		quality: 4,
 		icon: '🧿',
 		art: true,
@@ -275,7 +286,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'jade-sword',
 		name: 'Hồn Ngọc Kiếm Thế',
-		cls: 'souljade',
+		cls: 'jewelry',
 		quality: 3,
 		icon: '⚔️',
 		art: true,
@@ -292,7 +303,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'war-drum',
 		name: 'Trống Trận',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 3,
 		icon: '🥁',
 		art: true,
@@ -304,7 +315,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'ghost-lantern',
 		name: 'Đèn Quỷ',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 2,
 		icon: '🏮',
 		art: true,
@@ -317,7 +328,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'forge-fang',
 		name: 'Nanh Lò Rèn',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 3,
 		icon: '🐺',
 		art: true,
@@ -330,7 +341,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'venom-vial',
 		name: 'Lọ Độc',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 3,
 		icon: '⚗️',
 		art: true,
@@ -352,7 +363,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'storm-bell',
 		name: 'Chuông Bão',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 3,
 		icon: '🔔',
 		art: true,
@@ -374,7 +385,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'divine-forger',
 		name: 'Thần Đúc Sư',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 5,
 		icon: '🔨',
 		art: true,
@@ -391,7 +402,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'frost-seal',
 		name: 'Hàn Ngọc Phù',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 4,
 		icon: '🧊',
 		art: true,
@@ -414,7 +425,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'mirror-shard',
 		name: 'Mảnh Gương',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 4,
 		icon: '🪞',
 		art: true,
@@ -430,7 +441,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 	{
 		id: 'silk-banner',
 		name: 'Cờ Lụa',
-		cls: 'curio',
+		cls: 'focus',
 		quality: 4,
 		icon: '🎏',
 		art: true,

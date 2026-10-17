@@ -94,8 +94,13 @@ through the **lookup tables** `ITEM_QUALITY_BG` / `ITEM_QUALITY_SWATCH` (tile ba
 Every string shown to the player — **including API error messages** — must be Vietnamese. ❌ No English
 mixed in (except proper nouns such as *Stormchant*, *Paw Tally*).
 
-Fixed terminology (use exactly these words): Vũ khí · Hộ giáp · Hồn Ngọc · Pháp Bảo · Đan Dược · Kiếm
-Thế · Chấn Đao · Trọng kích · Thú cưng · Màn · Bản đồ · Trang bị · Kho đồ · Sức mạnh · Paw Tally.
+Fixed terminology (use exactly these words): Vũ khí cận chiến · Vũ khí tầm xa · Pháp khí · Trang sức · Giáp ·
+Đan dược · Kiếm Thế · Chấn Đao · Trọng kích · Thú cưng · Màn · Bản đồ · Trang bị · Kho đồ · Sức mạnh ·
+Paw Tally.
+
+An item's **type** is one of those six (`ItemClass` in `game/types.ts`, labels in `CLASS_LABELS`), so a
+new item can be given stats that suit its kind. Both weapon types swing and count as a weapon for the
+`adjacentWeapon` aura — always ask `isWeaponClass()`, ❌ never compare against `'weapon'`.
 
 ## 6. Rule → source mapping
 

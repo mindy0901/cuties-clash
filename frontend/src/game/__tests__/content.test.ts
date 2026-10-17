@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from 'vitest'
-import { DEFAULT_SPEED, ITEM_TEMPLATES, STARS, getTemplate, starPrice, swingMs } from '../items'
+import { CLASS_LABELS, DEFAULT_SPEED, ITEM_TEMPLATES, STARS, getTemplate, isWeaponClass, starPrice, swingMs } from '../items'
 import { rollShop, SHOP_SIZE } from '../economy'
 import { FINAL_STAGE, MAPS, STAGES, getStage, stageTier } from '../stages'
 import { applyContentOverrides } from '../content'
@@ -32,6 +32,20 @@ describe('item catalogue', () => {
 				expect(interval[index], `${template.id} at ${index + 1}★`).toBeLessThan(interval[index - 1]!)
 			}
 		}
+	})
+
+	it('gives every item one of the six types, and both weapon types count as a weapon', () => {
+		const types = [...new Set(ITEM_TEMPLATES.map((template) => template.cls))].sort()
+		expect(types).toEqual(['armor', 'focus', 'jewelry', 'melee', 'potion', 'ranged'])
+		for (const template of ITEM_TEMPLATES) {
+			// A missing label would print `undefined` on the tile tag.
+			expect(CLASS_LABELS[template.cls], template.id).toBeTruthy()
+		}
+		// Auras ask `isWeaponClass`, so a ranged weapon must buff "weapon LIỀN KỀ" like a melee one.
+		expect(isWeaponClass('melee')).toBe(true)
+		expect(isWeaponClass('ranged')).toBe(true)
+		expect(isWeaponClass('focus')).toBe(false)
+		expect(isWeaponClass('armor')).toBe(false)
 	})
 
 	it('gives every template a quality band from 1 to 5', () => {

@@ -273,8 +273,9 @@ describe('the tile background follows the item quality', () => {
 		renderPrep()
 
 		// Border = item class, background = quality: the two never replace each other.
-		expect(anyTile('maxed').className).toContain('border-[#6b4a8c]')
-		expect(anyTile('jade').className).toContain('border-[#6b4a8c]')
+		// A Hồn Ngọc is class `jewelry`, so its border is the gold one.
+		expect(anyTile('maxed').className).toContain('border-[#8c7a3d]')
+		expect(anyTile('jade').className).toContain('border-[#8c7a3d]')
 		// Upgrading a star must **only** add stars and recolour them — ❌ no glow, no extra frame.
 		expect(anyTile('jade').className).not.toContain('shadow-[0_0_12px')
 		expect(anyTile('maxed').className, '5★ adds no glow').not.toContain('shadow-[0_0_12px')

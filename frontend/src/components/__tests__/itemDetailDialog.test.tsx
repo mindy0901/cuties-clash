@@ -28,7 +28,7 @@ describe('ItemDetailDialog', () => {
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
 		expect(screen.getByText('Thương Lửa')).toBeTruthy()
-		expect(screen.getByText('Vũ khí')).toBeTruthy()
+		expect(screen.getByText('Vũ khí cận chiến')).toBeTruthy()
 		expect(screen.getByText('1×4 ô')).toBeTruthy()
 		expect(screen.getByText('Trong kho')).toBeTruthy()
 	})

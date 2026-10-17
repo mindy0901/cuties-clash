@@ -1,4 +1,4 @@
-import { DEFAULT_SPEED, getTemplate, swingMs } from './items'
+import { DEFAULT_SPEED, getTemplate, isWeaponClass, swingMs } from './items'
 import { adjacentUids, cellsOf, occupancy, templateFootprint } from './bag'
 import { GRID_WIDTH, MAX_BAG_ROWS, getPet, petLevelStats } from './pets'
 import { addMods, emptyStats, powerScore } from './stats'
@@ -141,9 +141,10 @@ export function buildCombatant(input: BuildInput): Combatant {
 			const satisfied =
 				aura.target === 'all' ||
 				(aura.target === 'adjacent' && adjacent.length > 0) ||
-				(aura.target === 'adjacentWeapon' && adjacent.some((found) => getTemplate(found.templateId).cls === 'weapon')) ||
+				(aura.target === 'adjacentWeapon' &&
+					adjacent.some((found) => isWeaponClass(getTemplate(found.templateId).cls))) ||
 				(aura.target === 'adjacentNonWeapon' &&
-					adjacent.some((found) => getTemplate(found.templateId).cls !== 'weapon'))
+					adjacent.some((found) => !isWeaponClass(getTemplate(found.templateId).cls)))
 			if (satisfied) addMods(stats, aura.mods)
 		}
 	}

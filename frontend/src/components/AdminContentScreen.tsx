@@ -65,11 +65,12 @@ interface FieldDef {
 }
 
 const CLASS_OPTIONS = [
-	{ value: 'weapon', label: 'Vũ khí' },
-	{ value: 'armor', label: 'Hộ giáp' },
-	{ value: 'souljade', label: 'Hồn Ngọc' },
-	{ value: 'curio', label: 'Pháp Bảo' },
-	{ value: 'potion', label: 'Đan Dược' },
+	{ value: 'melee', label: 'Vũ khí cận chiến' },
+	{ value: 'ranged', label: 'Vũ khí tầm xa' },
+	{ value: 'focus', label: 'Pháp khí' },
+	{ value: 'jewelry', label: 'Trang sức' },
+	{ value: 'armor', label: 'Giáp' },
+	{ value: 'potion', label: 'Đan dược' },
 ]
 
 const BOOLEAN_OPTIONS = [
@@ -95,7 +96,7 @@ const SIZE_LIMITS = { w: { min: 1, max: 4 }, h: { min: 1, max: 5 } } as const
 const ITEM_FIELDS: FieldDef[] = [
 	{ key: 'name', label: 'Tên', kind: 'text' },
 	{ key: 'icon', label: 'Emoji dự phòng', kind: 'text', hint: 'dùng khi chưa có art' },
-	{ key: 'cls', label: 'Lớp', kind: 'select', options: CLASS_OPTIONS },
+	{ key: 'cls', label: 'Loại', kind: 'select', options: CLASS_OPTIONS },
 	{ key: 'tier', label: 'Bậc bán', kind: 'int', min: 1, max: 3, hint: '1 = có từ đầu, 3 = bản đồ cuối' },
 	{ key: 'quality', label: 'Phẩm', kind: 'quality', hint: 'màu nền ô của món' },
 	{ key: 'cost', label: 'Giá gốc (1★)', kind: 'int', min: 1, max: 999 },

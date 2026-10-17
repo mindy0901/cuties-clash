@@ -19,7 +19,6 @@ import {
 	panelClass,
 	panelTitleClass,
 	rowBetweenClass,
-	statClass,
 } from './ui'
 
 type Kind = 'item' | 'pet'
@@ -728,13 +727,6 @@ function AdminContentEditor() {
 						})}
 					</div>
 
-					<div className={statClass}>
-						<span className="text-muted">Trạng thái</span>
-						<span className={dirty ? 'font-semibold text-gold-soft' : 'text-muted'}>
-							{dirty ? 'có thay đổi chưa lưu' : 'khớp mặc định'}
-						</span>
-					</div>
-
 					{message ? (
 						<p
 							data-admin-message
@@ -748,7 +740,8 @@ function AdminContentEditor() {
 						<button
 							type="button"
 							className={cn(btnClass, btnGoldClass, 'justify-center')}
-							disabled={busy}
+							// Nothing changed → nothing to save.
+							disabled={busy || !dirty}
 							onClick={onSave}
 						>
 							💾 Lưu
@@ -758,16 +751,9 @@ function AdminContentEditor() {
 							className={cn(btnClass, 'justify-center')}
 							disabled={busy}
 							onClick={onReset}
-							title="Xoá phần ghi đè của mục này"
+							title="Xoá phần ghi đè của mục này, quay về giá trị trong mã nguồn"
 						>
-							↺ Về mặc định
-						</button>
-						<button
-							type="button"
-							className={cn(btnClass, 'justify-center')}
-							onClick={() => setDraft(defaultDraft(kind, activeId))}
-						>
-							Hoàn tác ô nhập
+							↺ Đặt lại như cũ
 						</button>
 					</div>
 				</section>

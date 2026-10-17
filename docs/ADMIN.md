@@ -116,7 +116,7 @@ happened (an uploaded axe kept showing after it was replaced by a sword), and
 
 ⚠️ The uploaded picture is **separate from the override payload** (it travels in the overlay's
 `art` map, not in the per-entity JSON). A payload replaces the whole field set on save, so a
-picture stored inside it would vanish the next time someone edited `damage`; and **Về mặc định**
+picture stored inside it would vanish the next time someone edited `damage`; and **Đặt lại như cũ**
 (deleting the override) must not delete an uploaded image.
 
 Removing a picture (🗑️ **Xoá ảnh đã tải**) **deletes the row and its bytes** from `content_art`, so the

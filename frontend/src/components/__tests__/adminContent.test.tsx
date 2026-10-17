@@ -206,6 +206,24 @@ describe('editing content', () => {
 		expect(line()[1]).toBe('1★ 1.440')
 	})
 
+	it('disables Save until something changed, and keeps only the reset button', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		const save = screen.getByText(/Lưu/).closest('button')!
+		// Nothing changed → nothing to save, so the button is disabled instead of the old status row.
+		expect(save.disabled).toBe(true)
+		expect(screen.getByText('↺ Đặt lại như cũ')).toBeTruthy()
+		expect(screen.queryByText('Trạng thái')).toBeNull()
+		expect(screen.queryByText('Hoàn tác ô nhập')).toBeNull()
+
+		fireEvent.change(document.querySelectorAll<HTMLInputElement>('[data-admin-field="damage"]')[0]!, {
+			target: { value: '13' },
+		})
+		expect(save.disabled).toBe(false)
+	})
+
 	it('sends the whole per-star array when a single star rank changes', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)

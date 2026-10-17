@@ -41,6 +41,7 @@
 | Pet unlocks | The second pet at **stage 20**, the third at **stage 40** (`unlockStage`) |
 | PvP | `makeRivalBlueprint(power, stage, seed)` — **does not** change `stage`/`clearedStage` |
 | Maps | 60 stages split across 3 maps (`MAPS`), 20 stages per map |
+| **Restart ("Chơi lại")** | A **brand-new run** (`createRun`): currency back to `STARTING_CURRENCY`, `stage 1`, `clearedStage 0`, empty loadout and storage, pets at level 1 with only the first unlocked, new seed, shop re-rolled with `clearedStage = 0` — so the 2★/3★ shop odds start at zero again. ❌ **Nothing is carried over on purpose**: there is **no high-water mark** and no bonus for a milestone reached in a previous run. Do not "fix" this by keeping `clearedStage` |
 
 ## 4. Star ranks and item quality
 

@@ -85,3 +85,11 @@ pet previews, both cropper destinations), `itemDetailDialog` (default shape, res
 
 Suite at the end of the session: **360 frontend tests / 25 files**, `tsc -b`, `oxlint` (three known
 warnings), `vite build`, backend `tsc --noEmit` + 106 tests — all green.
+
+### Open / deliberately not done
+
+| Item | Decision |
+| --- | --- |
+| Three items still default to a **horizontal** footprint (Phiến Băng, Song Trảo, Cờ Lụa — 2×1) | The owner reviews each one in the admin editor ("Kích thước ô"); no code change |
+| "Chơi lại" resetting `clearedStage` (and with it the 2★/3★ shop odds) | **Intended** — a restart is a brand-new run with nothing carried over, no high-water mark (see `docs/GAME-RULES.md` §3) |
+| A shop rolled by an older build can still hold a 2★ offer before stage 40 | Deferred until the balance pass: re-rolling/downgrading offers that the current rules would not produce |

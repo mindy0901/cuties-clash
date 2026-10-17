@@ -364,9 +364,10 @@ export async function deleteContentOverride(db: Db, kind: ContentKind, entityId:
 // out again with cache headers — it holds no game rules and no image processing.
 
 /**
- * Hard limit for one upload. A 256 px icon is a few tens of KB; anything near this is abuse.
+ * Hard limit for one upload. A 512 px picture with transparency is usually 100–400 KB, but a photo
+ * saved as PNG can be bigger — this only exists to stop abuse.
  */
-export const ART_MAX_BYTES = 512 * 1024
+export const ART_MAX_BYTES = 2 * 1024 * 1024
 
 /**
  * Accepted side length of the uploaded picture.

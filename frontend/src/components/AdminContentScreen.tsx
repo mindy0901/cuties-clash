@@ -329,9 +329,21 @@ export function AdminContentScreen() {
 }
 
 function AdminContentEditor() {
-	const [kind, setKind] = useState<Kind>('item')
-	const [selected, setSelected] = useState<string>(ITEM_TEMPLATES[0]?.id ?? '')
-	const [draft, setDraft] = useState<Draft>(() => defaultDraft('item', ITEM_TEMPLATES[0]?.id ?? ''))
+	// Selection lives in the store: saving bumps `contentVersion`, which remounts this page (see
+	// `__root`) — local state made the panel jump back to the first item after every save.
+	const kind = useUiStore((state) => state.adminKind)
+	const selected = useUiStore((state) => state.adminId)
+	const setAdminSelection = useUiStore((state) => state.setAdminSelection)
+	const [draft, setDraft] = useState<Draft>(() =>
+		// Seed from the **stored** selection; when nothing is stored yet (`''`) use the first entry of
+		// the kind, which is what `activeId` below resolves to.
+		defaultDraft(
+			useUiStore.getState().adminKind,
+			useUiStore.getState().adminId ||
+				(useUiStore.getState().adminKind === 'item' ? ITEM_TEMPLATES[0]?.id : PETS[0]?.id) ||
+				'',
+		),
+	)
 	const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null)
 
 	const { data, isLoading } = useAdminContent(true)
@@ -350,6 +362,15 @@ function AdminContentEditor() {
 		[kind],
 	)
 
+	/**
+	 * Entity actually being edited.
+	 *
+	 * ⚠️ Derived, never trusted from `selected` alone: switching kind (item → pet) leaves
+	 * `selected` pointing at an id of the other kind for one render, and `getPet('wooden-blade')`
+	 * throws — which is a blank page, not a wrong label.
+	 */
+	const activeId = ids.includes(selected) ? selected : (ids[0] ?? '')
+
 	/** Entities that currently have an override, mapped to the last editor's email. */
 	const overridden = useMemo(() => {
 		const map = new Map<string, string | null>()
@@ -361,31 +382,21 @@ function AdminContentEditor() {
 
 	/** Uploaded picture of the edited entity (metadata only — the bytes are in the image itself). */
 	const artRow = useMemo(
-		() => (data?.art ?? []).find((entry) => entry.kind === kind && entry.entityId === selected),
-		[data, kind, selected],
+		() => (data?.art ?? []).find((entry) => entry.kind === kind && entry.entityId === activeId),
+		[data, kind, activeId],
 	)
-
-	/**
-	 * Entity actually being edited.
-	 *
-	 * ⚠️ Derived, never trusted from `selected` alone: switching kind (item → pet) leaves
-	 * `selected` pointing at an id of the other kind for one render, and `getPet('wooden-blade')`
-	 * throws — which is a blank page, not a wrong label.
-	 */
-	const activeId = ids.includes(selected) ? selected : (ids[0] ?? '')
 
 	/** Switch kind: the id has to move to the other list **in the same event**, never later. */
 	const selectKind = (value: Kind) => {
 		const first = value === 'item' ? ITEM_TEMPLATES[0]?.id : PETS[0]?.id
 		const nextId = first ?? ''
-		setKind(value)
-		setSelected(nextId)
+		setAdminSelection(value, nextId)
 		setDraft(defaultDraft(value, nextId))
 		setMessage(null)
 	}
 
 	const selectEntity = (id: string) => {
-		setSelected(id)
+		setAdminSelection(kind, id)
 		setDraft(defaultDraft(kind, id))
 		setMessage(null)
 	}

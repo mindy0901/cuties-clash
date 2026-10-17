@@ -13,10 +13,11 @@ interface ArtIconProps {
 	/**
 	 * How the picture fills its box.
 	 *
-	 * `contain` (default) keeps the picture's own aspect ratio — right for square boxes such as a
-	 * pet cell. `fill` **stretches** it to the box, which is what an item tile needs: the tile is
-	 * exactly the item's footprint (1×3, 2×3…), so a square picture drawn with `contain` would sit
-	 * in a single cell in the middle of the tile instead of covering it.
+	 * `contain` (default) keeps the picture's own aspect ratio — right for square boxes such as a pet
+	 * cell, and for a picture cropped to the item's footprint: any mismatch with the tile is a couple
+	 * of pixels of margin instead of a squeeze. `fill` **stretches** it to the box, which is what the
+	 * bundled square art needs: the tile is exactly the item's footprint (1×3, 2×3…), so a square
+	 * picture drawn with `contain` would sit in a single cell in the middle of a long tile.
 	 */
 	fit?: 'contain' | 'fill'
 }
@@ -40,7 +41,7 @@ export function ArtIcon({ src, emoji, emojiClass, className, alt = '', fit = 'co
 			alt={alt}
 			draggable={false}
 			className={cn(
-				'size-full [image-rendering:pixelated]',
+				'size-full',
 				fit === 'fill' ? 'object-fill' : 'object-contain',
 				className,
 			)}

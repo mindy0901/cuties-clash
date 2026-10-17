@@ -70,9 +70,11 @@ The **🖼️ Tải ảnh lên** button next to the current picture opens a crop
 that PNG, not the original file, is uploaded.
 
 ⚠️ **The crop frame is the item's own grid shape**, ❌ not a square: a 1×3 sword is cropped in a tall
-1:3 frame and the file comes out **85×256** (a 2×3 sabre → 171×256, a jade → 256×256). The tile in the
-game is exactly that footprint, so the picture fills it without being squeezed. Zoom out to **0.5×**
-when the picture is squarer than the frame. Pets are square cells (`1×1`).
+1:3 frame and the file comes out **171×512** (a 2×3 sabre → 341×512, a jade → 512×512). The tile in
+the game is exactly that footprint, so the picture fills it without being squeezed. `ART_SIZE` (512) is
+the **longest** side: every grid cell gets at least 128 px, which stays sharp on a 2× screen — a
+smaller size made imported pictures look soft. Zoom out to **0.5×** when the picture is squarer than
+the frame. Pets are square cells (`1×1`).
 
 | Piece | Where |
 | --- | --- |
@@ -102,7 +104,7 @@ picture stored inside it would vanish the next time someone edited `damage`; and
 Removing a picture (↺ **Bỏ ảnh đã tải**) puts the entity back on its bundled file, then the emoji.
 
 ⚠️ The server only checks that the bytes really are a **PNG from 8 to 512 px per side, at most
-512 KB** — it holds no image processing and no game rules, and it does **not** require a square
+2 MB** — it holds no image processing and no game rules, and it does **not** require a square
 picture (the shape follows the item's footprint). A non-PNG arrives as `400 invalid_art`.
 
 ### Previewing
@@ -162,7 +164,7 @@ Determinism is untouched: the seed decides rolls, and the lists keep their origi
 Two ways, and the uploaded one wins:
 
 1. **From the admin page** (no deploy): 🖼️ **Tải ảnh lên** → crop → save. Stored in the database as a
-   256×256 PNG and served from `/api/content/art/…` — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
+   512×512 PNG and served from `/api/content/art/…` — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
 2. **As a bundled file**: put `public/icons/items/<id>.png` (one per item) and set `art: true`.
    `art`/`artExt`, `skillArt` and `avatar` flags are also editable from the page.
 

@@ -19,8 +19,14 @@ export interface CropArea {
 	height: number
 }
 
-/** Largest side of the stored picture, in px (a grid cell is only ~60 CSS px). */
-export const ART_SIZE = 256
+/**
+ * Longest side of the stored picture, in px.
+ *
+ * ⚠️ Sized for the **worst case on a HiDPI screen**: a 4-column grid cell is ~60 CSS px, so on a 2×
+ * screen it is ~120 device px, and a 4-wide item gets `ART_SIZE / 4` = 128 px per cell. Cropping
+ * smaller (256) left the picture stretched and soft.
+ */
+export const ART_SIZE = 512
 
 /**
  * Output size for a picture of an item that covers `w`×`h` cells.

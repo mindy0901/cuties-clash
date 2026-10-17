@@ -1,4 +1,5 @@
 import { itemArtSrc, petArtSrc, skillArtSrc } from '../game/art'
+import { uploadedArt } from '../game/content'
 import { getTemplate } from '../game/items'
 import { getPet } from '../game/pets'
 import { ArtIcon } from './ArtIcon'
@@ -10,12 +11,12 @@ import { cn } from './ui'
  * ⚠️ **One art per item**, so the star rank is not a parameter: upgrading an item only adds stars
  * and changes their colour on the tile, it never swaps the picture (see `docs/ASSETS.md`).
  *
- * ⚠️ `fit="fill"`: an item tile is exactly the item's footprint (1×3, 2×3…), so the picture is
- * stretched to cover **all of its cells** — with `contain` a square picture would sit in one cell in
- * the middle of a long tile.
- *
- * `artSrc` overrides the picture — the admin page uses it to preview an image **before** it is
- * saved, through the very same tile as the game.
+ * ⚠️ How the picture fills the tile depends on **where it came from**:
+ * - an **uploaded** picture (or a `artSrc` preview) is cropped to the item's own footprint, so
+ *   `contain` is right — it fits the tile with no squeeze (a couple of pixels of margin at most);
+ * - the **bundled** art is square, and the tile is the item's footprint (1×3, 2×3…), so it is
+ *   stretched with `fill` to cover every cell — ❌ with `contain` it would sit in one cell in the
+ *   middle of a long tile.
  */
 export function ItemIcon({
 	templateId,
@@ -30,14 +31,17 @@ export function ItemIcon({
 	className?: string
 }) {
 	const template = getTemplate(templateId)
+	const src = artSrc === undefined ? itemArtSrc(templateId) : artSrc
+	// `artSrc` is only passed by previews, which are generated in the item's shape as well.
+	const shaped = artSrc !== undefined || uploadedArt('item', templateId) !== null
 	return (
 		<ArtIcon
-			src={artSrc === undefined ? itemArtSrc(templateId) : artSrc}
+			src={src}
 			emoji={template.icon}
 			emojiClass={emojiClass}
 			className={cn('pointer-events-none', className)}
 			alt={template.name}
-			fit="fill"
+			fit={shaped ? 'contain' : 'fill'}
 		/>
 	)
 }

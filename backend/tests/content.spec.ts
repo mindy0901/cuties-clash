@@ -325,14 +325,14 @@ describe('uploaded art', () => {
 				expect((await upload(pngOfSize(4096, 4096))).json().error).toBe('invalid_art')
 				expect((await upload(pngOfSize(1, 300))).json().error).toBe('invalid_art')
 
-				// Too large: a valid header padded past the 512 KB limit.
-				const huge = Buffer.concat([pngOfSize(64, 64), Buffer.alloc(600 * 1024)])
+				// Too large: a valid header padded past the 2 MB limit.
+				const huge = Buffer.concat([pngOfSize(64, 64), Buffer.alloc(3 * 1024 * 1024)])
 				expect((await upload(huge)).json().error).toBe('art_too_large')
 
-				// A 1×3 sword is cropped to 85×256 — the aspect ratio follows the item's footprint.
-				const tall = await upload(pngOfSize(85, 256))
+				// A 1×3 sword is cropped to 171×512 — the aspect ratio follows the item's footprint.
+				const tall = await upload(pngOfSize(171, 512))
 				expect(tall.statusCode).toBe(201)
-				expect(tall.json().art).toMatchObject({ width: 85, height: 256 })
+				expect(tall.json().art).toMatchObject({ width: 171, height: 512 })
 			},
 			{ config: adminConfig },
 		))

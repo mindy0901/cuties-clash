@@ -9,6 +9,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminContentScreen } from '../AdminContentScreen'
 import { renderInRouter } from '../../test/router'
+import { useUiStore } from '../../store/uiStore'
 
 /** Session of an admin account. */
 const ADMIN_SESSION = {
@@ -79,6 +80,9 @@ function json(body: unknown, status = 200) {
 
 beforeEach(() => {
 	vi.unstubAllGlobals()
+	// The admin selection lives in `uiStore` (it has to survive the page remount after a save), so a
+	// test that switches to pets would otherwise leak into the next one — the store is module state.
+	useUiStore.setState({ adminKind: 'item', adminId: '' })
 })
 
 afterEach(() => {
@@ -279,9 +283,9 @@ describe('importing a picture', () => {
 		fireEvent.click(document.querySelector('[data-admin-import-art]')!)
 
 		const dialog = await screen.findByRole('dialog', { name: /Tải ảnh cho/ })
-		// Đao Gỗ covers 1×3 cells → the frame follows that shape and the file comes out 85×256.
+		// Đao Gỗ covers 1×3 cells → the frame follows that shape and the file comes out 171×512.
 		expect(dialog.textContent).toContain('1×3 ô')
-		expect(dialog.textContent).toContain('85×256')
+		expect(dialog.textContent).toContain('171×512')
 		expect(dialog.querySelector('[data-art-file]')).toBeTruthy()
 		// Nothing to save yet: a picture has to be chosen first.
 		expect(

@@ -97,7 +97,7 @@ again. `frontend/src/game/__tests__/artAlpha.test.ts` guards it: every image mus
 draws **more stars** on the tile and **recolours** them (`ITEM_STAR_TEXT`, silver → gold-orange).
 
 **Uploaded pictures win over these files.** The admin page can import a picture per item/pet (cropped
-to a 256×256 PNG in the browser, stored in Postgres) — `itemArtSrc`/`petArtSrc` return
+to a PNG in the item's own shape in the browser, stored in Postgres) — `itemArtSrc`/`petArtSrc` return
 **uploaded → bundled → emoji**. The admin page previews the picture **inside the real grid tile or pet
 cell**, at any star rank — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
 
@@ -116,7 +116,9 @@ its long axis to cover every cell it occupies; square items look unchanged.
 
 ⇒ Art for a specific item should be drawn **at the item's own proportions** (a 1×3 canvas for a 1×3
 weapon) to avoid any stretch. Pictures imported from the admin page already are: the cropper's frame
-follows the footprint and saves e.g. 85×256 for a 1×3 item (`artOutputSize`), so nothing is stretched.
+follows the footprint and saves e.g. 171×512 for a 1×3 item (`artOutputSize`), so nothing is stretched.
+Such a picture is drawn with `object-contain` (the tile and the picture already share a shape), while
+bundled square art must be stretched with `object-fill` to reach every cell.
 
 **Icon type for each item:**
 

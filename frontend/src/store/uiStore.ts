@@ -22,6 +22,15 @@ interface UiStore {
 	 */
 	restartOpen: boolean
 	/**
+	 * Which entity the **content admin page** has open.
+	 *
+	 * ⚠️ WHY IN THE STORE: saving anything bumps `contentVersion`, and `__root` uses it as the `key`
+	 * of the content area, so the whole admin page remounts. With local state the panel silently
+	 * jumped back to the first item after every save.
+	 */
+	adminKind: 'item' | 'pet'
+	adminId: string
+	/**
 	 * Bumped every time the **content overlay** changes (loaded, or an admin just saved).
 	 *
 	 * ⚠️ WHY THIS EXISTS: `getTemplate`/`getPet` read a module variable in `game/content.ts`, and
@@ -37,6 +46,7 @@ interface UiStore {
 	closeItem: () => void
 	openRestart: () => void
 	closeRestart: () => void
+	setAdminSelection: (kind: 'item' | 'pet', id: string) => void
 	bumpContent: () => void
 }
 
@@ -45,6 +55,8 @@ export const useUiStore = create<UiStore>()((set) => ({
 	loginOpen: false,
 	itemUid: null,
 	restartOpen: false,
+	adminKind: 'item',
+	adminId: '',
 	contentVersion: 0,
 	openMap: () => set({ mapOpen: true }),
 	closeMap: () => set({ mapOpen: false }),
@@ -54,5 +66,6 @@ export const useUiStore = create<UiStore>()((set) => ({
 	closeItem: () => set({ itemUid: null }),
 	openRestart: () => set({ restartOpen: true }),
 	closeRestart: () => set({ restartOpen: false }),
+	setAdminSelection: (adminKind, adminId) => set({ adminKind, adminId }),
 	bumpContent: () => set((state) => ({ contentVersion: state.contentVersion + 1 })),
 }))

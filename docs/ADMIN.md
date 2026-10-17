@@ -26,8 +26,8 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls` (Loại), `tier`, `quality`, `cost`, `space`, `art`, `damage`, `speed`, `interval`, `passive`, `aura` | `active`, `onHit` |
-| **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
+| **Item** | `name`, `cls` (Loại), `tier`, `quality`, `cost`, `space`, `damage`, `speed`, `interval`, `passive`, `aura` | `icon` (emoji fallback), `art`, `active`, `onHit` |
+| **Pet** | `name`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level | `icon`, `art`, `skillArt`, `avatar` |
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in
 `game/items.ts`. An item has **no description field**: nothing on the shop card or the detail
@@ -39,7 +39,7 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 | --- | --- |
 | `damage`, `speed`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
 | `damage`, `speed`, `interval` on an item that lacks them | hidden, replaced by a **＋ chip** (＋ Sát thương · ＋ Speed · ＋ Nhịp hiệu lực). Clicking it adds the five boxes seeded with a sane value — `0.625` for `speed`, `9000` for `interval` — and a **✕** takes an added field away again. A value that comes from `items.ts` cannot be removed here |
-| `art` (one picture per item) | a **có/không select** — the file is `public/icons/items/<id>.png`, ❌ art is not per star rank |
+| `art` flags, emoji | ❌ not in the form: they only declare **which file on disk** to use (`icon` is the emoji fallback for a missing picture). The picture itself is uploaded from this page, so the flags stay in `items.ts`/`pets.ts` |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |
 
@@ -184,8 +184,8 @@ Two ways, and the uploaded one wins:
 1. **From the admin page** (no deploy): 🖼️ **Tải ảnh lên** → crop → save. Stored in the database as a
    512×512 PNG and served from `/api/content/art/…` — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
 2. **As a bundled file**: put `public/icons/items/<id>.png` (one per item) and set `art: true`.
-   `art`, `skillArt` and `avatar` flags are also editable from the page — the extension is always
-   `.png`, so there is no extension field.
+   These flags live in code only — the page no longer shows them, because a picture is uploaded and
+   cropped there. The extension is always `.png`, so there is no extension field either.
 
 `itemArtSrc()` / `petArtSrc()` return **uploaded → bundled → `null`** (emoji), so a picture can be
 replaced or removed at any time without touching code. `avatarArtSrc()` also falls back to the

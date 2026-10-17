@@ -191,21 +191,16 @@ describe('editing content', () => {
 		expect(puts[0]!.body).toEqual({ damage: [12, 20, 32, 50, 99] })
 	})
 
-	it('edits art with a yes/no select — one art per item, not one per star rank', async () => {
-		const { puts } = stubApi()
+	it('leaves the emoji fallback and the art flags out of the form', async () => {
+		stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		// ❌ No per-star art controls any more: the item has a single picture.
-		expect(document.querySelectorAll('[data-admin-field="stars"]')).toHaveLength(0)
-
-		const select = document.querySelector<HTMLSelectElement>('[data-admin-field="art"]')!
-		expect(select.value).toBe('true')
-		fireEvent.change(select, { target: { value: 'false' } })
-		fireEvent.click(screen.getByText(/Lưu/))
-
-		await waitFor(() => expect(puts).toHaveLength(1))
-		expect(puts[0]!.body).toEqual({ art: false })
+		// The picture comes from the upload dialog; `icon` / `art` only describe a file on disk.
+		for (const key of ['icon', 'art']) {
+			expect(document.querySelector(`[data-admin-field="${key}"]`), key).toBeNull()
+		}
+		expect(document.querySelector('[data-admin-import-art]')).toBeTruthy()
 	})
 
 	it('edits the footprint with two number inputs instead of raw JSON', async () => {
@@ -318,13 +313,13 @@ describe('importing a picture', () => {
 		).toBe(true)
 	})
 
-	it('shows the uploaded picture metadata and removes it on request', async () => {
+	it('offers the delete button once a picture exists, and removes it on request', async () => {
 		const { deletes } = stubApi({ art: [UPLOADED] })
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		expect(await screen.findByText(/Ảnh tải lên · 256×256 · v3/)).toBeTruthy()
-		fireEvent.click(document.querySelector('[data-admin-remove-art]')!)
+		const remove = await screen.findByText('🗑️ Xoá ảnh đã tải')
+		fireEvent.click(remove)
 
 		// Deleting loses the crop, so it asks first — and says what happens.
 		const dialog = await screen.findByRole('dialog', { name: /Xoá ảnh đã tải của/ })
@@ -341,8 +336,7 @@ describe('importing a picture', () => {
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		expect(await screen.findByText(/Ảnh tải lên · 256×256 · v3/)).toBeTruthy()
-		fireEvent.click(document.querySelector('[data-admin-remove-art]')!)
+		fireEvent.click(await screen.findByText('🗑️ Xoá ảnh đã tải'))
 
 		const dialog = await screen.findByRole('dialog', { name: /Xoá ảnh đã tải của/ })
 		fireEvent.click(dialog.querySelector('[data-confirm-cancel]')!)

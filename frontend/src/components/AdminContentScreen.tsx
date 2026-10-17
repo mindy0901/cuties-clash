@@ -73,11 +73,6 @@ const CLASS_OPTIONS = [
 	{ value: 'potion', label: 'Đan dược' },
 ]
 
-const BOOLEAN_OPTIONS = [
-	{ value: 'true', label: 'có' },
-	{ value: 'false', label: 'không' },
-]
-
 /** The five quality bands, labelled with the colour the tile will use. */
 const QUALITY_OPTIONS = QUALITY_VALUES.map((quality) => ({
 	value: String(quality),
@@ -90,24 +85,17 @@ const SIZE_LIMITS = { w: { min: 1, max: 4 }, h: { min: 1, max: 5 } } as const
 /**
  * Editable **item** fields.
  *
- * ⚠️ `active` and `onHit` are missing on purpose: in code they are **functions**, and JSON
- * cannot carry a function. They stay in `game/items.ts` and this page only shows the note.
+ * ⚠️ The emoji (`icon`) and the art flags (`art`, `artExt`…) are **not** editable here: they only
+ * declare which file on disk to use, and the picture itself is uploaded from this page. `active` and
+ * `onHit` are missing too — in code they are **functions**, and JSON cannot carry a function.
  */
 const ITEM_FIELDS: FieldDef[] = [
 	{ key: 'name', label: 'Tên', kind: 'text' },
-	{ key: 'icon', label: 'Emoji dự phòng', kind: 'text', hint: 'dùng khi chưa có art' },
 	{ key: 'cls', label: 'Loại', kind: 'select', options: CLASS_OPTIONS },
 	{ key: 'tier', label: 'Bậc bán', kind: 'int', min: 1, max: 3, hint: '1 = có từ đầu, 3 = bản đồ cuối' },
 	{ key: 'quality', label: 'Phẩm', kind: 'quality', hint: 'màu nền ô của món' },
 	{ key: 'cost', label: 'Giá gốc (1★)', kind: 'int', min: 1, max: 999 },
 	{ key: 'space', label: 'Kích thước ô', kind: 'size', hint: 'w 1–4, h 1–5' },
-	{
-		key: 'art',
-		label: 'Có art riêng',
-		kind: 'select',
-		options: BOOLEAN_OPTIONS,
-		hint: 'một ảnh cho mỗi món — public/icons/items/<id>.png',
-	},
 	{
 		key: 'damage',
 		label: 'Sát thương',
@@ -145,7 +133,6 @@ const ITEM_FIELDS: FieldDef[] = [
 /** Editable **pet** fields — every one of them is data, so all of them can be edited. */
 const PET_FIELDS: FieldDef[] = [
 	{ key: 'name', label: 'Tên', kind: 'text' },
-	{ key: 'icon', label: 'Emoji dự phòng', kind: 'text' },
 	{ key: 'blurb', label: 'Giới thiệu', kind: 'text' },
 	{ key: 'unlockStage', label: 'Mở ở màn', kind: 'int', min: 0, max: 60 },
 	{ key: 'maxHp', label: 'Máu gốc', kind: 'int', min: 50, max: 100_000 },
@@ -164,9 +151,6 @@ const PET_FIELDS: FieldDef[] = [
 		kind: 'json',
 		hint: '[{ "width": 4, "rows": 3 }, …] × 5 cấp — width phải là 4',
 	},
-	{ key: 'art', label: 'Có art thú cưng', kind: 'select', options: BOOLEAN_OPTIONS },
-	{ key: 'avatar', label: 'Có art đại diện', kind: 'select', options: BOOLEAN_OPTIONS },
-	{ key: 'skillArt', label: 'Có art kỹ năng', kind: 'select', options: BOOLEAN_OPTIONS },
 ]
 
 const FIELDS: Record<Kind, FieldDef[]> = { item: ITEM_FIELDS, pet: PET_FIELDS }
@@ -615,13 +599,6 @@ function AdminContentEditor() {
 										</button>
 									) : null}
 								</div>
-								<span className="text-[11.5px] text-muted">
-									{artRow
-										? `Ảnh tải lên · ${artRow.width}×${artRow.height} · v${artRow.version} · ${
-												artRow.updatedBy ?? '—'
-											}`
-										: 'Đang dùng ảnh đóng gói sẵn (hoặc emoji).'}
-								</span>
 								{/* Star rank only recolours the stars and adds more of them — check that the art still reads. */}
 								<div className="flex flex-wrap items-center gap-1">
 									<span className="mr-1 text-[11.5px] text-muted">Xem ở</span>

@@ -1,4 +1,4 @@
-/** Luồng OAuth Google — mô phỏng HTTP tới nhà cung cấp, không gọi mạng thật. */
+/** The Google OAuth flow — HTTP to the provider is simulated, no real network calls. */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildConfig, type Config } from '../src/config'
@@ -33,7 +33,7 @@ interface CallLog {
 	init?: RequestInit
 }
 
-/** Stub `fetch` cho đúng hai endpoint của Google và ghi lại lời gọi. */
+/** Stub `fetch` for exactly Google's two endpoints and record the calls. */
 function stubGoogle(token: Response, profile?: Response): CallLog[] {
 	const calls: CallLog[] = []
 	vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
@@ -41,10 +41,10 @@ function stubGoogle(token: Response, profile?: Response): CallLog[] {
 		calls.push({ url, ...(init === undefined ? {} : { init }) })
 		if (url === TOKEN_URL) return token.clone()
 		if (url === PROFILE_URL) {
-			if (!profile) throw new Error(`Không mong đợi lời gọi hồ sơ: ${url}`)
+			if (!profile) throw new Error(`Unexpected profile call: ${url}`)
 			return profile.clone()
 		}
-		throw new Error(`Test không được gọi URL khác: ${url}`)
+		throw new Error(`Tests must not call any other URL: ${url}`)
 	})
 	return calls
 }
@@ -70,8 +70,8 @@ afterEach(() => {
 	vi.stubGlobal('fetch', guardFetch)
 })
 
-describe('bắt đầu đăng nhập', () => {
-	it('chuyển hướng sang Google kèm state và cookie chống giả mạo', () =>
+describe('starting a login', () => {
+	it('redirects to Google with a state and an anti-forgery cookie', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			expect(response.statusCode).toBe(307)
@@ -88,7 +88,7 @@ describe('bắt đầu đăng nhập', () => {
 			expect(query.get('prompt')).toBe('select_account')
 			expect(query.get('state')).toBeTruthy()
 
-			// Cookie chống giả mạo chỉ gửi cho đường dẫn gọi lại, sống 10 phút.
+			// The anti-forgery cookie is only sent to the callback path and lives for 10 minutes.
 			const header = findSetCookie(response, OAUTH_STATE_COOKIE)
 			expect(header).not.toBeNull()
 			const lower = header!.toLowerCase()
@@ -98,20 +98,20 @@ describe('bắt đầu đăng nhập', () => {
 			expect(lower).toContain('max-age=600')
 		}))
 
-	it('báo 503 kèm mã lỗi khi chưa cấu hình Google', () =>
+	it('returns 503 with an error code when Google is not configured', () =>
 		withApp(
 			async ({ app }) => {
 				const response = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 				expect(response.statusCode).toBe(503)
 				expect(response.json().error).toBe('provider_not_configured')
-				// Header này dễ bị mất nếu handler lỗi không truyền lại.
+				// This header is easy to lose if the error handler does not pass it on.
 				expect(response.headers['x-error-code']).toBe('provider_not_configured')
 				expect(response.json().message).toContain('Google')
 			},
 			{ config: configWithoutGoogle },
 		))
 
-	it('từ chối nhà cung cấp đã bị bỏ', () =>
+	it('rejects a provider that was dropped', () =>
 		withApp(async ({ app }) => {
 			for (const provider of ['facebook', 'zing']) {
 				const response = await app.inject({ method: 'GET', url: `/api/auth/${provider}/login` })
@@ -122,7 +122,7 @@ describe('bắt đầu đăng nhập', () => {
 			}
 		}))
 
-	it('chỉ liệt kê Google là khả dụng', () =>
+	it('lists Google as the only available provider', () =>
 		withApp(async ({ app }) => {
 			expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json().available_providers).toEqual([
 				'google',
@@ -132,12 +132,12 @@ describe('bắt đầu đăng nhập', () => {
 		}))
 })
 
-describe('điểm gọi lại', () => {
-	it('từ chối state bị làm giả và không tạo phiên', () =>
+describe('callback', () => {
+	it('rejects a forged state and creates no session', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({
 				method: 'GET',
-				url: '/api/auth/google/callback?code=abc&state=bia-dat',
+				url: '/api/auth/google/callback?code=abc&state=fake-state',
 			})
 			expect(response.statusCode).toBe(303)
 			expect(String(response.headers.location)).toContain('login=error')
@@ -147,7 +147,7 @@ describe('điểm gọi lại', () => {
 			expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json().authenticated).toBe(false)
 		}))
 
-	it('chuyển tiếp lỗi của nhà cung cấp', () =>
+	it('forwards a provider error', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({
 				method: 'GET',
@@ -156,12 +156,12 @@ describe('điểm gọi lại', () => {
 			expect(response.statusCode).toBe(303)
 			const location = String(response.headers.location)
 			expect(location).toContain('login=error')
-			// Thông báo lỗi của nhà cung cấp được chuyển tiếp về UI dưới dạng đã mã hoá URL.
+			// The provider's error message is forwarded to the UI, URL-encoded.
 			expect(location).toContain('ch%E1%BB%91i')
 			expect(messageOf(location)).toBe('Người dùng từ chối')
 		}))
 
-	it('từ chối khi thiếu mã uỷ quyền', () =>
+	it('fails when the authorization code is missing', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
@@ -177,7 +177,7 @@ describe('điểm gọi lại', () => {
 			expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json().authenticated).toBe(false)
 		}))
 
-	it('đổi mã uỷ quyền thành công và tạo phiên', () =>
+	it('exchanges the authorization code and creates a session', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
@@ -198,7 +198,7 @@ describe('điểm gọi lại', () => {
 			})
 			expect(callback.statusCode).toBe(303)
 			expect(callback.headers.location).toBe('http://localhost:5190/?login=ok')
-			// Cookie chống giả mạo được xoá sau khi dùng xong.
+			// The anti-forgery cookie is cleared once it has been used.
 			expect(cookieValue(callback, OAUTH_STATE_COOKIE)).toBe('')
 
 			const sessionToken = cookieValue(callback, config.cookieName)
@@ -212,7 +212,7 @@ describe('điểm gọi lại', () => {
 			expect(session.user.avatar_url).toBe('https://example.com/p.png')
 			expect(session.user.providers).toEqual(['google'])
 
-			// Đúng dạng request mà Google yêu cầu khi đổi token.
+			// Exactly the request shape Google requires when exchanging the token.
 			const tokenCall = calls.find((call) => call.url === TOKEN_URL)!
 			const form = formOf(tokenCall)
 			expect(form.get('client_id')).toBe('google-client-id-test')
@@ -220,7 +220,7 @@ describe('điểm gọi lại', () => {
 			expect(form.get('code')).toBe('code-google')
 			expect(form.get('grant_type')).toBe('authorization_code')
 			expect(form.get('redirect_uri')).toBe('http://localhost:5190/api/auth/google/callback')
-			// Google bắt buộc gửi lại scope khi đổi token.
+			// Google requires the scope to be sent again when exchanging the token.
 			expect(form.get('scope')).toBe('openid email profile')
 
 			const profileCall = calls.find((call) => call.url === PROFILE_URL)!
@@ -228,7 +228,7 @@ describe('điểm gọi lại', () => {
 			expect(authorizationOf(profileCall)).toBe('Bearer token-google')
 		}))
 
-	it('từ chối khi token không có access_token', () =>
+	it('fails when the token response has no access_token', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
@@ -245,7 +245,7 @@ describe('điểm gọi lại', () => {
 			expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json().authenticated).toBe(false)
 		}))
 
-	it('báo lỗi khi Google từ chối đổi mã', () =>
+	it('reports an error when Google refuses the code exchange', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
@@ -264,7 +264,7 @@ describe('điểm gọi lại', () => {
 			expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json().authenticated).toBe(false)
 		}))
 
-	it('báo lỗi khi không đọc được hồ sơ', () =>
+	it('reports an error when the profile cannot be read', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
@@ -281,7 +281,7 @@ describe('điểm gọi lại', () => {
 			)
 		}))
 
-	it('hồ sơ thiếu sub thì không tạo tài khoản', () =>
+	it('creates no account when the profile has no sub', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
@@ -301,11 +301,11 @@ describe('điểm gọi lại', () => {
 			expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json().authenticated).toBe(false)
 		}))
 
-	it('token trả về không phải JSON thì báo lỗi chung', () =>
+	it('reports a generic error when the token response is not JSON', () =>
 		withApp(async ({ app }) => {
 			const login = await app.inject({ method: 'GET', url: '/api/auth/google/login' })
 			const state = stateFromRedirect(String(login.headers.location))
-			vi.stubGlobal('fetch', async () => new Response('<html>khong-phai-json</html>', { status: 200 }))
+			vi.stubGlobal('fetch', async () => new Response('<html>not-json</html>', { status: 200 }))
 
 			const callback = await app.inject({
 				method: 'GET',
@@ -317,8 +317,8 @@ describe('điểm gọi lại', () => {
 		}))
 })
 
-describe('liên kết tài khoản', () => {
-	it('đăng nhập lại cùng tài khoản Google không tạo người dùng mới', () =>
+describe('account linking', () => {
+	it('signing in again with the same Google account creates no new user', () =>
 		withDb(async (db) => {
 			const profile: OAuthProfile = {
 				provider: 'google',
@@ -329,12 +329,12 @@ describe('liên kết tài khoản', () => {
 			const first = await upsertUserFromProfile(db, profile)
 			const second = await upsertUserFromProfile(db, profile)
 			expect(second.id).toBe(first.id)
-			// Đếm theo email để không phụ thuộc dữ liệu thật đang có trong database dev.
+			// Count by email so the test does not depend on real data already in the dev database.
 			expect(await db.user.count({ where: { email: 'laplai@example.com' } })).toBe(1)
 			expect(await providerKeys(db, first.id)).toEqual(['google'])
 		}))
 
-	it('cùng email nhưng sub khác vẫn về một tài khoản', () =>
+	it('the same email with a different sub still maps to one account', () =>
 		withDb(async (db) => {
 			const first = await upsertUserFromProfile(db, {
 				provider: 'google',
@@ -350,21 +350,21 @@ describe('liên kết tài khoản', () => {
 			})
 			expect(second.id).toBe(first.id)
 			expect(await db.user.count({ where: { email: 'chung@example.com' } })).toBe(1)
-			// Mỗi `sub` khác nhau tạo một liên kết riêng, cùng trỏ về một người dùng.
+			// Each distinct `sub` creates its own identity link, all pointing at one user.
 			expect(new Set(await providerKeys(db, first.id))).toEqual(new Set(['google']))
 		}))
 
-	it('giữ tên người chơi đã đổi, chỉ thay tên mặc định', () =>
+	it('keeps a player name that was changed and only replaces the default one', () =>
 		withDb(async (db) => {
 			const created = await upsertUserFromProfile(db, {
 				provider: 'google',
-				subject: 'g-giu-ten',
+				subject: 'g-keep-name',
 				email: 'giuten@example.com',
 				displayName: 'Mindy',
 			})
 			const updated = await upsertUserFromProfile(db, {
 				provider: 'google',
-				subject: 'g-giu-ten',
+				subject: 'g-keep-name',
 				email: 'giuten@example.com',
 				displayName: 'Tên Khác Từ Google',
 			})
@@ -373,17 +373,17 @@ describe('liên kết tài khoản', () => {
 			expect(updated.lastLoginAt.getTime()).toBeGreaterThanOrEqual(created.lastLoginAt.getTime())
 		}))
 
-	it('thay tên mặc định bằng tên thật của Google', () =>
+	it('replaces the default name with the real Google name', () =>
 		withDb(async (db) => {
 			const created = await upsertUserFromProfile(db, {
 				provider: 'google',
-				subject: 'g-ten',
+				subject: 'g-name',
 				displayName: 'Người chơi Google',
 			})
 			expect(created.displayName).toBe('Người chơi Google')
 			const updated = await upsertUserFromProfile(db, {
 				provider: 'google',
-				subject: 'g-ten',
+				subject: 'g-name',
 				displayName: 'Tên Thật',
 			})
 			expect(updated.displayName).toBe('Tên Thật')

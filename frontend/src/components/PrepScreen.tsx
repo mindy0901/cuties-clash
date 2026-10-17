@@ -28,9 +28,10 @@ function StatRow({ label, value, tone }: { label: string; value: string; tone?: 
 }
 
 /**
- * Phòng chuẩn bị — bố cục theo bản gốc:
- * trái là thú cưng + bảng chỉ số, giữa là sân khấu thú cưng, phải là bảng trang bị;
- * dưới cùng là thanh nút hành động. Kho đồ (sửa được) nằm ở cột giữa dưới sân khấu.
+ * Preparation room — layout mirrors the original:
+ * left is the pet plus stat table, middle is the pet stage, right is the loadout panel;
+ * at the bottom is the action button bar. The inventory (editable) sits in the middle column
+ * below the stage.
  */
 export function PrepScreen() {
 	const run = useGameStore((state) => state.run)
@@ -42,53 +43,58 @@ export function PrepScreen() {
 	const map = MAPS[Math.min(MAPS.length - 1, Math.floor((run.stage - 1) / 20))]
 	const totalMatches = run.wins + run.losses
 
-	// Kéo-thả đồ giữa kho và trang bị — state phải ở đây vì hai panel là anh em.
+	// Dragging items between inventory and loadout — the state has to live here because the two
+	// panels are siblings.
 	/**
-	 * Món **đang kéo**, cho `onDragEnd` biết phải đặt gì.
+	 * The item **being dragged**, so `onDragEnd` knows what to place.
 	 *
-	 * ⚠️ Cần ref riêng cho trường hợp kéo **từ kho**: `held` trong closure của `onDragEnd` có
-	 * thể chưa kịp có giá trị mới, mà `pointerup` lại cần biết ngay.
+	 * ⚠️ A separate ref is needed for drags **from the inventory**: `held` inside `onDragEnd`'s
+	 * closure may not have the fresh value yet, while `pointerup` needs it immediately.
 	 *
-	 * ⚠️ Hướng xoay phải **đọc từ `held`** lúc nhả, không lấy giá trị chụp lúc bắt đầu kéo —
-	 * người chơi có thể đã bấm `R` giữa chừng và giá trị chụp sẽ cũ.
+	 * ⚠️ The rotation must be **read from `held`** on release, not the value captured when the
+	 * drag started — the player may have pressed `R` midway and a captured value would be stale.
 	 */
-	const keoRef = useRef<{ uid: string; from: 'inventory' | 'loadout' } | null>(null)
+	const dragRef = useRef<{ uid: string; from: 'inventory' | 'loadout' } | null>(null)
 
 	/**
-	 * Huỷ thao tác kéo (`Esc`).
+	 * Cancels the drag (`Esc`).
 	 *
-	 * ⚠️ Phải **quên cả `keoRef`**, ❌ không chỉ để `useHeldItem` xoá `held`: cú nhả chuột sau đó
-	 * vẫn chạy `onDragEnd` và sẽ đặt món xuống ô cuối cùng con trỏ đi qua, dù người chơi đã huỷ.
+	 * ⚠️ It must **forget `dragRef` too**, ❌ not merely let `useHeldItem` clear `held`: the
+	 * pointer release that follows still runs `onDragEnd` and would drop the item on the last
+	 * cell the cursor passed over, even though the player cancelled.
 	 */
-	const huyKeo = useCallback(() => {
-		keoRef.current = null
+	const cancelDrag = useCallback(() => {
+		dragRef.current = null
 	}, [])
 
-	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory, huyKeo)
+	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory, cancelDrag)
 	const equipAt = useGameStore((state) => state.equipAt)
 	const unequipAt = useGameStore((state) => state.unequipAt)
 	const dropItem = useGameStore((state) => state.dropItem)
-	const dropInKho = useGameStore((state) => state.dropInKho)
-	const rotateInKho = useGameStore((state) => state.rotateInKho)
+	const dropInStorage = useGameStore((state) => state.dropInStorage)
+	const rotateInStorage = useGameStore((state) => state.rotateInStorage)
 	const pushToast = useGameStore((state) => state.pushToast)
 	const openItem = useUiStore((state) => state.openItem)
 
 	const hoverSlotRef = useRef<number | null>(null)
-	/** Ô neo đang vẽ gợi ý **trong kho** (kho là lưới nên thả theo ô, không chỉ "cất vào kho"). */
-	const khoSlotRef = useRef<number | null>(null)
+	/** Anchor cell the hint is drawn from **inside the inventory** (it is a grid, so a drop lands
+	 * on a cell rather than just "into the inventory"). */
+	const inventorySlotRef = useRef<number | null>(null)
 	/**
-	 * Gợi ý của từng lưới đang báo **chặn** (vướng món khác / ô khoá) → thả xuống là không đặt.
+	 * Whether each board's hint is currently reporting **blocked** (clashing with another item /
+	 * a locked cell) → dropping there places nothing.
 	 *
-	 * ⚠️ Phải **một cờ cho mỗi lưới**, ❌ không dùng chung: cả hai lưới đều báo lên ở mỗi lần
-	 * render, nên cờ chung sẽ bị lưới báo sau ghi đè — lưới kia "chặn" mà cờ lại thành `false`
-	 * và thao tác thả vẫn đặt món (đã gặp đúng lỗi này khi thả trong kho).
+	 * ⚠️ There must be **one flag per board**, ❌ never a shared one: both boards report on every
+	 * render, so a shared flag would be overwritten by whichever reported last — the other board
+	 * would say "blocked" while the flag ended up `false` and the drop would still place the item
+	 * (this exact bug happened when dropping inside the inventory).
 	 */
-	const chanGridRef = useRef(false)
-	const chanKhoRef = useRef(false)
+	const gridBlockedRef = useRef(false)
+	const inventoryBlockedRef = useRef(false)
 	const inventoryRef = useRef<HTMLElement | null>(null)
 
-	/** Con trỏ có đang nằm trong vùng Kho đồ không. */
-	const trongKho = () => {
+	/** Whether the cursor is inside the inventory area. */
+	const isOverInventory = () => {
 		const box = inventoryRef.current?.getBoundingClientRect()
 		if (!box) return false
 		const { x, y } = pointerRef.current
@@ -96,64 +102,71 @@ export function PrepScreen() {
 	}
 
 	/**
-	 * Bắt đầu kéo một món (dùng chung cho lưới và kho).
+	 * Starts dragging an item (shared by the grid and the inventory).
 	 */
-	const batDauKeo = (item: ItemInstance, from: 'inventory' | 'loadout') => {
-		keoRef.current = { uid: item.uid, from }
+	const startDrag = (item: ItemInstance, from: 'inventory' | 'loadout') => {
+		dragRef.current = { uid: item.uid, from }
 		hold(item, from)
 	}
 
 	/**
-	 * Nhả chuột.
+	 * Pointer release.
 	 *
-	 * `moved = true` (đã kéo đi) → đặt xuống ô đang trỏ, hoặc cất vào kho nếu nhả trên kho.
-	 * `moved = false` (chỉ bấm, không di chuyển) → **không** đặt gì: cú `click` ngay sau đó mở
-	 * hộp thoại chi tiết, và trạng thái "đang kéo" chưa từng được tạo.
+	 * `moved = true` (the drag actually moved) → drop onto the hovered cell, or store into the
+	 * inventory when released over it.
+	 * `moved = false` (a plain press without movement) → places **nothing**: the `click` that
+	 * follows opens the detail dialog, and the "dragging" state was never created.
 	 */
 	const onDragEnd = (moved: boolean) => {
 		if (!moved) return
-		const dangKeo = keoRef.current
-		keoRef.current = null
-		if (!dangKeo) return
+		const dragging = dragRef.current
+		dragRef.current = null
+		if (!dragging) return
 
-		// Hướng xoay đọc từ `held` **lúc nhả** — người chơi có thể đã bấm `R` giữa chừng.
+		// The rotation is read from `held` **on release** — the player may have pressed `R` midway.
 		const rotated = held?.rotated ?? false
 
-		// Nhả **trong kho**: kho là lưới tự do nên thả vào ô nào thì món nằm ở ô đó.
-		// - Món của trang bị → cất vào kho (đúng ô đang trỏ; không trỏ ô nào thì tự tìm chỗ).
-		// - Món vốn ở kho → **di chuyển trong kho** (trước đây bỏ qua nên kéo trong kho vô hiệu).
-		if (trongKho()) {
-			// Gợi ý trong kho đang báo **chặn** (vướng món khác) → không đặt, món trở về chỗ cũ.
-			if (chanKhoRef.current) {
+		// Released **inside the inventory**: it is a free grid, so the item lands on the hovered cell.
+		// - An item from the loadout → stored in the inventory (on the hovered cell; with no hovered
+		//   cell a free spot is found automatically).
+		// - An item already in the inventory → **moved within the inventory** (this used to be
+		//   skipped, so dragging inside the inventory did nothing).
+		if (isOverInventory()) {
+			// The inventory hint reports **blocked** (clashing with another item) → place nothing,
+			// the item returns to where it was.
+			if (inventoryBlockedRef.current) {
 				pushToast('Chỗ đó đã có món — chọn chỗ trống khác', 'bad')
 				clear()
 				return
 			}
-			if (dangKeo.from === 'loadout') unequipAt(dangKeo.uid, khoSlotRef.current, rotated)
-			else dropInKho(dangKeo.uid, khoSlotRef.current, rotated)
+			if (dragging.from === 'loadout') unequipAt(dragging.uid, inventorySlotRef.current, rotated)
+			else dropInStorage(dragging.uid, inventorySlotRef.current, rotated)
 			clear()
 			return
 		}
 
 		const slot = hoverSlotRef.current
 		if (slot === null) {
-			// Thả ngoài **mọi** chỗ đặt (không ở kho, không ở ô nào của lưới) → huỷ: món trở về
-			// chỗ cũ. Kéo món chỉ là trạng thái giao diện, chưa bao giờ bỏ món khỏi `run`, nên
+			// Released outside **every** drop target (not on the inventory, not on any grid cell) →
+			// cancel: the item returns to where it was. Dragging an item is a UI state only; the item
+			// was never removed from `run`, so
 			//
-			// ⚠️ ❌ Không đặt vào ô nhớ sẵn: từ khi lưới xoá ô đang trỏ lúc con trỏ rời đi, `slot`
-			// là `null` đúng khi con trỏ **không** ở trên lưới — đặt vào đó là đặt vào ô người chơi
-			// không hề trỏ tới. Cũng ❌ không để món "cầm lửng" lại: người chơi đã nhả chuột mà ảnh
-			// món vẫn bám con trỏ thì trông như thao tác bị treo.
+			// ⚠️ ❌ do not fall back to a remembered cell: since the board clears the hovered cell when
+			// the cursor leaves it, `slot` is `null` exactly when the cursor is **not** over a board —
+			// placing there would drop the item on a cell the player never pointed at. And ❌ do not
+			// leave the item "hanging" either: the player released the mouse, so a ghost still stuck to
+			// the cursor would look like a frozen action.
 			clear()
 			return
 		}
 
-		// Gợi ý đang báo **chặn** → thả xuống là **không đặt**, món trở về chỗ cũ. Đây đúng là điều
-		// gợi ý đã hứa bằng viền đỏ; ❌ không được lặng lẽ đặt sang chỗ khác.
+		// The hint reports **blocked** → dropping **places nothing**, the item returns to where it
+		// was. That is exactly what the red outline promised; ❌ it must not silently go elsewhere.
 		//
-		// ⚠️ Món dài (1×4) không lọt lưới trang bị đang mở (cấp thú thấp) cũng rơi vào đây — chủ ý:
-		// xoay bằng `R` rồi thả, thay vì để game tự xoay và đặt ở chỗ người chơi không trỏ tới.
-		if (chanGridRef.current) {
+		// ⚠️ A long item (1×4) that does not fit the open loadout (low pet level) also falls here —
+		// by design: rotate with `R` and drop again, instead of letting the game auto-rotate and place
+		// it on a cell the player never pointed at.
+		if (gridBlockedRef.current) {
 			pushToast(
 				'Chỗ đó không vừa món — bấm R để xoay, hoặc chọn ô khác',
 				'bad',
@@ -162,78 +175,84 @@ export function PrepScreen() {
 			return
 		}
 
-		if (dangKeo.from === 'loadout') {
-			dropItem(dangKeo.uid, slot, rotated)
+		if (dragging.from === 'loadout') {
+			dropItem(dragging.uid, slot, rotated)
 			clear()
 			return
 		}
 
-		// Kho → trang bị. Ô **khoá** thì không đặt được ở đó, và cũng không được lùi về tự tìm chỗ —
-		// làm vậy là phá đúng thứ ô khoá sinh ra để ngăn.
+		// Inventory → loadout. A **locked** cell cannot take the item, and it must not fall back to
+		// searching for a spot either — that would defeat the very purpose of locked cells.
 		if (loadoutCellLocked(run, slot)) {
 			pushToast('Ô đó còn khoá — nâng cấp thú cưng để mở thêm ô', 'bad')
 			clear()
 			return
 		}
-		// Gợi ý và chỗ đặt dùng **chung một ô neo** nên tới đây là vừa chỗ; nếu vẫn không vừa thì
-		// báo, ❌ không tự tìm chỗ khác (món sẽ rơi lệch khỏi khung người chơi đang thấy).
-		if (!equipAt(dangKeo.uid, slot, rotated)) pushToast('Không đặt được món vào ô đó', 'bad')
+		// The hint and the placement share **one anchor cell**, so getting here means it fits; if it
+		// still does not, report it, ❌ do not look elsewhere (the item would land off the outline the
+		// player is looking at).
+		if (!equipAt(dragging.uid, slot, rotated)) pushToast('Không đặt được món vào ô đó', 'bad')
 		clear()
 	}
 
 	/**
-	 * Ô **neo đang vẽ gợi ý**, do `LoadoutGrid` báo lên.
+	 * The **anchor cell the hint is drawn from**, reported by `LoadoutGrid`.
 	 *
-	 * ⚠️ Dùng ô này làm chỗ đặt, ❌ không tự tính lại từ ô thô: gợi ý căn giữa con trỏ nên ô
-	 * neo khác ô thô — tính lại sẽ làm món rơi lệch khỏi khung người chơi đang thấy.
+	 * ⚠️ This cell is used for placement, ❌ it is not recomputed from the raw cell: the hint is
+	 * centered on the cursor so the anchor differs from the raw cell — recomputing would make the
+	 * item land off the outline the player is looking at.
 	 */
 	const onAnchorSlotFromGrid = (slot: number | null, blocked: boolean) => {
 		hoverSlotRef.current = slot
-		chanGridRef.current = blocked
+		gridBlockedRef.current = blocked
 	}
 
 	/**
-	 * Ô neo đang vẽ gợi ý **trong kho**. Kho cũng là lưới tự do nên khi thả chuột, món nằm
-	 * đúng ô này (không còn "cất vào kho" là xong, vị trí do kho tự xếp).
+	 * Anchor cell the hint is drawn from **inside the inventory**. It is a free grid too, so on
+	 * release the item lands on exactly this cell (no more "stored into the inventory" as an end
+	 * state; the inventory no longer arranges positions by itself).
 	 */
-	const onAnchorSlotFromKho = (slot: number | null, blocked: boolean) => {
-		khoSlotRef.current = slot
-		chanKhoRef.current = blocked
+	const onAnchorSlotFromInventory = (slot: number | null, blocked: boolean) => {
+		inventorySlotRef.current = slot
+		inventoryBlockedRef.current = blocked
 	}
 
 	const heldItem = held
 		? ([...run.equipped, ...run.inventory].find((item) => item.uid === held.uid) ?? null)
 		: null
 	/**
-	 * Món đang kéo, dạng `HeldItem` đầy đủ.
+	 * The item being dragged, in its full `HeldItem` form.
 	 *
-	 * ⚠️ ❌ **Không cắt bớt trường**: hai lưới cần cả `star` để biết món có **nhập sao** được vào món
-	 * ngay dưới con trỏ hay không (kho chỉ cho nhập sao, không cho hoán đổi). Bản trước chỉ truyền
-	 * `uid`/`rotated`/`templateId` nên phép kiểm tra đó luôn sai.
+	 * ⚠️ ❌ **Do not trim fields**: both grids need `star` to know whether the item can **merge
+	 * stars** into the item right under the cursor (the inventory allows merging only, never
+	 * swapping). An earlier version passed only `uid`/`rotated`/`templateId`, so that check was
+	 * always wrong.
 	 */
 	const heldInfo = held
 
 	return (
 		<div className="flex flex-col gap-3.5">
 			{/*
-			 * ⚠️ **Ba cột bằng nhau** (`1fr`), và mỗi panel lưới chiếm **một cột**.
+			 * ⚠️ **Three equal columns** (`1fr`), each grid panel taking **one column**.
 			 *
-			 * Vì sao: bề rộng ô do bề rộng panel quyết định. Hai panel ở hai cột khác bề rộng thì
-			 * ô sẽ khác cỡ, hoặc panel rộng hơn lưới sẽ **thừa một mảng nền** bên phải các ô.
-			 * Cho hai panel cùng bề rộng thì lưới lấp đầy panel và ô **tự khớp nhau** — không cần
-			 * ép cỡ px nào.
+			 * Why: cell width follows panel width. Two panels in columns of different widths would
+			 * give cells of different sizes, or a panel wider than its grid would leave **a strip of
+			 * background** to the right of the cells. Giving both panels the same width lets the grid
+			 * fill the panel and the cells **match each other** — no px size needs to be forced.
 			 *
-			 * ⚠️ Cột dùng `minmax(0, 1fr)`, ❌ không cố định px: cố định sẽ tràn ngang ở màn hẹp.
+			 * ⚠️ Columns use `minmax(0, 1fr)`, ❌ not fixed px: fixed values overflow horizontally on
+			 * narrow screens.
 			 */}
 			{/*
-			 * Ba cột: **chỉ số thú cưng** · **sân khấu + kho** (lưới 8 cột × 50px ≈ 442px) · **trang bị**
-			 * (lưới 4 cột × 50px ≈ 226px).
+			 * Three columns: **pet stats** · **stage + inventory** (8 columns × 50px ≈ 442px) ·
+			 * **loadout** (4 columns × 50px ≈ 226px).
 			 *
-			 * ⚠️ Cột đặt theo **nội dung** (`minmax(0, …)` với trần tính từ số cột × `CELL_SIZE`),
-			 * ❌ không dùng `1fr`: panel rộng hơn lưới sẽ thừa một mảng nền bên phải các ô.
+			 * ⚠️ Columns are sized by **content** (`minmax(0, …)` with a cap derived from column
+			 * count × `CELL_SIZE`), ❌ not `1fr`: a panel wider than its grid would leave a strip of
+			 * background to the right of the cells.
 			 */}
 			<div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,320px)_minmax(0,545px)_minmax(0,310px)] max-lg:grid-cols-1">
-				{/* ── Trái: bảng chỉ số + panel thú cưng ─────────────────────────── */}
+				{/* ── Left: stat table + pet panel ───────────────────────────────── */}
 				<div className="flex min-w-0 flex-col gap-2.5">
 					<section className={cn(panelClass, 'gap-2.5')}>
 						<div className="flex items-center gap-3">
@@ -267,7 +286,7 @@ export function PrepScreen() {
 					<PetPanel />
 				</div>
 
-				{/* ── Giữa: sân khấu thú cưng + kho đồ ───────────────────────────── */}
+				{/* ── Middle: pet stage + inventory ─────────────────────────────── */}
 				<div className="flex flex-col gap-2.5">
 					<section className="surface-stage relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-panel border border-line px-4 py-8">
 						<div className="surface-pet relative grid size-40 place-items-center rounded-full border-2 border-gold/40 p-6 leading-none shadow-[0_0_48px_rgb(217_162_39/25%)]">
@@ -287,19 +306,19 @@ export function PrepScreen() {
 						}}
 						held={heldInfo}
 						onItemClick={(item) => openItem(item.uid)}
-						onDragStart={(item) => batDauKeo(item, 'inventory')}
+						onDragStart={(item) => startDrag(item, 'inventory')}
 						onDragEnd={onDragEnd}
-						onAnchorSlot={onAnchorSlotFromKho}
-						onRotate={rotateInKho}
+						onAnchorSlot={onAnchorSlotFromInventory}
+						onRotate={rotateInStorage}
 					/>
 				</div>
 
-				{/* ── Phải: trang bị + đối thủ kế tiếp ──────────────────────────── */}
+				{/* ── Right: loadout + next opponent ─────────────────────────────── */}
 				<div className="flex flex-col gap-2.5">
 					<PetLoadoutPanel
 						held={heldInfo}
 						onItemClick={(item) => openItem(item.uid)}
-						onDragStart={(item) => batDauKeo(item, 'loadout')}
+						onDragStart={(item) => startDrag(item, 'loadout')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromGrid}
 					/>
@@ -327,7 +346,7 @@ export function PrepScreen() {
 
 			<ActionBar />
 
-			{/* Ảnh món bám theo con trỏ trong lúc đang nhấc. */}
+			{/* The item image following the cursor while an item is held. */}
 			{held && heldItem ? (
 				<HeldGhost
 					templateId={held.templateId}

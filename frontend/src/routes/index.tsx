@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { PrepScreen } from '../components/PrepScreen'
 
-/** Phòng chuẩn bị — màn hình chính (đường dẫn `/`). */
+/** Preparation room — the main screen (URL `/`). */
 export const Route = createFileRoute('/')({ component: PrepScreen })

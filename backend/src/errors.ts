@@ -1,4 +1,4 @@
-/** Lỗi API thống nhất, thông báo bằng tiếng Việt. */
+/** The single API error type; its messages are shown to the player in Vietnamese. */
 
 export class ApiError extends Error {
 	readonly statusCode: number

@@ -1,15 +1,15 @@
-/** Token phiên đăng nhập, cookie và khoá chống giả mạo (state). */
+/** Session tokens for logins, cookies and the anti-forgery key (state). */
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { FastifyReply } from 'fastify'
 import { SignJWT, jwtVerify } from 'jose'
 import type { Config } from './config'
 
-/** Cookie giữ `state` của luồng OAuth, sống ngắn và chỉ gửi cho đường dẫn gọi lại. */
+/** Cookie holding the OAuth flow `state`: short-lived and only sent to the callback path. */
 export const OAUTH_STATE_COOKIE = 'mc_oauth_state'
 export const OAUTH_STATE_TTL_SECONDS = 600
 
-/** Phần `reply` mà các hàm cookie cần — nhỏ để test được mà không dựng cả server. */
+/** The `reply` surface the cookie helpers need — small, so tests can run without a server. */
 export type CookieReply = Pick<FastifyReply, 'setCookie' | 'clearCookie'>
 
 export interface SessionToken {
@@ -21,7 +21,7 @@ function secretKey(config: Config): Uint8Array {
 	return new TextEncoder().encode(config.jwtSecret)
 }
 
-/** `secrets.token_urlsafe(n)` của Python: base64url không đệm. */
+/** Python's `secrets.token_urlsafe(n)`: unpadded base64url. */
 function randomTokenUrlSafe(bytes: number): string {
 	return randomBytes(bytes).toString('base64url')
 }
@@ -39,7 +39,7 @@ export async function createSessionToken(config: Config, userId: number, epoch =
 	return { token, expiresAt }
 }
 
-/** Đọc `(userId, epoch)` từ token; trả `null` nếu token sai hoặc hết hạn. */
+/** Read `(userId, epoch)` from the token; returns `null` if the token is invalid or expired. */
 export async function readSessionToken(
 	config: Config,
 	token: string,
@@ -86,7 +86,7 @@ export function newState(): string {
 }
 
 function stateSignature(config: Config, state: string): string {
-	// Ký `state` để cookie không dùng được như một giá trị tuỳ ý do kẻ khác đặt.
+	// Sign `state` so the cookie cannot be used as an arbitrary value chosen by someone else.
 	const digest = createHmac('sha256', config.jwtSecret).update(state).digest()
 	return `${state}.${digest.toString('base64url')}`
 }
@@ -112,7 +112,7 @@ export function clearStateCookie(reply: CookieReply, config: Config): void {
 	})
 }
 
-/** So sánh chống dò thời gian: cookie `state` phải khớp chữ ký của `state` trên URL. */
+/** Timing-safe comparison: the `state` cookie must match the signature of the URL `state`. */
 export function verifyState(config: Config, state: string | undefined, cookieValue: string | undefined): boolean {
 	if (!state || !cookieValue) return false
 	const expected = Buffer.from(stateSignature(config, state), 'utf8')

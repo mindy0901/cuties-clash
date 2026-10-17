@@ -1,14 +1,14 @@
 @import 'tailwindcss';
 
-/* Khai báo tường minh phạm vi quét class: mọi file nguồn của frontend.
-   Không dựa vào tự dò để tránh quét thiếu khi build trong Docker. */
+/* Declare the class-scan scope explicitly: every frontend source file.
+   Do not rely on auto-detection, which can miss files when building inside Docker. */
 @source "../../index.html";
 @source "../**/*.{ts,tsx}";
 
-/* ── Design token ──────────────────────────────────────────────────────────
-   Chuyển từ src/styles/globals.css cũ sang cú pháp @theme của Tailwind v4.
-   Mỗi biến ở đây vừa là CSS variable vừa sinh utility (bg-ink-800, text-gold,
-   rounded-panel, shadow-panel…).
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   Moved from the old src/styles/globals.css to Tailwind v4's @theme syntax.
+   Each variable here is both a CSS variable and the source of a utility
+   (bg-ink-800, text-gold, rounded-panel, shadow-panel…).
    ------------------------------------------------------------------------ */
 @theme {
 	--color-ink-900: #0d0b0a;
@@ -78,9 +78,9 @@
 	}
 }
 
-/* ── Nền và mặc định toàn cục ─────────────────────────────────────────────
-   Chỉ còn những thứ không diễn đạt được bằng utility: nền nhiều lớp gradient
-   của body và vài mặc định của trình duyệt.
+/* ── Global background and defaults ───────────────────────────────────────
+   Only what utilities cannot express is left here: the multi-layer gradient
+   background of the body plus a few browser defaults.
    ------------------------------------------------------------------------ */
 @layer base {
 	html,
@@ -111,41 +111,42 @@
 	}
 }
 
-/* Nền sọc chéo dùng chung cho ô khoá và khay chờ. */
+/* Diagonal stripe background shared by locked cells and the waiting tray. */
 @utility stripes {
 	background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 3%) 0 8px, transparent 8px 16px);
 }
 
-/* ── Utility riêng ────────────────────────────────────────────────────────
-   Vài hình nền gradient không diễn đạt gọn bằng utility có sẵn của Tailwind.
+/* ── Custom utilities ─────────────────────────────────────────────────────
+   A few gradient backgrounds that Tailwind's built-in utilities cannot express
+   compactly.
    ------------------------------------------------------------------------ */
 
-/** Nền panel: ánh sáng nhẹ phía trên rồi tới màu nền. */
+/** Panel background: a soft highlight on top, then the base colour. */
 @utility surface-panel {
 	background-image: linear-gradient(180deg, rgb(255 255 255 / 3%), transparent), linear-gradient(var(--color-ink-800), var(--color-ink-800));
 }
 
-/** Nền panel của đối thủ trong trận: ánh đỏ. */
+/** Panel background for the opponent in a battle: a red glow. */
 @utility surface-enemy {
 	background-image: linear-gradient(180deg, rgb(192 57 43 / 12%), transparent), linear-gradient(var(--color-ink-800), var(--color-ink-800));
 }
 
-/** Huy hiệu logo: chấm sáng vàng. */
+/** Logo badge: a golden highlight. */
 @utility surface-brand {
 	background-image: radial-gradient(circle at 30% 30%, var(--color-gold-soft), var(--color-gold));
 }
 
-/** Nền ô đồ vật: chấm sáng ở đỉnh. */
+/** Item cell background: a highlight at the top. */
 @utility surface-item {
 	background-image: radial-gradient(circle at 50% 20%, rgb(255 255 255 / 10%), transparent 60%), linear-gradient(var(--color-ink-700), var(--color-ink-700));
 }
 
-/** Nền ô thú cưng. */
+/** Pet cell background. */
 @utility surface-pet {
 	background-image: radial-gradient(circle at 35% 25%, rgb(255 255 255 / 16%), transparent 60%), linear-gradient(var(--color-ink-600), var(--color-ink-600));
 }
 
-/** Sân khấu thú cưng ở phòng chuẩn bị: vệt sáng vàng từ trên xuống. */
+/** Pet stage in the preparation room: a golden light streak from the top. */
 @utility surface-stage {
 	background-image:
 		radial-gradient(ellipse at 50% 30%, rgb(217 162 39 / 14%), transparent 60%),
@@ -153,17 +154,18 @@
 		linear-gradient(var(--color-ink-800), var(--color-ink-800));
 }
 
-/** Nền bàn đấu: sọc chéo mờ trên nền tối. */
+/** Arena background: faint diagonal stripes over a dark base. */
 @utility surface-board {
 	background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 2%) 0 8px, transparent 8px 16px), linear-gradient(var(--color-ink-900), var(--color-ink-900));
 }
 
 /**
- * Vẫn cuộn được nhưng **giấu thanh cuộn**.
+ * Still scrollable, but with the **scrollbar hidden**.
  *
- * Vì sao cần: thanh cuộn chiếm mất ~15px bề ngang, nên lưới Kho hẹp hơn lưới Trang bị và ô
- * hai bên lệch cỡ. Giấu thanh cuộn thì lưới dùng trọn bề ngang panel → ô khớp nhau.
- * Người chơi vẫn cuộn bằng con lăn / cảm ứng / bàn phím.
+ * Why it is needed: a scrollbar eats ~15px of width, which would make the inventory grid narrower
+ * than the loadout grid and leave the two sets of cells at different sizes. Hiding the scrollbar
+ * lets the grid use the panel's full width → the cells match. Players can still scroll with the
+ * wheel / touch / keyboard.
  */
 @utility scroll-hidden {
 	scrollbar-width: none;
@@ -174,32 +176,32 @@
 	}
 }
 
-/** Thanh máu. */
+/** Health bar. */
 @utility bar-hp {
 	background-image: linear-gradient(180deg, #9ada78, var(--color-hp));
 }
 
-/** Thanh máu khi yếu. */
+/** Health bar when low. */
 @utility bar-hp-low {
 	background-image: linear-gradient(180deg, #e57b64, var(--color-hp-low));
 }
 
-/** Thanh Kiếm Thế. */
+/** Sword Energy bar. */
 @utility bar-se {
 	background-image: linear-gradient(180deg, #a9d8f5, var(--color-se));
 }
 
-/** Nút chính màu đỏ. */
+/** Red primary button. */
 @utility btn-surface-primary {
 	background-image: linear-gradient(180deg, var(--color-danger-soft), var(--color-danger));
 }
 
-/** Nút chính màu đỏ khi rê chuột. */
+/** Red primary button on hover. */
 @utility btn-surface-primary-hover {
 	background-image: linear-gradient(180deg, #ea6c5c, var(--color-danger-soft));
 }
 
-/** Nút màu vàng. */
+/** Gold button. */
 @utility btn-surface-gold {
 	background-image: linear-gradient(180deg, var(--color-gold-soft), var(--color-gold));
 }

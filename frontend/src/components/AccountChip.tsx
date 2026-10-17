@@ -18,7 +18,7 @@ const SYNC_TONE = {
 
 type SyncTone = keyof typeof SYNC_TEXT
 
-/** Góc phải thanh trên: trạng thái đăng nhập, đồng bộ và nút đăng xuất. */
+/** Top-right corner of the top bar: login state, sync state and the logout button. */
 export function AccountChip() {
 	const { user, loading, unavailable } = useSessionState()
 	const push = usePushRun()
@@ -42,7 +42,7 @@ export function AccountChip() {
 		)
 	}
 
-	// Trạng thái đồng bộ **suy ra** từ mutation đẩy bản lưu — không cần state riêng cho nó.
+	// The sync state is **derived** from the save-push mutation — it needs no state of its own.
 	const tone: SyncTone = push.isError ? 'error' : push.isPending ? 'syncing' : push.isSuccess ? 'synced' : 'idle'
 	const syncError = push.error instanceof Error ? push.error.message : null
 

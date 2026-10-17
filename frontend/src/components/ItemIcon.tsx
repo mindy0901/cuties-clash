@@ -6,10 +6,10 @@ import { ArtIcon } from './ArtIcon'
 import { cn } from './ui'
 
 /**
- * Icon của một món đồ: art riêng theo món **và theo sao**, không có thì lùi về emoji.
+ * Icon of an item: dedicated art **per item and per star**, falling back to an emoji.
  *
- * Vì sao theo sao: mỗi mức sao dùng một bậc vật liệu khác nhau, nên món 4★ trông
- * khác hẳn món 1★ — người chơi nhìn ra ngay mình đang mạnh tới đâu.
+ * Why per star: each star level uses a different material tier, so a 4★ item looks clearly
+ * different from a 1★ one — the player sees at a glance how strong they are.
  */
 export function ItemIcon({
 	templateId,
@@ -34,7 +34,7 @@ export function ItemIcon({
 	)
 }
 
-/** Icon thú cưng. */
+/** Pet icon. */
 export function PetIcon({
 	petId,
 	emojiClass = 'text-[22px]',
@@ -48,7 +48,7 @@ export function PetIcon({
 	return <ArtIcon src={petArtSrc(petId)} emoji={pet.icon} emojiClass={emojiClass} className={className} alt={pet.name} />
 }
 
-/** Icon kỹ năng của thú cưng. */
+/** Pet skill icon. */
 export function SkillIcon({
 	petId,
 	emoji = '✨',

@@ -1,4 +1,4 @@
-/** Phụ thuộc dùng chung cho các route: đổi cookie phiên thành người dùng. */
+/** Shared dependencies for the routes: turn the session cookie into a user. */
 
 import type { FastifyRequest } from 'fastify'
 import type { User } from '@prisma/client'
@@ -11,7 +11,7 @@ export function sessionCookie(request: FastifyRequest, config: Config): string |
 	return request.cookies[config.cookieName]
 }
 
-/** Đổi cookie phiên thành người dùng, kiểm tra cả epoch chống dùng lại token cũ. */
+/** Turn the session cookie into a user, checking the epoch too so old tokens cannot be reused. */
 export async function resolveSession(
 	config: Config,
 	db: Db,
@@ -25,12 +25,12 @@ export async function resolveSession(
 	return user
 }
 
-/** Cho phép chơi ẩn danh: không có phiên hợp lệ thì trả `null` thay vì lỗi. */
+/** Anonymous play is allowed: an invalid session returns `null` instead of an error. */
 export async function optionalUser(config: Config, db: Db, request: FastifyRequest): Promise<User | null> {
 	return resolveSession(config, db, sessionCookie(request, config))
 }
 
-/** Bắt buộc đăng nhập. */
+/** A login is required. */
 export async function currentUser(config: Config, db: Db, request: FastifyRequest): Promise<User> {
 	const token = sessionCookie(request, config)
 	if (!token) throw unauthorized()

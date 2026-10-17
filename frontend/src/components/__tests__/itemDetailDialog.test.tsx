@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Bấm một món (ở kho hoặc ở trang bị) mở **hộp thoại chi tiết** — đây là việc duy nhất mà cú
- * bấm làm, kể từ khi thao tác nhấc/đặt dành hẳn cho kéo-thả.
+ * Clicking an item (in the inventory or the loadout) opens the **detail dialog** — that is the only
+ * thing a click does, now that picking up/placing belongs to drag and drop.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,7 +23,7 @@ beforeEach(() => reset([], []))
 afterEach(cleanup)
 
 describe('ItemDetailDialog', () => {
-	it('hiện tên, lớp, kích thước và nơi món đang nằm', () => {
+	it('shows the name, class, size and where the item currently sits', () => {
 		reset([], [item('spear', 'fire-spear')])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
@@ -33,25 +33,25 @@ describe('ItemDetailDialog', () => {
 		expect(screen.getByText('Trong kho')).toBeTruthy()
 	})
 
-	it('nói rõ khi món đang được mang', () => {
+	it('says so clearly when the item is being carried', () => {
 		reset([item('worn', 'jade-fury')], [])
 		render(<ItemDetailDialog uid="worn" onClose={() => {}} />)
 
 		expect(screen.getByText('Đang mang')).toBeTruthy()
 	})
 
-	it('hiện mô tả, sát thương và giá trị bán lại theo sao', () => {
+	it('shows the description, damage and resale value per star', () => {
 		reset([], [item('spear', 'fire-spear', 2, 8)])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
 		expect(screen.getByText(/Đâm 17 sát thương/)).toBeTruthy()
 		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
 		expect(screen.getByText('2★')).toBeTruthy()
-		// Đã trả 8 → bán lại 4.
+		// Paid 8 → resells for 4.
 		expect(screen.getByText(/4 🐾 \(hoàn 50%\)/)).toBeTruthy()
 	})
 
-	it('liệt kê chỉ số cộng thêm của món có passive', () => {
+	it('lists the bonus stats of an item with a passive', () => {
 		reset([], [item('jade', 'jade-sword')])
 		render(<ItemDetailDialog uid="jade" onClose={() => {}} />)
 
@@ -59,13 +59,13 @@ describe('ItemDetailDialog', () => {
 		expect(screen.getByText('Tỉ lệ Chấn Đao')).toBeTruthy()
 	})
 
-	it('món không còn tồn tại (đã bán) thì không hiện gì', () => {
+	it('renders nothing when the item is gone (already sold)', () => {
 		reset([], [])
 		const { container } = render(<ItemDetailDialog uid="ghost" onClose={() => {}} />)
 		expect(container.firstChild).toBeNull()
 	})
 
-	it('bấm "Đóng" thì gọi onClose', () => {
+	it('calls onClose when "Đóng" is clicked', () => {
 		reset([], [item('gem', 'jade-fury')])
 		const onClose = vi.fn()
 		render(<ItemDetailDialog uid="gem" onClose={onClose} />)
@@ -75,7 +75,7 @@ describe('ItemDetailDialog', () => {
 		expect(onClose).toHaveBeenCalledTimes(1)
 	})
 
-	it('bấm ra ngoài hộp thoại thì đóng', () => {
+	it('closes when clicking outside the dialog', () => {
 		reset([], [item('gem', 'jade-fury')])
 		const onClose = vi.fn()
 		const { container } = render(<ItemDetailDialog uid="gem" onClose={onClose} />)
@@ -87,18 +87,18 @@ describe('ItemDetailDialog', () => {
 })
 
 /**
- * Hộp thoại được render ở layout gốc (`routes/__root.tsx`) chứ không nằm trong `PrepScreen`, nên
- * phải dựng **cả app** mới kiểm được luồng thật: bấm món → hộp thoại hiện ra.
+ * The dialog is rendered by the root layout (`routes/__root.tsx`), not inside `PrepScreen`, so the
+ * whole **app** has to be built to verify the real flow: click an item → the dialog appears.
  */
-describe('luồng thật trong app', () => {
-	it('bấm một món trong kho thì hộp thoại chi tiết hiện ra', async () => {
+describe('the real flow inside the app', () => {
+	it('clicking an inventory item opens the detail dialog', async () => {
 		reset([], [item('gem', 'jade-fury')])
 		await renderApp('/')
 
 		fireEvent.click(document.querySelector<HTMLElement>('button[data-inv-tile="gem"]')!)
 
 		expect(await screen.findByText('Chi tiết món')).toBeTruthy()
-		// Hai dòng này chỉ có trong hộp thoại (ô trong kho không có).
+		// These two rows only exist in the dialog (an inventory cell has neither).
 		expect(screen.getByText('Trong kho')).toBeTruthy()
 		expect(screen.getByText('Bán được')).toBeTruthy()
 	})

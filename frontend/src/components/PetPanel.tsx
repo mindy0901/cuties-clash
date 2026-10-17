@@ -16,7 +16,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 	)
 }
 
-/** Bảng thú cưng: chọn, nâng cấp và xem chỉ số dẫn xuất. */
+/** Pet panel: pick a pet, upgrade it, and inspect the derived stats. */
 export function PetPanel() {
 	const run = useGameStore((state) => state.run)
 	const selectPet = useGameStore((state) => state.selectPet)

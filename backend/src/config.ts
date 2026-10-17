@@ -1,22 +1,22 @@
 /**
- * Cấu hình backend, đọc từ biến môi trường / file `.env`.
+ * Backend configuration, read from environment variables / the `.env` file.
  *
- * Thứ tự ưu tiên (khớp `env_file=(".env", "../.env")` của pydantic-settings):
- * `../.env` (gốc repo) → `backend/.env` → `process.env`. Giá trị đọc sau ghi đè
- * giá trị đọc trước, nhưng `process.env` luôn thắng.
+ * Precedence order (matching pydantic-settings' `env_file=(".env", "../.env")`):
+ * `../.env` (repo root) → `backend/.env` → `process.env`. A value read later overrides
+ * a value read earlier, but `process.env` always wins.
  */
 
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** Giá trị mẫu trong `.env.example` — không được dùng thật. */
+/** Placeholder value from `.env.example` — must never be used for real. */
 export const PLACEHOLDER_JWT_SECRET = 'doi-thanh-khoa-ngau-nhien-dai-it-nhat-32-ky-tu'
 export const MIN_JWT_SECRET_LENGTH = 32
 
 export const DEFAULT_CORS_ORIGINS = ['http://localhost:5190', 'http://127.0.0.1:5190']
 
-/** Thư mục `backend/` — gốc để tra `.env`, `prisma/` và `../dist`. */
+/** The `backend/` directory — the base for resolving `.env`, `prisma/` and `../dist`. */
 export const BACKEND_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 export type EnvLike = Record<string, string | undefined>
@@ -55,7 +55,7 @@ export interface Config {
 	readonly postLoginRedirect?: string
 
 	readonly frontendDist: string
-	/** Đường dẫn tuyệt đối của bản build Vite (đã giải so với `backend/`). */
+	/** Absolute path of the Vite build (resolved against `backend/`). */
 	readonly frontendDistDir: string
 
 	readonly autoLogin: boolean
@@ -63,14 +63,14 @@ export interface Config {
 	readonly googleClientId: string
 	readonly googleClientSecret: string
 
-	/** Gốc của điểm gọi lại OAuth (đã bỏ dấu `/` ở cuối). */
+	/** Origin of the OAuth callback endpoint (trailing `/` stripped). */
 	readonly redirectBase: string
 	readonly postLoginUrl: string
 	readonly callbackUrl: (provider: string) => string
 	readonly isConfigured: (provider: string) => boolean
 }
 
-/** Lỗi cấu hình — dừng ngay lúc khởi động thay vì chạy với giá trị nguy hiểm. */
+/** Configuration error — stop at startup instead of running with a dangerous value. */
 export class ConfigError extends Error {
 	constructor(message: string) {
 		super(message)
@@ -79,22 +79,22 @@ export class ConfigError extends Error {
 }
 
 /**
- * Khoá ký phiên yếu thì token bị giả mạo được — từ chối chạy.
+ * A weak session signing key makes tokens forgeable — refuse to start.
  *
- * Hàm thuần để test được mà không cần dựng cả đối tượng cấu hình.
+ * A pure function so it can be tested without building a whole configuration object.
  */
 export function assertStrongJwtSecret(secret: string): void {
 	if (secret === PLACEHOLDER_JWT_SECRET || secret.length < MIN_JWT_SECRET_LENGTH) {
 		throw new ConfigError(
-			'JWT_SECRET chưa được đặt hoặc quá ngắn. Hãy tạo file .env từ .env.example và sinh khoá bằng: ' +
+			'JWT_SECRET is unset or too short. Create a .env file from .env.example and generate a key with: ' +
 				`node -e "console.log(require('crypto').randomBytes(36).toString('base64url'))"`,
 		)
 	}
 }
 
 /**
- * Bỏ hậu tố driver khỏi URL database để cả `postgresql+psycopg://…` (giá trị đang
- * có trong `.env`) lẫn `postgresql://…` đều dùng được với Prisma.
+ * Strip the driver suffix from the database URL so that both `postgresql+psycopg://…`
+ * (the value currently in `.env`) and plain `postgresql://…` work with Prisma.
  */
 export function normalizeDatabaseUrl(url: string): string {
 	return url.replace(/^([a-z][a-z0-9]*)\+[a-z0-9_]+:\/\//i, '$1://')
@@ -103,7 +103,7 @@ export function normalizeDatabaseUrl(url: string): string {
 export function parseHmacAlgorithm(algorithm: string): HmacAlgorithm {
 	const normalized = algorithm.trim().toUpperCase()
 	if (normalized === 'HS256' || normalized === 'HS384' || normalized === 'HS512') return normalized
-	throw new ConfigError(`JWT_ALGORITHM không được hỗ trợ: ${algorithm}. Chỉ dùng HS256, HS384 hoặc HS512.`)
+	throw new ConfigError(`Unsupported JWT_ALGORITHM: ${algorithm}. Use only HS256, HS384 or HS512.`)
 }
 
 function parseEnvFile(path: string): Record<string, string> {
@@ -111,7 +111,7 @@ function parseEnvFile(path: string): Record<string, string> {
 	try {
 		raw = readFileSync(path, 'utf8')
 	} catch {
-		// Thiếu file là bình thường (test, Docker chỉ truyền biến môi trường).
+		// A missing file is normal (tests; Docker only passes environment variables).
 		return {}
 	}
 
@@ -134,7 +134,7 @@ function parseEnvFile(path: string): Record<string, string> {
 	return values
 }
 
-/** Đọc `../.env` rồi `backend/.env` (file đọc sau ghi đè file đọc trước). */
+/** Read `../.env` then `backend/.env` (a file read later overrides one read earlier). */
 export function readEnvFiles(): Record<string, string> {
 	const files = [resolve(BACKEND_DIR, '..', '.env'), resolve(BACKEND_DIR, '.env')]
 	const values: Record<string, string> = {}
@@ -144,7 +144,7 @@ export function readEnvFiles(): Record<string, string> {
 	return values
 }
 
-// ── Đọc giá trị thô ──────────────────────────────────────────────────────────
+// ── Reading raw values ───────────────────────────────────────────────────────
 
 export function readBoolean(env: EnvLike, key: string, fallback: boolean): boolean {
 	const raw = env[key]
@@ -162,7 +162,7 @@ export function readInteger(env: EnvLike, key: string, fallback: number): number
 	return Number.isFinite(value) ? value : fallback
 }
 
-/** `CORS_ORIGINS` nhận cả mảng JSON (kiểu pydantic) lẫn danh sách ngăn bằng dấu phẩy. */
+/** `CORS_ORIGINS` accepts both a JSON array (pydantic style) and a comma-separated list. */
 export function readOrigins(env: EnvLike, key: string, fallback: readonly string[]): string[] {
 	const raw = env[key]
 	if (raw === undefined || raw.trim() === '') return [...fallback]
@@ -198,7 +198,7 @@ function readOptionalString(env: EnvLike, key: string): string | undefined {
 	return raw === undefined || raw.trim() === '' ? undefined : raw.trim()
 }
 
-/** Dựng cấu hình từ một bộ biến môi trường đã cho (hàm thuần, test được). */
+/** Build the configuration from a given set of environment variables (pure, testable). */
 export function buildConfig(env: EnvLike): Config {
 	const jwtSecret = readString(env, 'JWT_SECRET', PLACEHOLDER_JWT_SECRET)
 	assertStrongJwtSecret(jwtSecret)
@@ -216,7 +216,7 @@ export function buildConfig(env: EnvLike): Config {
 	const postLoginUrl = stripTrailingSlash(postLoginRedirect ?? frontendUrl)
 
 	const isConfigured = (provider: string): boolean =>
-		// Chỉ Google được hỗ trợ; biến môi trường còn sót của nhà cung cấp khác bị bỏ qua.
+		// Only Google is supported; leftover environment variables for other providers are ignored.
 		provider === 'google' && Boolean(googleClientId) && Boolean(googleClientSecret)
 
 	const config: Config = {
@@ -246,7 +246,7 @@ export function buildConfig(env: EnvLike): Config {
 		...(oauthRedirectBase === undefined ? {} : { oauthRedirectBase }),
 		...(postLoginRedirect === undefined ? {} : { postLoginRedirect }),
 
-		// Ở workspace này thư mục build của Vite là `frontend/dist`.
+		// In this workspace the Vite build directory is `frontend/dist`.
 		frontendDist: readString(env, 'FRONTEND_DIST', '../frontend/dist'),
 		frontendDistDir: resolve(BACKEND_DIR, readString(env, 'FRONTEND_DIST', '../frontend/dist')),
 
@@ -265,8 +265,8 @@ export function buildConfig(env: EnvLike): Config {
 }
 
 /**
- * Cấu hình dùng lúc chạy: file `.env` trước, `process.env` sau (biến môi trường thắng).
- * Truyền `env` để bỏ qua hoàn toàn file `.env` (dùng trong test).
+ * Runtime configuration: `.env` files first, `process.env` after (environment wins).
+ * Pass `env` to skip `.env` files entirely (used in tests).
  */
 export function loadConfig(env?: EnvLike): Config {
 	if (env) return buildConfig(env)

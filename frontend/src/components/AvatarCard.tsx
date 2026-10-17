@@ -4,40 +4,40 @@ import { getPet } from '../game/pets'
 import { ArtIcon } from './ArtIcon'
 import { cn } from './ui'
 
-/** Một ô kỹ năng ở đáy khung đại diện (kỹ năng thú cưng, hoặc món có hiệu lực chủ động). */
+/** One skill slot at the bottom of the avatar frame (a pet skill, or an item with an active effect). */
 export interface AvatarSkill {
-	/** Khoá — trùng `uid` trong `SideState.cooldowns` để tra tiến độ hồi. */
+	/** Key — matches `uid` in `SideState.cooldowns`, used to look up charge progress. */
 	uid: string
-	/** Icon hiển thị; chỗ gọi truyền sẵn `ItemIcon`/`SkillIcon`. */
+	/** Icon to display; callers pass an `ItemIcon`/`SkillIcon`. */
 	icon: ReactNode
 	label: string
-	/** 0–100, 100 = dùng được ngay. */
+	/** 0–100, 100 = ready to use. */
 	charge: number
 }
 
 export interface AvatarCardProps {
 	side: 'player' | 'enemy'
 	name: string
-	/** Nhãn nhỏ cạnh tên (cấp thú, tên màn…). */
+	/** Small label next to the name (pet level, stage name…). */
 	label?: string
-	/** Có `petId` → lấy **ảnh đại diện** của thú (xem `avatarArtSrc`). */
+	/** With `petId` → uses the pet's **avatar art** (see `avatarArtSrc`). */
 	petId?: string
-	/** Không có `petId` (đối thủ theo màn) → dùng emoji. */
+	/** Without `petId` (stage opponents) → uses an emoji. */
 	emoji?: string
 	skills?: AvatarSkill[]
-	/** Nhấp nháy khi vừa ăn đòn. */
+	/** Flashes when the fighter just took a hit. */
 	hit?: boolean
-	/** Sát thương vừa nhận — số bay lên trong khung. */
+	/** Damage just taken — the number floating up inside the frame. */
 	floater?: { key: number; value: number } | null
 }
 
 /**
- * Khung **đại diện** một đấu sĩ, đặt hai bên sàn đấu (xem `BattleScreen`).
+ * The **avatar** frame for one fighter, placed on both sides of the arena (see `BattleScreen`).
  *
- * Đây là **holder sẵn sàng cho ảnh đại diện**: hiện khung hiện art thú cưng, chưa có art thì lùi
- * về emoji. Khi có ảnh đại diện riêng thì **không phải sửa component này** — chỉ cần đặt file
- * `/public/icons/pets/<id>-avatar.png` và bật `avatar: true` trong `game/pets.ts`, `avatarArtSrc`
- * sẽ tự được ưu tiên (xem `docs/ASSETS.md`).
+ * This is the **holder ready for avatar art**: right now it shows the pet art, falling back to
+ * an emoji when no art exists. Once dedicated avatars exist, **this component needs no change** —
+ * just drop a file at `/public/icons/pets/<id>-avatar.png` and enable `avatar: true` in
+ * `game/pets.ts`; `avatarArtSrc` will take priority automatically (see `docs/ASSETS.md`).
  */
 export function AvatarCard({
 	side,
@@ -65,9 +65,10 @@ export function AvatarCard({
 			</div>
 
 			{/*
-			 * Khung ảnh đại diện — chỗ đặt art sau này.
+			 * Avatar frame — where art will go later.
 			 *
-			 * `key` đổi khi trúng đòn để animation `shake` chạy lại từ đầu (cùng cách với các panel cũ).
+			 * `key` changes when a hit lands so the `shake` animation restarts (same approach as the
+			 * older panels).
 			 */}
 			<div
 				data-avatar-holder

@@ -83,8 +83,8 @@ export function buildCombatant(input: BuildInput): Combatant {
 	addMods(stats, input.baseMods)
 
 	const placed = input.items.filter((entry) => entry.slot >= 0 && entry.slot < input.gridSize)
-	// Bản đồ ô → món, để xét liền kề theo từng ô chứ không theo một ô neo duy nhất.
-	// uid ở đây dựng giống `combatItemUid` để tra ngược lại bản ghi gốc.
+	// Cell → item map so adjacency is evaluated per cell rather than from a single anchor cell.
+	// The uid is built just like `combatItemUid` so the original entry can be looked up back.
 	const uidOf = (entry: { templateId: string; slot: number }) => combatItemUid(entry.templateId, entry.slot)
 	const cellOwner = occupancy(
 		placed.map((entry) => ({ ...entry, uid: uidOf(entry) })),
@@ -120,7 +120,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 			.map((uid) => byUid.get(uid))
 			.filter((found): found is NonNullable<typeof found> => Boolean(found))
 
-		// Hào khí `adjacent` tính cả món bị liền kề; các aura khác phân loại theo lớp.
+		// The `adjacent` aura counts any neighbouring item; the other auras filter by class.
 		item.linked = adjacent.length > 0
 		addMods(stats, template.passive ? template.passive(item.star) : undefined)
 		if (template.aura) {

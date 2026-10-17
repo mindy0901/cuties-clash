@@ -1,22 +1,22 @@
 // @vitest-environment jsdom
 /**
- * Điều hướng giữa phòng chuẩn bị (`/`) và trang cửa hàng riêng (`/cua-hang`).
+ * Navigation between the preparation room (`/`) and the dedicated shop page (`/cua-hang`).
  *
- * Ba điều cần nhớ khi viết test ở đây:
- * - Dùng `render` của @testing-library, **không** dùng `renderToString` (zustand v5
- *   trả state khởi tạo cho `getServerSnapshot`).
- * - Từ khi dùng TanStack Router, **đường dẫn URL là nguồn sự thật** của màn hình đang
- *   mở; store không còn giữ `route`. Vì vậy kiểm tra màn hình đang mở bằng
- *   `window.location.pathname` cộng với nội dung render, ❌ không đọc `route` từ store.
- * - `renderApp` là `async` (RouterProvider khớp route sau khi `router.load()` xong) nên
- *   callback của `it` phải `async` và phải `await renderApp(...)`.
+ * Three things to remember when writing tests here:
+ * - Use @testing-library's `render`, **not** `renderToString` (zustand v5 returns the initial
+ *   state for `getServerSnapshot`).
+ * - Since the move to TanStack Router, **the URL is the source of truth** for the open screen; the
+ *   store no longer holds `route`. So check the open screen via `window.location.pathname` plus the
+ *   rendered content, ❌ never by reading `route` from the store.
+ * - `renderApp` is `async` (RouterProvider matches the route after `router.load()` resolves), so
+ *   the `it` callback must be `async` and must `await renderApp(...)`.
  */
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useGameStore } from '../../store/gameStore'
 import { renderApp } from '../../test/router'
 
-/** Về phòng chuẩn bị với tiền và shop sạch (shop bị `persist` giữ lại giữa các test). */
+/** Back to the preparation room with clean currency and shop (the shop is kept by `persist` between tests). */
 function resetAt() {
 	useGameStore.getState().newRun()
 	useGameStore.setState((state) => ({
@@ -27,32 +27,32 @@ function resetAt() {
 beforeEach(resetAt)
 afterEach(cleanup)
 
-describe('điều hướng phòng chuẩn bị ↔ cửa hàng', () => {
-	it('phòng chuẩn bị hiện bảng trang bị và nút mua', async () => {
+describe('navigation between the preparation room and the shop', () => {
+	it('the preparation room shows the loadout board and the buy button', async () => {
 		await renderApp('/')
-		// "Trang bị" cũng xuất hiện trong câu gợi ý, nên hỏi theo tiêu đề panel.
+		// "Trang bị" also appears in the hint sentence, so ask by panel heading.
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 		expect(screen.getByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 		expect(screen.getAllByText(/Mua Vật Phẩm/).length).toBeGreaterThan(0)
 		expect(screen.getByText(/Đấu Thú Cưng/)).toBeTruthy()
-		// Hai nút chưa có chức năng vẫn hiện để giữ bố cục.
+		// The two not-yet-functional buttons are still shown to keep the layout.
 		expect(screen.getByText(/Nhiệm Vụ/)).toBeTruthy()
 		expect(screen.getByText(/Bộ Sưu Tập/)).toBeTruthy()
 	})
 
-	it('bấm Mua Vật Phẩm thì mở trang cửa hàng và đổi đường dẫn', async () => {
+	it('clicking Mua Vật Phẩm opens the shop page and changes the URL', async () => {
 		await renderApp('/')
 		fireEvent.click(screen.getAllByText(/Mua Vật Phẩm/)[0])
 
-		// Chờ màn hình mới render xong rồi mới kiểm tra URL: điều hướng của router là
-		// transition bất đồng bộ nên `window.location` có thể đổi sau một nhịp.
+		// Wait for the new screen to render before checking the URL: router navigation is an async
+		// transition, so `window.location` may change a tick later.
 		expect(await screen.findByText('Cửa hàng vật phẩm')).toBeTruthy()
 		expect(window.location.pathname).toBe('/cua-hang')
-		// Trang cửa hàng không còn hiện kho đồ.
+		// The shop page no longer shows the inventory.
 		expect(screen.queryByText('Kho đồ')).toBeNull()
 	})
 
-	it('nút quay về đưa lại phòng chuẩn bị', async () => {
+	it('the back button returns to the preparation room', async () => {
 		await renderApp('/cua-hang')
 		expect(screen.getByText('Cửa hàng vật phẩm')).toBeTruthy()
 
@@ -62,7 +62,7 @@ describe('điều hướng phòng chuẩn bị ↔ cửa hàng', () => {
 		expect(window.location.pathname).toBe('/')
 	})
 
-	it('mua được món ngay trong trang cửa hàng', async () => {
+	it('items can be bought right on the shop page', async () => {
 		await renderApp('/cua-hang')
 
 		const before = useGameStore.getState().run
@@ -71,34 +71,34 @@ describe('điều hướng phòng chuẩn bị ↔ cửa hàng', () => {
 		fireEvent.click(screen.getAllByText(/^Mua · /)[0])
 
 		const after = useGameStore.getState().run
-		// Trang bị còn chỗ nên món được mang ngay.
+		// The loadout has room, so the item is carried right away.
 		expect(after.equipped).toHaveLength(1)
 		expect(after.currency).toBe(before.currency - offer.cost)
 		expect(after.shop[0].sold).toBe(true)
 	})
 
-	it('mở thẳng /cua-hang thì vào trang cửa hàng', async () => {
+	it('opening /cua-hang directly lands on the shop page', async () => {
 		await renderApp('/cua-hang')
 		expect(screen.getByText('Cửa hàng vật phẩm')).toBeTruthy()
 	})
 
-	it('đường dẫn lạ vẫn về phòng chuẩn bị', async () => {
+	it('an unknown path still lands on the preparation room', async () => {
 		await renderApp('/mot-duong-dan-la')
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 	})
 
-	it('nút chưa có chức năng thì báo "sắp có" chứ không im lặng', async () => {
+	it('a not-yet-functional button reports "coming soon" instead of staying silent', async () => {
 		await renderApp('/')
 		fireEvent.click(screen.getByText(/Nhiệm Vụ/))
 		expect(useGameStore.getState().toasts.some((toast) => toast.text.includes('sẽ có ở bản sau'))).toBe(true)
 	})
 
-	it('đang đánh nhau thì hiện màn đấu dù đang ở đường dẫn cửa hàng', async () => {
+	it('during a battle the battle screen is shown even on the shop URL', async () => {
 		useGameStore.getState().buyOffer(0)
 		useGameStore.getState().startBattle('stage')
 		await renderApp('/cua-hang')
 		expect(useGameStore.getState().phase).toBe('battle')
-		// Màn đấu có thanh Kiếm Thế và nút tốc độ.
+		// The battle screen has the Sword Energy bar and the speed buttons.
 		expect(screen.getAllByText(/Kiếm Thế/).length).toBeGreaterThan(0)
 		expect(screen.getByText(/Bỏ qua/)).toBeTruthy()
 	})

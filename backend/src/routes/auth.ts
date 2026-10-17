@@ -1,4 +1,4 @@
-/** Đăng nhập bằng Google và quản lý phiên. */
+/** Signing in with Google and managing the session. */
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import type { User } from '@prisma/client'
@@ -36,8 +36,8 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (app, opti
 	app.get('/api/auth/session', async (request) => {
 		const user = await optionalUser(config, db, request)
 		const available = availableProviders(config)
-		// Chỉ bật tự chuyển hướng khi thật sự có nhà cung cấp dùng được, nếu không
-		// frontend sẽ chuyển hướng vào endpoint chắc chắn trả 503.
+		// Only enable auto-redirect when a provider is actually usable, otherwise the
+		// frontend would redirect into an endpoint that is guaranteed to return 503.
 		const autoLogin = config.autoLogin && available.length > 0
 		if (!user) {
 			return { authenticated: false, user: null, available_providers: available, auto_login: autoLogin }
@@ -66,7 +66,7 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (app, opti
 
 		if (error) return failureRedirect(config, reply, errorDescription || error)
 		if (!verifyState(config, state, request.cookies[OAUTH_STATE_COOKIE])) {
-			// Cookie `state` sai hoặc đã hết hạn: từ chối thay vì tin tham số trên URL.
+			// Wrong or expired `state` cookie: refuse instead of trusting the URL parameter.
 			return failureRedirect(config, reply, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Hãy thử lại.')
 		}
 		if (!code) return failureRedirect(config, reply, 'Nhà cung cấp không trả về mã uỷ quyền.')
@@ -84,7 +84,7 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (app, opti
 			}
 			user = await upsertUserFromProfile(db, profile)
 		} catch (error) {
-			// Mọi lỗi ở đây đều phải đưa người dùng về UI, không được để lộ trang lỗi.
+			// Every error here must send the user back to the UI; never expose an error page.
 			const message = error instanceof ApiError ? error.message : 'Đăng nhập thất bại, hãy thử lại.'
 			return failureRedirect(config, reply, message)
 		}
@@ -98,7 +98,7 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (app, opti
 	app.post('/api/auth/logout', async (request, reply) => {
 		const user = await optionalUser(config, db, request)
 		if (user) {
-			// Tăng epoch để mọi token cũ của tài khoản hết hiệu lực ngay.
+			// Bump the epoch so every old token of this account stops working immediately.
 			await db.user.update({
 				where: { id: user.id },
 				data: { sessionEpoch: user.sessionEpoch + 1 },

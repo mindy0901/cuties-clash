@@ -13,7 +13,7 @@ function Stat({ label, value }: { label: string; value: ReactNode }) {
 	)
 }
 
-/** Màn hình hiện sau khi phá đảo màn 60. */
+/** Screen shown after clearing stage 60. */
 export function VictoryScreen() {
 	const run = useGameStore((state) => state.run)
 	const newRun = useGameStore((state) => state.newRun)

@@ -22,7 +22,7 @@ describe('game store loop', () => {
 		expect(state.phase).toBe('prep')
 	})
 
-	it('mua món thì mang lên trang bị ngay khi còn chỗ', () => {
+	it('buys an item straight onto the equip grid while there is room', () => {
 		const state = freshRun()
 		const offer = state.run.shop[0]
 		const before = state.run.currency
@@ -35,9 +35,9 @@ describe('game store loop', () => {
 		expect(after.run.shop[0].sold).toBe(true)
 	})
 
-	it('trang bị hết chỗ thì món mua vào kho', () => {
+	it('sends a purchase to the storage once the equip grid is full', () => {
 		freshRun()
-		// Đại đao 2×3: ba cái là kín lưới 4×3 (18/12 ô) — cái thứ ba phải vào kho.
+		// 2×3 great axe: three of them fill the 4×3 grid (18/12 cells) — the third goes to the storage.
 		useGameStore.setState((state) => ({
 			run: {
 				...state.run,
@@ -49,7 +49,7 @@ describe('game store loop', () => {
 		const run = useGameStore.getState().run
 		expect(run.equipped).toHaveLength(2)
 		expect(run.inventory).toHaveLength(1)
-		expect(run.inventory[0].slot, 'kho là lưới: món mua vào kho có ô thật').toBeGreaterThanOrEqual(0)
+		expect(run.inventory[0].slot, 'the storage is a grid: a purchased item gets a real cell').toBeGreaterThanOrEqual(0)
 	})
 
 	it('never buys the same offer twice', () => {
@@ -71,7 +71,7 @@ describe('game store loop', () => {
 		expect(useGameStore.getState().run.equipped).toHaveLength(0)
 	})
 
-	it('bán được cả món đang ở kho', () => {
+	it('can sell an item sitting in the storage', () => {
 		freshRun()
 		useGameStore.setState((state) => ({
 			run: { ...state.run, inventory: [createItemInstance('great-axe', 2, 'stored')] },
@@ -96,7 +96,7 @@ describe('game store loop', () => {
 
 	it('merges two bought copies into a single 2★ item', () => {
 		freshRun()
-		// Ép hai offer giống hệt nhau để chạy trọn đường nhập sao.
+		// Force two identical offers so the whole star-merge path runs.
 		useGameStore.setState((state) => ({
 			run: {
 				...state.run,
@@ -147,10 +147,10 @@ describe('game store loop', () => {
 		expect(after.run.currency).toBe(currencyBefore + (won ? (battle?.reward ?? 0) : 0))
 		expect(after.run.stage).toBe(won ? stageBefore + 1 : stageBefore)
 		if (won) expect(after.run.clearedStage).toBe(stageBefore)
-		// Lịch sử thắng/thua được ghi lại.
+		// The win/loss record is written down.
 		expect(after.run.wins + after.run.losses).toBe(1)
 
-		// Commit lần hai không được trả thưởng thêm.
+		// A second commit must not pay the reward again.
 		useGameStore.getState().commitBattle()
 		expect(useGameStore.getState().run.currency).toBe(after.run.currency)
 		expect(useGameStore.getState().run.stage).toBe(after.run.stage)
@@ -167,7 +167,7 @@ describe('game store loop', () => {
 		expect(bagSizeFor(useGameStore.getState().run)).toBeGreaterThan(0)
 	})
 
-	it('trang bị 4 cột và số hàng tăng theo cấp thú', () => {
+	it('the equip grid has 4 columns and more rows as the pet levels up', () => {
 		freshRun()
 		const first = useGameStore.getState().run
 		const level1 = petLevelStats(getPet(first.petId), 1)
@@ -180,7 +180,7 @@ describe('game store loop', () => {
 		expect(level5.bagSize).toBeGreaterThan(level1.bagSize)
 	})
 
-	it('món nhiều ô chiếm đúng số ô trên trang bị', () => {
+	it('a multi-cell item occupies the right number of equip cells', () => {
 		freshRun()
 		useGameStore.setState((state) => ({
 			run: {
@@ -192,13 +192,13 @@ describe('game store loop', () => {
 			},
 		}))
 		useGameStore.getState().buyOffer(0)
-		// Thân đao 1×4 không vừa lưới 3 hàng nên phải xoay ngang thành 4×1 (4 ô).
+		// The 1×4 blade does not fit a 3-row grid, so it has to rotate into 4×1 (4 cells).
 		const item = useGameStore.getState().run.equipped[0]
 		expect(item.rotated).toBe(true)
 		expect(itemCells(item, 4)).toHaveLength(4)
 	})
 
-	it('xoay món 1×3 trên trang bị thành 3×1 và đổi các ô chiếm', () => {
+	it('rotates a 1×3 equip item into 3×1 and changes the cells it covers', () => {
 		freshRun()
 		useGameStore.setState((state) => ({
 			run: {
@@ -212,11 +212,11 @@ describe('game store loop', () => {
 
 		const rotated = useGameStore.getState().run.equipped[0]
 		expect(rotated.rotated).toBe(true)
-		// Neo ở cột 1 nên khối 3 ô ngang vừa trong lưới 4 cột.
+		// Anchored in column 1, so the 3-cell wide block fits the 4-column grid.
 		expect(itemCells(rotated, 4)).toEqual([1, 2, 3])
 	})
 
-	it('từ chối xoay khi hướng mới đè món khác', () => {
+	it('rejects a rotation whose new orientation overlaps another item', () => {
 		freshRun()
 		useGameStore.setState((state) => ({
 			run: {
@@ -231,7 +231,7 @@ describe('game store loop', () => {
 		expect(useGameStore.getState().run.equipped.find((item) => item.uid === 'sword')?.rotated).toBe(false)
 	})
 
-	it('tháo đồ về kho và mang lại lên trang bị', () => {
+	it('unequips an item into the storage and equips it again', () => {
 		freshRun()
 		useGameStore.getState().buyOffer(0)
 		const uid = useGameStore.getState().run.equipped[0].uid
@@ -240,7 +240,7 @@ describe('game store loop', () => {
 		let run = useGameStore.getState().run
 		expect(run.equipped).toHaveLength(0)
 		expect(run.inventory).toHaveLength(1)
-		expect(run.inventory[0].slot, 'kho là lưới: món vào kho phải có ô thật').toBeGreaterThanOrEqual(0)
+		expect(run.inventory[0].slot, 'the storage is a grid: an item entering it must have a real cell').toBeGreaterThanOrEqual(0)
 
 		useGameStore.getState().equip(uid)
 		run = useGameStore.getState().run
@@ -249,7 +249,7 @@ describe('game store loop', () => {
 		expect(run.equipped[0].slot).toBeGreaterThanOrEqual(0)
 	})
 
-	it('món ở kho KHÔNG tham chiến', () => {
+	it('an item in the storage does NOT join the fight', () => {
 		freshRun()
 		useGameStore.getState().buyOffer(0)
 		const equippedUid = useGameStore.getState().run.equipped[0].uid
@@ -257,7 +257,7 @@ describe('game store loop', () => {
 
 		useGameStore.getState().unequip(equippedUid)
 		expect(powerWithItem).toBeGreaterThan(0)
-		// Trang bị rỗng nên không đánh được.
+		// With an empty equip grid there is nothing to fight with.
 		expect(useGameStore.getState().run.equipped).toHaveLength(0)
 		expect(useGameStore.getState().run.inventory).toHaveLength(1)
 	})

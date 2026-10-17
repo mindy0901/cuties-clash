@@ -1,10 +1,10 @@
-/** Đọc hồ sơ OpenID Connect của Google. */
+/** Read Google's OpenID Connect profile. */
 
 import { describe, expect, it } from 'vitest'
 import { GOOGLE, parseGoogleProfile } from '../src/oauth'
 
 describe('parseGoogleProfile', () => {
-	it('ánh xạ sub, tên và ảnh', () => {
+	it('maps sub, name and picture', () => {
 		const profile = parseGoogleProfile(GOOGLE, {
 			sub: '12345',
 			email: 'a@example.com',
@@ -18,27 +18,27 @@ describe('parseGoogleProfile', () => {
 		expect(profile.avatarUrl).toBe('https://x/p.png')
 	})
 
-	it('lùi về given_name', () => {
+	it('falls back to given_name', () => {
 		expect(parseGoogleProfile(GOOGLE, { sub: '1', given_name: 'Tên Riêng' }).displayName).toBe('Tên Riêng')
 	})
 
-	it('lùi về phần trước @ của email', () => {
+	it('falls back to the part before @ in the email', () => {
 		expect(parseGoogleProfile(GOOGLE, { sub: '1', email: 'khongten@example.com' }).displayName).toBe('khongten')
 	})
 
-	it('lùi về tên mặc định khi không có gì', () => {
+	it('falls back to the default name when nothing is available', () => {
 		const profile = parseGoogleProfile(GOOGLE, { sub: '1' })
 		expect(profile.displayName).toBe('Người chơi Google')
 		expect(profile.email).toBeUndefined()
 		expect(profile.avatarUrl).toBeUndefined()
 	})
 
-	it('thiếu sub thì subject thành chuỗi rỗng', () => {
-		// Route gọi sẽ từ chối hồ sơ không có `sub`.
+	it('a missing sub becomes an empty subject string', () => {
+		// The calling route rejects a profile that has no `sub`.
 		expect(parseGoogleProfile(GOOGLE, { email: 'a@example.com', name: 'Không Sub' }).subject).toBe('')
 	})
 
-	it('sub dạng số vẫn thành chuỗi', () => {
+	it('a numeric sub still becomes a string', () => {
 		expect(parseGoogleProfile(GOOGLE, { sub: 987 }).subject).toBe('987')
 	})
 })

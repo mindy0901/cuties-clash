@@ -1,6 +1,6 @@
-/** Chuỗi class Tailwind dùng chung giữa các màn hình. */
+/** Tailwind class strings shared across screens. */
 
-/** Ghép class có điều kiện, bỏ qua giá trị rỗng. */
+/** Joins classes conditionally, skipping empty values. */
 export function cn(...parts: (string | false | null | undefined)[]): string {
 	return parts.filter(Boolean).join(' ')
 }
@@ -27,7 +27,7 @@ export const btnSmClass = 'rounded-lg px-2.5 py-1.5 text-[13px]'
 
 export const btnBlockClass = 'w-full justify-center'
 
-/** Ô thông tin nhỏ dạng nhãn — giá trị. */
+/** Small info box shaped like label — value. */
 export const statClass =
 	'flex justify-between gap-2 rounded-lg border border-line bg-black/25 px-2 py-1.5 text-[13px] tabular-nums'
 
@@ -60,7 +60,7 @@ export const gearRowClass = 'grid grid-cols-[repeat(auto-fill,minmax(58px,1fr))]
 export const iconButtonClass =
 	'grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold'
 
-/** Viền theo lớp vật phẩm. Phải là class đầy đủ để Tailwind nhìn thấy lúc build. */
+/** Border per item class. Must be full class names so Tailwind sees them at build time. */
 export const ITEM_BORDER_BY_CLASS: Record<string, string> = {
 	weapon: 'border-[#8c4a3d]',
 	armor: 'border-[#4a6b8c]',
@@ -72,7 +72,7 @@ export const ITEM_BORDER_BY_CLASS: Record<string, string> = {
 export const STATUS_CHIP_DEBUFF = 'border-danger/60 text-[#f0b6ac]'
 export const STATUS_CHIP_BUFF = 'border-jade/55 text-[#a6e3d5]'
 
-/** Tên hiển thị của các nhà cung cấp đăng nhập được hỗ trợ. */
+/** Display names of the supported login providers. */
 export const PROVIDER_LABELS: Record<string, string> = {
 	google: 'Google',
 }

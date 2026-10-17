@@ -1,12 +1,13 @@
 import { QueryClient } from '@tanstack/react-query'
 
 /**
- * Tuỳ chọn dùng chung cho mọi truy vấn API.
+ * Shared options for every API query.
  *
- * Tách khỏi `App.tsx` để file đó chỉ export component (yêu cầu của Fast Refresh).
+ * Kept out of `App.tsx` so that file only exports a component (a Fast Refresh requirement).
  *
- * `retry: false` là cố ý: backend chưa chạy thì phải biết ngay để còn chơi ẩn danh, không
- * bắt người chơi chờ ba lần thử lại mới thấy giao diện.
+ * `retry: false` is intentional: when the backend is not running the client must know right away
+ * so it can fall back to anonymous play, instead of making the player wait through three retries
+ * before seeing the UI.
  */
 export function createQueryClient(): QueryClient {
 	return new QueryClient({

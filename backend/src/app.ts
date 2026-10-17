@@ -1,4 +1,4 @@
-/** Điểm vào của API Martial Cutie. */
+/** Entry point of the Martial Cutie API. */
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,12 +21,12 @@ import { saveRoutes } from './routes/saves'
 
 export interface BuildAppOptions {
 	config: Config
-	/** Client Prisma thật, hoặc client của một transaction (test truyền vào để rollback). */
+	/** The real Prisma client, or a transaction client (tests pass one in so it can roll back). */
 	db: Db
 	logger?: FastifyServerOptions['logger']
 }
 
-/** Trần kích thước body — bản lưu bị chặn ở 200 000 byte nên đây là mức rộng rãi. */
+/** Body size ceiling — saves are capped at 200 000 bytes, so this is generous. */
 const BODY_LIMIT_BYTES = 4 * 1024 * 1024
 
 const API_NOT_FOUND = { error: 'not_found', message: 'Không có API này.' } as const
@@ -39,20 +39,20 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
 	const app = Fastify({
 		logger,
-		// Không ép kiểu: `revision: null` phải giữ nguyên là `null`, không thành `0`.
+		// No type coercion: `revision: null` must stay `null`, not become `0`.
 		ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
 		bodyLimit: BODY_LIMIT_BYTES,
-		// Chạy sau nginx/proxy: đọc X-Forwarded-* (tương đương --proxy-headers).
+		// Runs behind nginx/proxy: read X-Forwarded-* (equivalent to --proxy-headers).
 		trustProxy: true,
 	})
 
 	await app.register(fastifyCookie)
 
-	// Frontend gắn `Content-Type: application/json` cho MỌI lời gọi, kể cả POST không
-	// có body (`/api/auth/logout`). Fastify coi "content-type JSON + body rỗng" là lỗi
-	// 400, còn Starlette/FastAPI thì không parse khi không có body. Gỡ header content-type
-	// khi request thật sự không có body để hai bên hành xử giống nhau — và vẫn giữ
-	// parser JSON an toàn của Fastify cho các body thật.
+	// The frontend sets `Content-Type: application/json` on EVERY call, including bodyless
+	// POSTs (`/api/auth/logout`). Fastify treats "JSON content-type + empty body" as a
+	// 400 error, while Starlette/FastAPI does not parse when there is no body. Drop the
+	// content-type header when the request truly has no body so both sides behave the same —
+	// while still keeping Fastify's safe JSON parser for real bodies.
 	app.addHook('onRequest', (request, _reply, done) => {
 		const { 'content-length': contentLength, 'transfer-encoding': transferEncoding } = request.headers
 		const hasNoBody = transferEncoding === undefined && (contentLength === undefined || contentLength === '0')
@@ -63,7 +63,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 	})
 
 	if (config.corsOrigins.length > 0) {
-		// Cookie phiên là httpOnly và dev chạy ở origin Vite nên phải cho gửi kèm.
+		// The session cookie is httpOnly and dev runs on the Vite origin, so credentials must be sent.
 		await app.register(fastifyCors, { origin: [...config.corsOrigins], credentials: true })
 	}
 
@@ -76,14 +76,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 		const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500
 
 		if (error.validation) {
-			// Khớp mã 422 của FastAPI/pydantic khi body sai kiểu.
+			// Matches FastAPI/pydantic's 422 when the body has the wrong types.
 			return sendError(reply, 422, 'validation_error', VALIDATION_MESSAGE)
 		}
 		if (code === 'FST_ERR_CTP_INVALID_JSON_BODY' || code === 'FST_ERR_CTP_EMPTY_JSON_BODY') {
 			return sendError(reply, 422, 'validation_error', VALIDATION_MESSAGE)
 		}
 		if (code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
-			// Bản lưu lớn hơn trần body vẫn phải báo đúng mã lỗi của hợp đồng.
+			// A save larger than the body ceiling must still report the contract's error code.
 			return sendError(reply, 400, 'save_too_large', 'Bản lưu quá lớn để đồng bộ.')
 		}
 		if (code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
@@ -93,8 +93,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 			return sendError(reply, statusCode, 'bad_request', 'Yêu cầu không hợp lệ.')
 		}
 
-		// Log lỗi mà không lộ token/khoá: Fastify chỉ in thông điệp và stack.
-		request.log.error({ err: error }, 'Lỗi khi xử lý yêu cầu')
+		// Log the error without leaking tokens/keys: Fastify only prints the message and stack.
+		request.log.error({ err: error }, 'Error while handling the request')
 		return sendError(reply, 500, 'internal_error', INTERNAL_MESSAGE)
 	})
 
@@ -136,14 +136,15 @@ function isDirectory(path: string): boolean {
 }
 
 /**
- * Phục vụ bản build của Vite nếu có sẵn thư mục dist.
+ * Serve the Vite build when a dist directory is available.
  *
- * Kiến trúc chuẩn tách rời hai image: frontend do nginx phục vụ (frontend/Dockerfile),
- * backend chỉ chạy API. Hàm này giữ lại cho tình huống chạy một tiến trình duy nhất
- * (ví dụ `pnpm build` ở frontend rồi chạy backend trên máy) — khi đó không có nginx.
- * Khi dev, frontend chạy ở Vite (5190) nên thư mục này không tồn tại và bỏ qua.
+ * The standard architecture splits the two images: the frontend is served by nginx
+ * (frontend/Dockerfile) and the backend only runs the API. This function is kept for the
+ * single-process situation (for example: `pnpm build` in the frontend, then run the backend
+ * on the machine) — there is no nginx then. In dev the frontend runs on Vite (5190), so this
+ * directory does not exist and the whole thing is skipped.
  *
- * @returns nội dung `index.html` để phục vụ mọi đường dẫn không phải tệp thật.
+ * @returns the contents of `index.html`, used to serve every path that is not a real file.
  */
 async function mountFrontend(app: FastifyInstance, config: Config): Promise<Buffer | null> {
 	const dist = config.frontendDistDir
@@ -156,8 +157,8 @@ async function mountFrontend(app: FastifyInstance, config: Config): Promise<Buff
 		return null
 	}
 
-	// `assets/` và mọi tệp thật được @fastify/static phục vụ; đường dẫn không khớp
-	// tệp nào rơi xuống notFoundHandler phía trên.
+	// `assets/` and every real file are served by @fastify/static; a path that matches no
+	// file falls through to the notFoundHandler above.
 	await app.register(fastifyStatic, { root: dist, index: ['index.html'] })
 	return indexHtml
 }

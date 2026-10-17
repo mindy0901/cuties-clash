@@ -1,27 +1,27 @@
 import { REROLL_COST, rollShop } from './economy'
 import { ITEM_BY_ID } from './items'
-import { repairKhoSlots } from './kho'
+import { repairStorageSlots } from './storage'
 import { PETS, getPet, petLevelStats } from './pets'
 import { FINAL_STAGE } from './stages'
 import type { ItemInstance, RunState, ShopOffer } from './types'
 
 /**
- * Chuẩn hoá một `RunState` đọc từ bản lưu.
+ * Normalise a `RunState` read from a save.
  *
- * Bản lưu có thể hỏng theo nhiều cách: thiếu trường mới thêm, `petId` không còn tồn
- * tại, `equipped`/`inventory` là `undefined`, hay món trỏ tới template đã bị xoá.
- * Nếu để lọt, `run.equipped.filter(...)` ném lỗi ngay lúc render và **cả trang
- * trắng** — không có UI để người chơi bấm "Chơi lại".
+ * A save can break in many ways: a missing newly added field, a `petId` that no longer exists,
+ * `equipped`/`inventory` being `undefined`, or an item pointing at a deleted template. If any of
+ * those slip through, `run.equipped.filter(...)` throws during render and **the whole page goes
+ * blank** — leaving the player no UI to press "Chơi lại".
  *
- * Nguyên tắc: mọi trường đều phải hợp lệ sau hàm này. Trường hỏng thì thay bằng
- * mặc định an toàn, KHÔNG ném lỗi.
+ * Rule: every field must be valid once this returns. A broken field is replaced by a safe default,
+ * it does NOT throw.
  */
 export function sanitizeRun(candidate: unknown): RunState {
 	const saved = (candidate ?? {}) as Partial<RunState>
 	const fallbackPet = PETS[0].id
 	const petId = typeof saved.petId === 'string' && PETS.some((pet) => pet.id === saved.petId) ? saved.petId : fallbackPet
 
-	// pets: chỉ giữ id hợp lệ, cấp trong khoảng 1..5.
+	// pets: keep only valid ids, with the level clamped to 1..5.
 	const pets: Record<string, number> = { [fallbackPet]: 1 }
 	if (saved.pets && typeof saved.pets === 'object') {
 		for (const pet of PETS) {
@@ -43,13 +43,13 @@ export function sanitizeRun(candidate: unknown): RunState {
 	const seed = clampInt(saved.seed, 0, 0xffffffff, 20261016)
 	const bagSize = petLevelStats(getPet(petId), pets[petId]).bagSize
 
-	// Món trang bị không còn vừa lưới hiện tại bị đẩy về kho (xem `sanitizeItems`).
+	// Worn items that no longer fit the current grid are pushed to the storage (see `sanitizeItems`).
 	const equippedRaw = sanitizeItems(saved.equipped, bagSize)
 	const equipped = equippedRaw.filter((item) => item.slot >= 0)
 	const kickedToInventory = equippedRaw.filter((item) => item.slot < 0)
-	// Kho là **lưới tự do**: giữ nguyên vị trí người chơi đã đặt, chỉ xếp lại món thiếu ô
-	// (bản lưu cũ dùng `slot: -1`) hoặc trùng ô.
-	const inventory = repairKhoSlots([...sanitizeItems(saved.inventory, null), ...kickedToInventory])
+	// The storage is a **free grid**: keep the positions the player chose and only re-lay items that
+	// are missing a cell (old saves used `slot: -1`) or that collide.
+	const inventory = repairStorageSlots([...sanitizeItems(saved.inventory, null), ...kickedToInventory])
 
 	return {
 		petId,
@@ -78,14 +78,16 @@ function isKnownTemplate(templateId: unknown): templateId is string {
 }
 
 /**
- * Lọc danh sách món: bỏ món trỏ tới template không còn tồn tại và món thiếu `uid`.
+ * Filter an item list: drop items pointing at a template that no longer exists and items missing a
+ * `uid`.
  *
- * `limit` là số ô hợp lệ khi món nằm trong **lưới trang bị**; món có ô ngoài lưới (ví dụ bản
- * lưu của cấp thú cao hơn) được trả về dạng `slot: -1` để hàm gọi chuyển nó sang kho — nếu để
- * nguyên trong `equipped` với `slot: -1` thì món vô hình ở cả hai panel.
+ * `limit` is the number of valid cells when the item lives in the **equip grid**; an item with a
+ * cell outside the grid (for example a save from a higher pet level) is returned as `slot: -1` so
+ * the caller can move it to the storage — leaving it in `equipped` with `slot: -1` would make it
+ * invisible in both panels.
  *
- * ⚠️ `limit = null` dùng cho **kho**: kho là lưới tự do nên mọi ô không âm đều hợp lệ, và món
- * thiếu ô được xếp lại ngay sau đó bằng `repairKhoSlots`.
+ * ⚠️ `limit = null` is used for the **storage**: it is a free grid, so every non-negative cell is
+ * valid, and items missing a cell are laid out right afterwards by `repairStorageSlots`.
  */
 function sanitizeItems(value: unknown, limit: number | null): ItemInstance[] {
 	if (!Array.isArray(value)) return []
@@ -111,7 +113,7 @@ function sanitizeItems(value: unknown, limit: number | null): ItemInstance[] {
 	return result
 }
 
-/** Cửa hàng: giữ món hợp lệ; nếu danh sách hỏng thì roll lại từ seed. */
+/** Shop: keep the valid offers; when the list is broken, roll it again from the seed. */
 function sanitizeShop(value: unknown, stage: number, seed: number): ShopOffer[] {
 	if (!Array.isArray(value) || value.length === 0) return rollShop(stage, seed)
 	const offers: ShopOffer[] = []

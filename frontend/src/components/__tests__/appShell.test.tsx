@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Lưới an toàn cho **vỏ ứng dụng**: mọi màn hình phải render được, không ném lỗi.
+ * Safety net for the **application shell**: every screen must render without throwing.
  *
- * ⚠️ Vì sao không dùng `renderToString` như trước: `RouterProvider` của TanStack Router
- * cần router đã `load()` và cần DOM, nên không render được bằng `renderToString`
- * (`Cannot read properties of undefined (reading 'matches')`). Từ nay các test này chạy
- * trong jsdom với router thật — xem `src/test/router.tsx`.
+ * ⚠️ Why `renderToString` is no longer used: TanStack Router's `RouterProvider` needs a router that
+ * has been `load()`ed and needs the DOM, so it cannot be rendered with `renderToString`
+ * (`Cannot read properties of undefined (reading 'matches')`). These tests now run in jsdom with a
+ * real router — see `src/test/router.tsx`.
  */
 import { cleanup, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -18,20 +18,20 @@ function freshRun() {
 
 afterEach(cleanup)
 
-describe('vỏ ứng dụng render được', () => {
-	it('hiện phòng chuẩn bị', async () => {
+describe('the application shell renders', () => {
+	it('shows the preparation room', async () => {
 		freshRun()
 		await renderApp('/')
 
 		expect(screen.getByText(/Martial Cutie/)).toBeTruthy()
-		// Bố cục: Trang bị (đang mang) tách khỏi Kho đồ (dự trữ).
+		// Layout: Loadout (carried) is separate from the Inventory (reserves).
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 		expect(screen.getByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 		expect(screen.getAllByText(/Mua Vật Phẩm/).length).toBeGreaterThan(0)
 		expect(screen.getByText(/Đấu Thú Cưng/)).toBeTruthy()
 	})
 
-	it('hiện màn đấu khi đang đánh nhau', async () => {
+	it('shows the battle screen while fighting', async () => {
 		freshRun()
 		useGameStore.setState((state) => ({ run: { ...state.run, currency: 40 } }))
 		useGameStore.getState().buyOffer(0)

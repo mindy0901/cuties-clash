@@ -12,7 +12,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 	)
 }
 
-/** Lớp phủ hiện sau khi diễn lại trận đấu xong: thưởng và bước tiếp theo. */
+/** Overlay shown once the battle replay has finished: the reward and what happens next. */
 export function ResultDialog() {
 	const battle = useGameStore((state) => state.battle)
 	const run = useGameStore((state) => state.run)
@@ -62,7 +62,7 @@ export function ResultDialog() {
 						type="button"
 						className={cn(btnClass, btnPrimaryClass)}
 						onClick={() => {
-							// Rời trận thì quay về phòng chuẩn bị, kể cả khi URL đang là cửa hàng.
+							// Leaving the battle returns to the preparation room, even when the URL is the shop.
 							void navigate({ to: '/' })
 							leaveBattle()
 						}}

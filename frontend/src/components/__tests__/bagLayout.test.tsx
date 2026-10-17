@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 /**
- * Trang bị và Kho đồ là **hai chỗ khác nhau**:
- * - Trang bị: lưới 4 cột, **luôn hiện đủ 4×5**; ô vượt cấp thú bị **khoá** (mờ). Chỉ đồ
- *   trong vùng dùng được mới tham chiến.
- * - Kho: **cùng công thức và UI** nhưng **không giới hạn ô**; kho là **lưới tự do** — món nằm
- *   đúng ô người chơi đặt, kho không xếp hộ. Nhiều món thì cuộn dọc.
+ * Loadout and Inventory are **two different places**:
+ * - Loadout: a 4-column grid that **always shows the full 4×5**; cells past the pet's level are
+ *   **locked** (dimmed). Only items inside the usable area take part in the fight.
+ * - Inventory: **the same formulas and UI** but **no cell limit**; it is a **free grid** — an item
+ *   sits exactly where the player put it, the inventory never packs them. With many items it
+ *   scrolls vertically.
  *
- * Render cả `PrepScreen` (không render lẻ từng panel) vì state nhấc/đặt nằm ở cha chung —
- * kho và trang bị là hai panel anh em.
+ * Renders the whole `PrepScreen` (not the panels individually) because the pick-up/place state
+ * lives in the shared parent — the inventory and the loadout are sibling panels.
  */
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -27,7 +28,7 @@ function renderPrep() {
 	return renderInRouter(<PrepScreen />)
 }
 
-/** Ô của lưới trang bị (kho dùng `data-inv-cell`). */
+/** Cells of the loadout board (the inventory uses `data-inv-cell`). */
 function loadoutCells(): HTMLElement[] {
 	const panel = [...document.querySelectorAll('section')].find(
 		(s) => s.querySelector('h2')?.textContent === 'Trang bị',
@@ -35,7 +36,7 @@ function loadoutCells(): HTMLElement[] {
 	return Array.from(panel?.querySelectorAll<HTMLElement>('[data-cell]') ?? [])
 }
 
-/** Ô của **lưới kho đồ** — phải giới hạn theo bảng, vì hai bảng dùng chung `[data-cell]`. */
+/** Cells of the **inventory grid** — must be scoped to the board, because both share `[data-cell]`. */
 function inventoryCells(): HTMLElement[] {
 	const panel = [...document.querySelectorAll('section')].find(
 		(s) => s.querySelector('h2')?.textContent === 'Kho đồ',
@@ -46,43 +47,43 @@ function inventoryCells(): HTMLElement[] {
 beforeEach(reset)
 afterEach(cleanup)
 
-describe('Trang bị — lưới luôn đủ 4×5', () => {
-	it('luôn hiện đủ 20 ô dù thú mới cấp 1', () => {
+describe('Loadout — the board always has the full 4×5', () => {
+	it('always shows all 20 cells even for a level 1 pet', () => {
 		renderPrep()
 		expect(loadoutCells()).toHaveLength(GRID_MAX_CELLS)
 		expect(GRID_MAX_CELLS).toBe(20)
 	})
 
-	it('ô vượt cấp thú bị khoá (mờ), ô trong mức dùng được thì không', () => {
+	it('cells past the pet level are locked (dimmed), cells inside the level are not', () => {
 		renderPrep()
 		const cells = loadoutCells()
-		// Cẩu Hỏa Sài cấp 1 → 3 hàng = 12 ô dùng được.
+		// Cẩu Hỏa Sài level 1 → 3 rows = 12 usable cells.
 		const locked = cells.filter((cell) => cell.className.includes('opacity-25'))
 		expect(locked).toHaveLength(GRID_MAX_CELLS - 12)
-		// Ô khoá nằm ở cuối lưới.
+		// Locked cells sit at the end of the board.
 		expect(Number(locked[0].dataset.cell)).toBe(12)
 	})
 
-	it('nhãn cho biết đang có bao nhiêu ô khoá', () => {
+	it('the label states how many cells are locked', () => {
 		renderPrep()
 		expect(screen.getByText(/8 ô khoá/)).toBeTruthy()
 	})
 })
 
-describe('Kho đồ — dự trữ', () => {
-	it('kho trống vẫn hiện lưới ô trống, không có text gợi ý', () => {
+describe('Inventory — reserves', () => {
+	it('an empty inventory still shows grid cells, with no hint text', () => {
 		renderPrep()
 		expect(screen.getByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 		expect(screen.getByText('0 món · không giới hạn')).toBeTruthy()
-		// Kho mặc định hiện đủ **8×8 ô** dù trống.
+		// An empty inventory still shows the full **8×8 cells**.
 		expect(inventoryCells().length).toBe(64)
-		// ❌ Không còn dòng gợi ý nào trong kho.
+		// ❌ No hint line is left inside the inventory.
 		expect(screen.queryByText(/Kho trống/)).toBeNull()
 		expect(screen.queryByText(/Giữ chuột kéo món/)).toBeNull()
 		expect(inventoryCells().length).toBeGreaterThan(0)
 	})
 
-	it('hiện món dự trữ dưới dạng ô trong lưới', () => {
+	it('shows reserved items as cells on the grid', () => {
 		useGameStore.setState((state) => ({
 			run: {
 				...state.run,
@@ -98,7 +99,7 @@ describe('Kho đồ — dự trữ', () => {
 		expect(document.querySelector('[data-inv-tile="sword"]')).toBeTruthy()
 	})
 
-	it('bấm món trong kho thì mở hộp thoại chi tiết, KHÔNG nhấc món', () => {
+	it('clicking an inventory item opens the detail dialog and does NOT pick the item up', () => {
 		useGameStore.setState((state) => ({
 			run: { ...state.run, inventory: [createItemInstance('jade-fury', 1, 'jade', 0)] },
 		}))
@@ -106,12 +107,12 @@ describe('Kho đồ — dự trữ', () => {
 
 		fireEvent.click(document.querySelector<HTMLElement>('button[data-inv-tile="jade"]')!)
 
-		expect(useUiStore.getState().itemUid, 'mở chi tiết của đúng món đó').toBe('jade')
-		expect(document.querySelector('[data-held-ghost]'), 'bấm không được nhấc món').toBeNull()
-		expect(useGameStore.getState().run.inventory[0].slot, 'vị trí không đổi').toBe(0)
+		expect(useUiStore.getState().itemUid, 'opens the details of that very item').toBe('jade')
+		expect(document.querySelector('[data-held-ghost]'), 'a click must not pick the item up').toBeNull()
+		expect(useGameStore.getState().run.inventory[0].slot, 'the position does not change').toBe(0)
 	})
 
-	it('bán được món trong kho', () => {
+	it('an inventory item can be sold', () => {
 		useGameStore.setState((state) => ({
 			run: { ...state.run, inventory: [createItemInstance('great-axe', 2, 'axe', 0)] },
 		}))
@@ -124,8 +125,8 @@ describe('Kho đồ — dự trữ', () => {
 	})
 })
 
-describe('Trang bị — đồ đang mang', () => {
-	it('chỉ hiện đồ đang mang, không hiện đồ trong kho', () => {
+describe('Loadout — carried items', () => {
+	it('shows only carried items, never the ones in the inventory', () => {
 		useGameStore.setState((state) => ({
 			run: {
 				...state.run,
@@ -136,13 +137,13 @@ describe('Trang bị — đồ đang mang', () => {
 		renderPrep()
 
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
-		// "1 món · x/y ô · Sức mạnh …" — dùng regex có ngữ cảnh để không khớp "1 món dự trữ".
+		// "1 món · x/y ô · Sức mạnh …" — a contextual regex so it does not match "1 món dự trữ".
 		expect(screen.getByText(/1 món · \d+\/\d+ ô/)).toBeTruthy()
-		// Món trong kho không xuất hiện ở bảng trang bị (Đại Đao chỉ có trong kho).
+		// Inventory items do not appear on the loadout board (Đại Đao exists only in the inventory).
 		expect(screen.queryByTitle(/^Đại Đao/)).toBeNull()
 	})
 
-	it('bấm "Tháo hết" thì đưa toàn bộ đồ về kho', () => {
+	it('clicking "Tháo hết" moves every item back into the inventory', () => {
 		useGameStore.setState((state) => ({
 			run: {
 				...state.run,
@@ -158,6 +159,6 @@ describe('Trang bị — đồ đang mang', () => {
 		const run = useGameStore.getState().run
 		expect(run.equipped).toHaveLength(0)
 		expect(run.inventory).toHaveLength(2)
-		expect(run.inventory.every((item) => item.slot >= 0), 'món về kho phải có ô thật').toBe(true)
+		expect(run.inventory.every((item) => item.slot >= 0), 'items moved to the inventory must have a real cell').toBe(true)
 	})
 })

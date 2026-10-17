@@ -1,4 +1,4 @@
-/** Logo Google vẽ bằng SVG nội tuyến — không dùng tài nguyên của bên nào. */
+/** Google logo drawn as an inline SVG — no third-party asset is used. */
 
 export function ProviderIcon() {
 	return (

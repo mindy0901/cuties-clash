@@ -1,4 +1,4 @@
-/** Đồng bộ tiến trình chơi theo tài khoản. */
+/** Sync play progress per account. */
 
 import type { FastifyPluginAsync } from 'fastify'
 import type { Config } from '../config'
@@ -16,7 +16,7 @@ export const saveRoutes: FastifyPluginAsync<SaveRouteOptions> = async (app, opti
 
 	app.get('/api/me', async (request) => toUserOut(db, await currentUser(config, db, request), config))
 
-	/** Bản lưu đang có trên máy chủ; `run = null` nghĩa là chưa từng đồng bộ. */
+	/** The save currently on the server; `run = null` means it was never synced. */
 	app.get('/api/me/save', async (request) => {
 		const user = await currentUser(config, db, request)
 		return getSave(db, user.id)

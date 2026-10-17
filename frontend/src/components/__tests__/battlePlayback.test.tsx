@@ -87,40 +87,41 @@ describe('battle screen playback', () => {
 		expect(useGameStore.getState().battle?.committed).toBe(true)
 	})
 
-	it('sàn đấu dùng lại lưới trang bị, kèm khung đại diện hai bên', async () => {
+	it('reuses the loadout grids on the arena, with an avatar frame per side', async () => {
 		gearUp()
 		await renderApp()
 		fireEvent.click(screen.getByText(/Đấu Thú Cưng/))
 
-		// Sàn đấu dùng **chính `GridBoard`** của phòng chuẩn bị: một lưới cho mình, một cho đối thủ.
+		// The arena uses the prep room's **own `GridBoard`**: one grid for us, one for the opponent.
 		const boards = document.querySelectorAll<HTMLElement>('[data-grid-board]')
-		expect(boards, 'hai lưới trang bị trên sàn đấu').toHaveLength(2)
+		expect(boards, 'two loadout grids on the arena').toHaveLength(2)
 
-		// Khung đại diện hai bên — holder đã sẵn sàng cho ảnh đại diện (hiện hiện art/emoji).
+		// The avatar frames for both sides — a holder already prepared for avatar art (currently art/emoji).
 		expect(document.querySelector('[data-avatar-card="player"]')).toBeTruthy()
 		expect(document.querySelector('[data-avatar-card="enemy"]')).toBeTruthy()
 		expect(document.querySelectorAll('[data-avatar-holder]')).toHaveLength(2)
 
-		// Lưới bên mình hiện **đúng** số món đang mang, không phải danh sách rời.
+		// Our grid shows **exactly** the number of carried items, not a loose list.
 		const equipped = useGameStore.getState().run.equipped.filter((item) => item.slot >= 0)
 		expect(boards[0].querySelectorAll('[data-item-box]')).toHaveLength(equipped.length)
 	})
 
-	it('popup tổng kết KHÔNG có nút chơi lại từ đầu', async () => {
-		// Chơi lại từ đầu là thao tác ở **thanh trên** (có hỏi xác nhận). Trong popup tổng kết thì
-		// nó nằm ngay cạnh nút đi tiếp nên rất dễ bấm nhầm và xoá sạch tiến trình.
+	it('the summary popup has NO restart-from-scratch button', async () => {
+		// Restarting from scratch is an action of the **top bar** (it asks for confirmation). In the
+		// summary popup it would sit right next to the continue button, making it easy to hit by
+		// accident and wipe all progress.
 		gearUp()
 		await renderApp()
 		fireEvent.click(screen.getByText(/Đấu Thú Cưng/))
 		fireEvent.click(screen.getByText(/Bỏ qua/))
 
 		const dialog = screen.getByRole('dialog', { name: 'Kết quả trận đấu' })
-		expect(dialog.textContent, 'không được có nút chơi lại từ đầu').not.toContain('Chơi lại từ đầu')
-		// Lối đi tiếp của popup vẫn còn nguyên.
+		expect(dialog.textContent, 'must not contain a restart-from-scratch button').not.toContain('Chơi lại từ đầu')
+		// The popup's way forward is still there.
 		expect(screen.getByText(/Sang màn tiếp theo|Về phòng chuẩn bị|Thử lại/)).toBeTruthy()
 	})
 
-	it('quay về phòng chuẩn bị sau khi đóng kết quả', async () => {
+	it('returns to the preparation room after closing the result', async () => {
 		gearUp()
 		await renderApp()
 		fireEvent.click(screen.getByText(/Đấu Thú Cưng/))
@@ -130,9 +131,9 @@ describe('battle screen playback', () => {
 		const state = useGameStore.getState()
 		expect(state.phase).toBe('prep')
 		expect(state.battle).toBeNull()
-		// Rời trận thì quay về đường dẫn phòng chuẩn bị.
+		// Leaving the battle returns to the preparation room URL.
 		expect(window.location.pathname).toBe('/')
-		// Phòng chuẩn bị có bảng trang bị và khu kho đồ.
+		// The preparation room has a loadout board and an inventory area.
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 		expect(screen.getByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 	})

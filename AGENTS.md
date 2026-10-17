@@ -1,40 +1,39 @@
 # AGENTS.md — Martial Cutie (Đấu Trường Thú Cưng)
 
-> Hướng dẫn cho AI agent làm việc trong repo này. Đọc trước khi sửa bất cứ thứ gì.
+> Instructions for an AI agent working in this repo. Read before changing anything.
 >
-> ⚠️ File này **cố tình rất ngắn**: chỉ giữ những quy tắc mà vi phạm sẽ gây **mất dữ liệu người
-> chơi** hoặc **trắng trang**. Mọi quy ước khác nằm trong `docs/` — **tra ở §0 trước khi sửa,
-> đừng đoán.** Giữ file này ngắn khi thêm nội dung: nó được nạp lại ở mỗi phiên.
+> ⚠️ This file is **deliberately very short**: it keeps only the rules whose violation causes **loss of
+> player data** or **a blank page**. Every other convention lives in `docs/` — **look it up in §0 before
+> changing anything, do not guess.** Keep this file short when adding content: it is reloaded every session.
 >
-> Cập nhật lần cuối: **2026-10-17**.
+> Last updated: **2026-10-17**.
 
-## 0. Đọc gì ở đâu — tra trước khi sửa
+## 0. What to read where — look it up before changing anything
 
-| Cần biết | Đọc |
+| You need to know | Read |
 | --- | --- |
-| Luồng dữ liệu · vòng đời bản lưu · hợp đồng API · luồng OAuth | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| **Quy ước viết UI** (React, state, Tailwind) · **quy tắc backend** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §7–§8 |
-| Luật chơi đã cài · thuật ngữ tiếng Việt · ánh xạ luật → file | [`docs/GAME-RULES.md`](docs/GAME-RULES.md) |
-| Cách viết test · bẫy jsdom/router · **cách kiểm chứng UI an toàn** | [`docs/TESTING.md`](docs/TESTING.md) |
-| Cân bằng 60 màn · số đo hiệu năng | [`docs/BALANCE.md`](docs/BALANCE.md) |
-| Art: nguồn, giấy phép, quy tắc thêm ảnh | [`docs/ASSETS.md`](docs/ASSETS.md) |
-| Google OAuth: lấy khoá, bảng lỗi | [`docs/OAUTH-SETUP.md`](docs/OAUTH-SETUP.md) |
-| Việc còn có thể làm | [`README.md`](README.md) |
+| Data flow · save lifecycle · API contract · OAuth flow | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| **UI conventions** (React, state, Tailwind) · **backend rules** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §7–§8 |
+| Rules already implemented · Vietnamese terminology · rule → file mapping | [`docs/GAME-RULES.md`](docs/GAME-RULES.md) |
+| How to write tests · jsdom/router traps · **how to verify the UI safely** | [`docs/TESTING.md`](docs/TESTING.md) |
+| Balancing 60 stages · performance numbers | [`docs/BALANCE.md`](docs/BALANCE.md) |
+| Art: sources, licences, rules for adding images | [`docs/ASSETS.md`](docs/ASSETS.md) |
+| Google OAuth: getting keys, error table | [`docs/OAUTH-SETUP.md`](docs/OAUTH-SETUP.md) |
+| Things still worth doing | [`README.md`](README.md) |
 
-## 1. Dự án
+## 1. The project
 
-Auto-battler nuôi thú cưng chạy trong trình duyệt, lấy cảm hứng từ event **Martial Cutie
-(武林萌主)** của *NARAKA: BLADEPOINT*.
+A browser pet-raising auto-battler, inspired by the **Martial Cutie (武林萌主)** event in *NARAKA: BLADEPOINT*.
 
-🔴 **Chỉ tái hiện luật chơi từ mô tả công khai, tự viết lại.** ❌ Không sao chép mã nguồn, hình
-ảnh, âm thanh, font hay văn bản của NetEase.
+🔴 **Only re-implement rules from public descriptions, written from scratch.** ❌ Do not copy source code,
+images, audio, fonts or text from NetEase.
 
-**pnpm workspace** hai gói: `frontend/` (React 19 · Vite 8 · TS 6 · TanStack Router + Query ·
-Tailwind v4 · Zustand) và `backend/` (Fastify 5 · PostgreSQL · Prisma). Đăng nhập Google — ❌
-Facebook đã bỏ, đừng thêm lại. `localStorage` là **nguồn chính** của tiến trình, máy chủ chỉ là bản
-sao; **chơi ẩn danh khi không có backend phải luôn hoạt động đầy đủ**.
+A **pnpm workspace** with two packages: `frontend/` (React 19 · Vite 8 · TS 6 · TanStack Router + Query ·
+Tailwind v4 · Zustand) and `backend/` (Fastify 5 · PostgreSQL · Prisma). Google sign-in — ❌
+Facebook was removed, do not add it back. `localStorage` is the **primary source** of progress, the server
+is only a copy; **anonymous play without a backend must always work fully**.
 
-## 2. Lệnh — chạy ở gốc repo
+## 2. Commands — run from the repo root
 
 ```bash
 pnpm install
@@ -42,127 +41,128 @@ pnpm install
 pnpm dev                                                 # game: http://localhost:5190
 pnpm build && pnpm test && pnpm lint                     # frontend
 
-docker compose up -d db && pnpm db:migrate && pnpm dev:be # backend: cổng 8000
+docker compose up -d db && pnpm db:migrate && pnpm dev:be # backend: port 8000
 pnpm build:be && pnpm test:be                             # backend
 ```
 
-✅ **Trước khi kết thúc phiên: cả bốn phải xanh** —
+✅ **Before ending a session all four must be green** —
 `pnpm build && pnpm test && pnpm lint && pnpm test:be`.
 
-Ba chỗ dễ sập:
+Three easy ways to fall over:
 
-1. **Cổng 5190 do một trong hai service giữ**: `fr` (image production) hoặc `vite` (dev). ❌ Đừng
-   chạy cả hai. Trong Docker chỉ có **một** chế độ tại một thời điểm — đang chạy cái nào thì 5190
-   phản ánh cái đó (xem §4.4 về việc mở trình duyệt).
-2. **`pnpm build` chạy `vite build` TRƯỚC `tsc -b`** (cố ý): plugin TanStack Router sinh
-   `routeTree.gen.ts` trong lúc Vite build. ❌ Đừng đảo lại thứ tự.
-3. **`pnpm-workspace.yaml` phải giữ khối `allowBuilds`** — pnpm 11 chặn script cài đặt của
-   Prisma/esbuild; thiếu là mọi `pnpm install`/`pnpm run` lỗi `ERR_PNPM_IGNORED_BUILDS`.
-   Và `BE_PUBLIC_URL` quyết định redirect URI OAuth — đổi cổng thì đổi cả nó **và** Google Console.
+1. **Port 5190 is held by one of two services**: `fr` (the production image) or `vite` (dev). ❌ Do not run
+   both. In Docker there is only **one** mode at a time — whichever one is running is what 5190 reflects
+   (see §4.4 about opening a browser).
+2. **`pnpm build` runs `vite build` BEFORE `tsc -b`** (deliberately): the TanStack Router plugin generates
+   `routeTree.gen.ts` during the Vite build. ❌ Do not swap the order back.
+3. **`pnpm-workspace.yaml` must keep the `allowBuilds` block** — pnpm 11 blocks the install scripts of
+   Prisma/esbuild; without it every `pnpm install`/`pnpm run` fails with `ERR_PNPM_IGNORED_BUILDS`.
+   And `BE_PUBLIC_URL` decides the OAuth redirect URI — changing the port means changing that too **and**
+   Google Console.
 
-**Hai chế độ Docker** (sửa code xong phải biết mình đang ở chế độ nào):
+**Two Docker modes** (after editing code you need to know which mode you are in):
 
 ```bash
-docker compose up --build -d                        # production: image, KHÔNG tự nạp lại
-docker compose --profile dev up -d db be-dev vite    # dev: sửa code là tự nạp lại cả hai phía
+docker compose up --build -d                        # production: images, does NOT reload by itself
+docker compose --profile dev up -d db be-dev vite    # dev: editing code reloads both sides by itself
 ```
 
-⚠️ Ở chế độ dev dùng `nodemon --legacy-watch` và `VITE_USE_POLLING=1`: bind mount của Windows
-không phát sự kiện filesystem vào container, nên watcher thường (kể cả `tsx watch`) im lặng không
-chạy. Chi tiết ở [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §1.
+⚠️ In dev mode `nodemon --legacy-watch` and `VITE_USE_POLLING=1` are used: Windows bind mounts do not emit
+filesystem events into the container, so a normal watcher (including `tsx watch`) silently does not run.
+Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §1.
 
-## 3. Bố cục
+## 3. Layout
 
 ```
-frontend/src/  game/ (LÕI game, thuần logic) · api/ · store/ · routes/ (mỗi màn một file)
-               components/ · test/ (helper cho test)
+frontend/src/  game/ (the game CORE, pure logic) · api/ · store/ · routes/ (one file per screen)
+               components/ · test/ (helpers for tests)
 frontend/      public/icons/ (art) · Dockerfile + nginx.conf        → image `fr`
 backend/src/   config · db · security · oauth · services · deps · errors · baseline
                app.ts (buildApp) · main.ts · routes/{auth,saves}.ts
 backend/       prisma/ (schema + migrations) · tests/ · scripts/    → image `be`
 ```
 
-## 4. Quy tắc then chốt
+## 4. Key rules
 
-### 4.1 Tất định (`game/battle.ts`)
+### 4.1 Determinism (`game/battle.ts`)
 
-`simulateBattle()` phải cho kết quả y hệt với cùng seed.
+`simulateBattle()` must produce identical results for the same seed.
 
-❌ `Math.random()` (dùng `sim.rng`) · ❌ `Date.now()` / `performance.now()` trong `game/` ·
-✅ **thứ tự duyệt mảng là một phần hợp đồng** (đổi thứ tự = đổi kết quả trận) · giữ test
-`'is deterministic for a given seed'` xanh.
+❌ `Math.random()` (use `sim.rng`) · ❌ `Date.now()` / `performance.now()` inside `game/` ·
+✅ **the order in which arrays are iterated is part of the contract** (changing the order changes the battle
+result) · keep the `'is deterministic for a given seed'` test green.
 
-### 4.2 Phân lớp
+### 4.2 Layering
 
-Luật chơi nằm ở `game/`. Component **chỉ hiển thị + gọi action của store** — ❌ không tự tính sát
-thương / merge / giá. `game/` ❌ không import React/router/query, không chạm DOM. Backend ❌ không
-chứa luật chơi: chỉ xác thực danh tính và lưu/đọc `RunState` nguyên dạng JSON.
+Game rules live in `game/`. Components **only display + call store actions** — ❌ they never compute
+damage / merge / price themselves. `game/` ❌ does not import React/router/query and does not touch the DOM.
+The backend ❌ contains no game rules: it only authenticates identity and stores/reads `RunState` as raw JSON.
 
-### 4.3 Điều hướng
+### 4.3 Navigation
 
-✅ **URL là nguồn sự thật** — ❌ store không giữ `route` (từng có và hai nguồn lệch nhau). Thêm màn
-hình = thêm file trong `frontend/src/routes/`; ❌ không sửa `routeTree.gen.ts` (máy sinh). SPA
-fallback phải có ở **cả hai phía** — `frontend/nginx.conf` **và** plugin `spaFallback` trong
-`vite.config.ts`; thiếu một trong hai thì F5 ở `/cua-hang` sẽ 404.
+✅ **The URL is the source of truth** — ❌ the store does not hold `route` (it once did, and the two sources
+diverged). Adding a screen = adding a file in `frontend/src/routes/`; ❌ do not edit `routeTree.gen.ts` (it is
+generated). The SPA fallback must exist on **both sides** — `frontend/nginx.conf` **and** the `spaFallback`
+plugin in `vite.config.ts`; without one of the two, F5 on `/cua-hang` 404s.
 
-### 4.4 Đồng bộ bản lưu 🔴 đây là chỗ làm mất dữ liệu
+### 4.4 Save sync 🔴 this is where data gets lost
 
-Luật nằm ở `frontend/src/api/saveSync.ts` (`pushRun`/`pullRun`); revision sống trong cache TanStack
-Query (`['save']`) — ❌ không dựng store thứ hai giữ nó.
+The rules live in `frontend/src/api/saveSync.ts` (`pushRun`/`pullRun`); the revision lives in the TanStack
+Query cache (`['save']`) — ❌ do not build a second store to hold it.
 
-- ❌ **Không nạp đè bản máy chủ khi xung đột.** Khi `PUT /api/me/save` trả **400
-  `revision_conflict`**: phải `GET` revision mới → `PUT` lại **dữ liệu của mình** → thử lại **đúng
-  một lần**. Nạp đè ⇒ mất thay đổi vừa làm *và* xung đột tiếp ở lần sau.
-- ❌ **Không đẩy trong mỗi lần render** — `pushedRef` so `JSON.stringify(run)` + debounce 1,5 s.
-  Thiếu guard ⇒ mỗi PUT thành công làm store đổi → effect chạy lại → **vòng lặp PUT vô tận** (đã
-  xảy ra thật, log xen kẽ 200/400).
-- `pullRun` ghi revision **TRƯỚC** khi ghi localStorage + `rehydrate`, và chỉ nạp bản máy chủ khi
-  máy này **chưa có** tiến trình (`hasLocalRun()`).
-- 🔴 **Không mở `http://localhost:5190` trong profile trình duyệt riêng khi `AUTO_LOGIN=true`.**
-  Profile mới không có bản lưu ⇒ app tự đăng nhập tài khoản của người dùng ⇒ nạp bản máy chủ thất
-  bại ⇒ **đẩy run rỗng lên, ghi đè bản lưu thật**. Việc này **đã xảy ra một lần**. Cách kiểm chứng
-  an toàn: [`docs/TESTING.md`](docs/TESTING.md).
-- 🔴 **Không thử API ghi bằng tài khoản thật** — `PUT /api/me/save` không khôi phục được.
-- Phía backend, cùng loại rủi ro: **DB luôn được TIÊM VÀO** `buildApp({ db, config })` và test chạy
-  trong **transaction rollback trên một database duy nhất**. ❌ Không dùng Prisma client ở phạm vi
-  module (test sẽ không rollback được và **ghi vào DB thật**), ❌ không DB phụ, ❌ không SQLite,
-  ❌ không `migrate reset`/`DROP`/truncate.
+- ❌ **Never load the server save over yours on conflict.** When `PUT /api/me/save` returns **400
+  `revision_conflict`**: `GET` the new revision → `PUT` **your own data** again → retry **exactly once**.
+  Overwriting ⇒ loses the change just made *and* conflicts again on the next push.
+- ❌ **Do not push on every render** — `pushedRef` compares `JSON.stringify(run)` + a 1.5 s debounce.
+  Without that guard ⇒ every successful PUT changes the store → the effect runs again → an **infinite PUT
+  loop** (it really happened, logs alternating 200/400).
+- `pullRun` writes the revision **BEFORE** writing localStorage + `rehydrate`, and only loads the server
+  save when this machine has **no** progress yet (`hasLocalRun()`).
+- 🔴 **Do not open `http://localhost:5190` in a separate browser profile while `AUTO_LOGIN=true`.**
+  A new profile has no save ⇒ the app auto-signs in to the user's account ⇒ loading the server save fails ⇒
+  **pushes an empty run up, overwriting the real save**. This **has happened once**. Safe ways to verify:
+  [`docs/TESTING.md`](docs/TESTING.md).
+- 🔴 **Do not probe the write API with a real account** — `PUT /api/me/save` cannot be undone.
+- On the backend, the same class of risk: **the DB is always INJECTED** into `buildApp({ db, config })` and
+  tests run inside a **rolling-back transaction on a single database**. ❌ Do not use a Prisma client at
+  module scope (tests can no longer roll back and **write into the real DB**), ❌ no secondary DB, ❌ no
+  SQLite, ❌ no `migrate reset`/`DROP`/truncate.
 
-### 4.5 Bản lưu và chống trắng trang 🔴
+### 4.5 Saves and the anti blank-page guard 🔴
 
-Mọi `RunState` đọc từ bản lưu **phải** đi qua `sanitizeRun()` (`game/sanitize.ts`), gắn vào `merge`
-của zustand persist — ❌ không dùng thẳng `persisted.run`.
+Every `RunState` read from a save **must** go through `sanitizeRun()` (`game/sanitize.ts`), wired into the
+`merge` of the zustand persist — ❌ do not use `persisted.run` directly.
 
-Thiếu bước này: bản lưu khuyết trường ⇒ `render()` ném lỗi ⇒ React **không hiện gì cả** ⇒ trắng
-trang, người chơi hết đường bấm. Thêm trường vào `RunState` = sanitize + bump `version` + `migrate`.
-`AppErrorBoundary` bọc `App` trong `main.tsx` — ❌ không bao giờ để trắng trang.
+Without this step: a save missing a field ⇒ `render()` throws ⇒ React **shows nothing at all** ⇒ blank page,
+and the player has nothing left to click. Adding a field to `RunState` = sanitize + bump `version` +
+`migrate`. `AppErrorBoundary` wraps `App` in `main.tsx` — ❌ never leave a blank page.
 
-## 5. Thêm tính năng — sửa ở đâu
+## 5. Adding a feature — where to change things
 
-| Muốn thêm | Sửa | Đừng quên |
+| To add | Change | Do not forget |
 | --- | --- | --- |
-| **Vật phẩm** | `game/items.ts` | art `public/icons/items/<id>-<sao>.png`; `content.test.ts` đếm số lượng |
-| **Thú cưng** | `game/pets.ts` | art `pets/` + `skills/`; `unlockStage` đang là 20/40 |
-| **Màn / bản đồ** | `game/stages.ts` | chạy lại probe cân bằng ([`docs/BALANCE.md`](docs/BALANCE.md)) |
-| **Hiệu ứng / hào khí** | `game/stats.ts` + `game/build.ts` | thêm nhánh ngẫu nhiên trong `battle.ts` thì phải thêm test tất định |
-| **Màn hình** | file mới trong `src/routes/` | `routeTree.gen.ts` tự sinh; nhớ SPA fallback (§4.3) |
-| **Hộp thoại / UI dùng chung** | `store/uiStore.ts` | ❌ không vào `gameStore` (nó bị persist) |
-| **Trường trong `RunState`** | `types.ts` → `sanitize.ts` → bump `version` → `migrate.ts` | thiếu `sanitize` ⇒ **trắng trang** (§4.5) |
-| **Cách xếp/chứa đồ trong kho** | `game/kho.ts` | kho là **lưới tự do** — ❌ đừng xếp hộ; vướng món thì **từ chối** chứ ❌ đừng trượt sang ô khác; thả lên món **khác loại** cũng **từ chối** (❌ kho không hoán đổi, chỉ nhập sao); test `game/__tests__/kho.test.ts` + `components/__tests__/khoGrid.test.tsx` |
-| **Ô gợi ý chỗ đặt** | `components/GridBoard.tsx` | ô gợi ý + khung đứt phải nằm **trên lớp món** (`z-10`), ❌ không thì món vẽ sau **che mất** gợi ý; gợi ý phải khớp kết quả thả (`blocked` ⇄ `resolveDrop`); lưới phải `select-none` — ❌ không thì giữ chuột ở ô trống làm trình duyệt **bôi đen**, con trỏ hoá 🚫 như thể ô đó không đặt được |
-| **Kéo-thả: huỷ và nhả chuột** | `useHeldItem.ts` + `PrepScreen.tsx` | `Esc` phải huỷ **cả `keoRef`** (qua `onCancel`), ❌ chỉ xoá `held` thì cú **nhả chuột sau đó vẫn đặt** món xuống ô cuối con trỏ đi qua; hướng xoay đọc từ `held` **lúc nhả**, không chụp lúc bắt đầu kéo |
-| **Sàn đấu (giao diện trận)** | `components/BattleScreen.tsx` + `components/AvatarCard.tsx` | dùng lại **`LoadoutGrid`/`GridBoard`** cho cả hai bên (❌ đừng dựng lưới riêng); khung đại diện là **holder** cho ảnh thêm sau — xem “Art đại diện” trong [`docs/ASSETS.md`](docs/ASSETS.md); nhịp diễn lại vẫn là `setInterval(TICK_MS)` + `elapsedRef` — ❌ không `requestAnimationFrame` (tab nền bị throttle) |
+| **An item** | `game/items.ts` | art `public/icons/items/<id>-<star>.png`; `content.test.ts` counts them |
+| **A pet** | `game/pets.ts` | art in `pets/` + `skills/`; `unlockStage` is currently 20/40 |
+| **A stage / map** | `game/stages.ts` | re-run the balance probe ([`docs/BALANCE.md`](docs/BALANCE.md)) |
+| **An effect / aura** | `game/stats.ts` + `game/build.ts` | if you add a random branch in `battle.ts` you must add a determinism test |
+| **A screen** | a new file in `src/routes/` | `routeTree.gen.ts` is generated; remember the SPA fallback (§4.3) |
+| **A dialog / shared UI** | `store/uiStore.ts` | ❌ not `gameStore` (it is persisted) |
+| **A field in `RunState`** | `types.ts` → `sanitize.ts` → bump `version` → `migrate.ts` | missing `sanitize` ⇒ **blank page** (§4.5) |
+| **How items are arranged/stored in Kho đồ** | `game/storage.ts` | Kho đồ is a **free grid** — ❌ do not arrange things for the player; when an item is in the way, **reject** rather than ❌ sliding to another cell; dropping onto a **differently-typed** item is **rejected** too (❌ Kho đồ does not swap, it only merges stars); tests `game/__tests__/storage.test.ts` + `components/__tests__/storageGrid.test.tsx` |
+| **The drop preview** | `components/GridBoard.tsx` | the preview cells + dashed outline must sit **above the item layer** (`z-10`), ❌ otherwise an item drawn later **covers** the preview; the preview must match the drop result (`blocked` ⇄ `resolveDrop`); the grid must set `select-none` — ❌ otherwise holding the mouse on an empty cell makes the browser **text-select**, and the cursor becomes 🚫 as if that cell could not be used |
+| **Drag and drop: cancelling and mouse release** | `useHeldItem.ts` + `PrepScreen.tsx` | `Esc` must cancel **`keoRef` as well** (through `onCancel`), ❌ clearing only `held` means the **next mouse release still places** the item on the last cell the cursor passed over; the rotation orientation is read from `held` **at release time**, not captured when the drag starts |
+| **The arena (battle UI)** | `components/BattleScreen.tsx` + `components/AvatarCard.tsx` | reuse **`LoadoutGrid`/`GridBoard`** for both sides (❌ do not build a separate grid); the avatar frame is a **holder** for images added later — see "Pet avatar art" in [`docs/ASSETS.md`](docs/ASSETS.md); playback timing is still `setInterval(TICK_MS)` + `elapsedRef` — ❌ no `requestAnimationFrame` (background tabs get throttled) |
 | **Content admin (items/pets)** | `backend/src/content.ts` + `components/AdminContentScreen.tsx` | overlay only, defaults stay in code; server whitelists keys and sends back **only changed fields**; access via `ADMIN_EMAILS` (empty = nobody) — see [`docs/ADMIN.md`](docs/ADMIN.md) |
-| **Endpoint API** | `backend/src/routes/` | lỗi qua `ApiError`; thêm test trong `backend/tests/` |
-| **Bảng / cột DB** | `prisma/schema.prisma` + migration | migration phải chạy được trên database đang có bảng |
+| **An API endpoint** | `backend/src/routes/` | errors go through `ApiError`; add tests in `backend/tests/` |
+| **A DB table / column** | `prisma/schema.prisma` + migration | the migration must run on a database that already has tables |
 
-Luật chơi **không** được nằm trong component: `game/` trước, `gameStore` sau, UI cuối cùng.
+Game rules must **not** live inside a component: `game/` first, `gameStore` next, UI last.
 
-## 6. Dọn dẹp
+## 6. Cleanup
 
-❌ Không để lại file tạm — đặt tiền tố `_` (`_preview.tsx`, `_balance.probe.test.ts`) rồi **xoá
-trong cùng phiên**. ⚠️ Nếu sửa `.gitignore`: **đừng để quy tắc bắt đầu bằng `_` mà thiếu ngoại lệ**
-— `_*` khớp cả `__tests__/` và `routes/__root.tsx`; chuyện này **đã xảy ra thật** (16 file test + 1
-file route biến mất khỏi git, clone ra build đỏ). Kiểm bằng `git status --short --ignored`: chỉ được
-thấy `.env`, `node_modules/`, `dist/`. ❌ Không commit `.env` thật; ⚠️ nhưng
-`frontend/src/routeTree.gen.ts` thì **phải** commit — máy sinh, song `tsc` cần nó.
+❌ Do not leave temporary files behind — prefix them with `_` (`_preview.tsx`, `_balance.probe.test.ts`) and
+then **delete them in the same session**. ⚠️ If you edit `.gitignore`: **never leave a rule starting with
+`_` without an exception** — `_*` also matches `__tests__/` and `routes/__root.tsx`; this **has really
+happened** (16 test files + 1 route file vanished from git, and a fresh clone failed to build). Check with
+`git status --short --ignored`: only `.env`, `node_modules/` and `dist/` may show up. ❌ Do not commit a real
+`.env`; ⚠️ but `frontend/src/routeTree.gen.ts` **must** be committed — it is generated, yet `tsc` needs it.

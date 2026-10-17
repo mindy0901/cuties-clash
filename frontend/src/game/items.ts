@@ -30,13 +30,13 @@ export function starPrice(baseCost: number, star: Star): number {
 
 /** Items with their per-star numbers. Values mirror the public event tuning. */
 export const ITEM_TEMPLATES: ItemTemplate[] = [
-	// ── Vũ khí ────────────────────────────────────────────────────────────────
+	// ── Weapons ─ ───────────────────────────────────────────────────────────────
 	{
 		id: 'wooden-blade',
 		name: 'Đao Gỗ',
 		cls: 'weapon',
 		icon: '🗡️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 3,
@@ -50,7 +50,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Thương Lửa',
 		cls: 'weapon',
 		icon: '🔥',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 4,
@@ -70,7 +70,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Phiến Băng',
 		cls: 'weapon',
 		icon: '❄️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 6,
@@ -88,7 +88,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Chủy Độc',
 		cls: 'weapon',
 		icon: '☠️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 6,
@@ -108,7 +108,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Phủ Nặng',
 		cls: 'weapon',
 		icon: '🪓',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 8,
@@ -122,7 +122,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Song Trảo',
 		cls: 'weapon',
 		icon: '🐾',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 9,
@@ -133,13 +133,13 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		passive: (star) => ({ haste: pick(star, [4, 7, 11, 17]) }),
 	},
 
-	// ── Hộ giáp ───────────────────────────────────────────────────────────────
+	// ── Armor ─ ─────────────────────────────────────────────────────────────────
 	{
 		id: 'hide-vest',
 		name: 'Giáp Da',
 		cls: 'armor',
 		icon: '🦺',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 3,
@@ -152,7 +152,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Giáp Xích',
 		cls: 'armor',
 		icon: '⛓️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 5,
@@ -165,7 +165,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Giáp Vệ Binh',
 		cls: 'armor',
 		icon: '🛡️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 8,
@@ -174,13 +174,13 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		passive: (star) => ({ shield: pick(star, [320, 470, 660, 980]), dr: pick(star, [6, 9, 12, 16]) }),
 	},
 
-	// ── Hồn Ngọc ──────────────────────────────────────────────────────────────
+	// ── Soul Jades ─ ────────────────────────────────────────────────────────────
 	{
 		id: 'jade-fury',
 		name: 'Hồn Ngọc Phẫn Nộ',
 		cls: 'souljade',
 		icon: '💠',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 3,
@@ -193,7 +193,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hồn Ngọc Thôi Sách',
 		cls: 'souljade',
 		icon: '🌪️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 3,
@@ -206,7 +206,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hồn Ngọc Chí Mạng',
 		cls: 'souljade',
 		icon: '🎯',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 5,
@@ -219,7 +219,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hồn Ngọc Huyết Ẩm',
 		cls: 'souljade',
 		icon: '🩸',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 6,
@@ -232,7 +232,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hồn Ngọc Hộ Thể',
 		cls: 'souljade',
 		icon: '🧿',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 7,
@@ -245,7 +245,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hồn Ngọc Kiếm Thế',
 		cls: 'souljade',
 		icon: '⚔️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 5,
@@ -255,13 +255,13 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		passive: (star) => ({ seRegen: pick(star, [3, 5, 8, 12]), counterChance: pick(star, [5, 8, 12, 18]) }),
 	},
 
-	// ── Pháp Bảo (kích hoạt theo nhịp) ────────────────────────────────────────
+	// ── Curios (pulse-activated) ─ ──────────────────────────────────────────────
 	{
 		id: 'war-drum',
 		name: 'Trống Trận',
 		cls: 'curio',
 		icon: '🥁',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 6,
@@ -274,7 +274,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Đèn Quỷ',
 		cls: 'curio',
 		icon: '🏮',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 4,
@@ -288,7 +288,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Nanh Lò Rèn',
 		cls: 'curio',
 		icon: '🐺',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 6,
@@ -302,7 +302,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Lọ Độc',
 		cls: 'curio',
 		icon: '⚗️',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 5,
@@ -318,7 +318,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Chuông Bão',
 		cls: 'curio',
 		icon: '🔔',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 6,
@@ -334,7 +334,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Thần Đúc Sư',
 		cls: 'curio',
 		icon: '🔨',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 8,
@@ -353,7 +353,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hàn Ngọc Phù',
 		cls: 'curio',
 		icon: '🧊',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 7,
@@ -370,7 +370,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Mảnh Gương',
 		cls: 'curio',
 		icon: '🪞',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 7,
@@ -386,7 +386,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Cờ Lụa',
 		cls: 'curio',
 		icon: '🎏',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 7,
@@ -395,13 +395,13 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		aura: (star) => ({ target: 'adjacentNonWeapon', mods: { maxHp: pick(star, [25, 45, 75, 120]) } }),
 	},
 
-	// ── Đan dược ──────────────────────────────────────────────────────────────
+	// ── Potions ─ ───────────────────────────────────────────────────────────────
 	{
 		id: 'heal-dew',
 		name: 'Lộ Sương Trị Thương',
 		cls: 'potion',
 		icon: '🧪',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 1,
 		cost: 3,
@@ -415,7 +415,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Hổ Cốt Tửu',
 		cls: 'potion',
 		icon: '🍶',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 2,
 		cost: 5,
@@ -429,7 +429,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		name: 'Thuốc Sắt',
 		cls: 'potion',
 		icon: '🫙',
-		// Có art 128×128 cho cả 4 sao trong public/icons/items/<id>-<sao>.png
+		// 128×128 art exists for all 4 stars in public/icons/items/<id>-<star>.png
 		stars: [1, 2, 3, 4],
 		tier: 3,
 		cost: 6,

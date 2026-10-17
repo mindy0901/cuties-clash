@@ -1,70 +1,74 @@
-# Hình ảnh & Ghi công
+# Art & attribution
 
-Toàn bộ art của game là **tài nguyên bên ngoài có giấy phép tự do**. Tài liệu này ghi
-nguồn, giấy phép, cách đặt file và nghĩa vụ ghi công.
+All art in the game is **external assets with a free licence**. This document records the sources,
+the licences, where files go, and the attribution obligations.
 
-⚠️ **Không bao giờ** dùng tài nguyên của NetEase / NARAKA: BLADEPOINT (xem `AGENTS.md` §1).
+⚠️ **Never** use assets from NetEase / NARAKA: BLADEPOINT (see `AGENTS.md` §1).
 
 ---
 
-## Quy tắc khi thêm art
+## Rules for adding art
 
-- ✅ **Chỉ khai đường dẫn khi chắc chắn file có thật** (`stars` trong `items.ts`, `art`/`skillArt`
-  trong `pets.ts`). ❌ Không đoán tên file.
-- ✅ **Luôn giữ emoji dự phòng** trong `icon`; `ArtIcon` tự lùi về emoji khi ảnh lỗi — nhờ vậy thêm
-  art dần được mà không bao giờ có ô trống.
-- ⚠️ **Kiểm kênh alpha thật** trước khi dùng (xem bẫy ORHstudio bên dưới): đọc byte PNG, `colorType`
-  phải là **6 = RGBA**. `game/__tests__/artAlpha.test.ts` canh việc này.
-- ⚠️ Nguồn **CC BY** bắt buộc có mục **Ghi công** mở được từ menu. CC0 không bắt buộc, nhưng vẫn
-  ghi nguồn vào file này.
-- ⚠️ Ghi rõ nếu art do **AI tạo** (pack ORHstudio có khai báo "AI Assisted").
-- ⚠️ Thêm **thư mục tĩnh mới** trong `frontend/` thì kiểm image `fr` có `COPY` nó không — thiếu thì
-  ảnh 404 và nginx trả `index.html` (HTTP vẫn 200, rất khó thấy).
+- ✅ **Only declare a path when you are sure the file exists** (`stars` in `items.ts`,
+  `art`/`skillArt` in `pets.ts`). ❌ Do not guess file names.
+- ✅ **Always keep the emoji fallback** in `icon`; `ArtIcon` falls back to the emoji when an image
+  fails — that way art can be added gradually and there is never an empty cell.
+- ⚠️ **Check for a real alpha channel** before using an image (see the ORHstudio trap below): read the
+  PNG bytes, `colorType` must be **6 = RGBA**. `game/__tests__/artAlpha.test.ts` guards this.
+- ⚠️ **CC BY** sources must have an **attribution** section reachable from the menu. CC0 does not
+  require it, but the source is still recorded in this file.
+- ⚠️ State clearly when art is **AI generated** (the ORHstudio pack declares "AI Assisted").
+- ⚠️ When you add a **new static folder** under `frontend/`, check that the `fr` image `COPY`s it —
+  without that the images 404 and nginx returns `index.html` (HTTP is still 200, which is very hard to
+  notice).
 
-### Art đại diện của thú cưng (khung đấu sĩ)
+### Pet avatar art (fighter frame)
 
-Khung đại diện trên sàn đấu (`components/AvatarCard.tsx`) lấy ảnh theo thứ tự:
+The avatar frame on the arena floor (`components/AvatarCard.tsx`) picks an image in this order:
 
-1. **Ảnh đại diện riêng** — `public/icons/pets/<petId>-avatar.png`, bật bằng `avatar: true` trong
-   `game/pets.ts` (đổi đuôi thì thêm `avatarExt`). Hàm tra: `avatarArtSrc`.
-2. **Art thú cưng** — `public/icons/pets/<petId>.png` (`art: true`), đã có sẵn.
-3. **Emoji dự phòng** — `icon` trong `pets.ts`.
+1. **A dedicated avatar image** — `public/icons/pets/<petId>-avatar.png`, enabled with
+   `avatar: true` in `game/pets.ts` (for another extension add `avatarExt`). Lookup function:
+   `avatarArtSrc`.
+2. **Pet art** — `public/icons/pets/<petId>.png` (`art: true`), already present.
+3. **Emoji fallback** — `icon` in `pets.ts`.
 
-⇒ Bổ sung ảnh đại diện **không phải sửa component**: đặt file đúng tên rồi bật cờ. Khung đã bo
-viền nét đứt quanh vùng ảnh, nên chưa có ảnh vẫn trông là "chỗ dành cho ảnh" chứ không phải lỗi.
+⇒ Adding avatar images **does not require touching the component**: put the file under the right name
+and switch the flag on. The frame already draws a dashed border around the image area, so with no
+image yet it still looks like "space reserved for an image" rather than a bug.
 
-## Đang dùng
+## In use
 
 ### ORHstudio — Wuxia Icon Series (CC0)
 
-Nguồn: <https://itch.io/c/7530014/wuxia-icon-series> · tác giả **ORHstudio**
+Source: <https://itch.io/c/7530014/wuxia-icon-series> · author **ORHstudio**
 
-**Giấy phép: CC0 1.0 (public domain)** — dùng tự do, **không bắt buộc ghi công**. Tôi vẫn
-ghi lại ở đây để biết nguồn gốc.
+**Licence: CC0 1.0 (public domain)** — free to use, **attribution not required**. It is still recorded
+here so the provenance is known.
 
-| Pack | Nội dung | Dùng cho |
+| Pack | Contents | Used for |
 | ---- | -------- | -------- |
-| [Wuxia Weapons](https://orhstudio.itch.io/wuxia-weapon-icons-complete) | 216 icon = 18 vũ khí × 12 bậc vật liệu | 8 món: vũ khí + Nanh Lò Rèn + Thần Đúc Sư |
-| [Wuxia Chest Armor](https://orhstudio.itch.io/wuxia-chest-armor-icons) | 96 icon | 3 giáp |
-| [Wuxia Shields](https://orhstudio.itch.io/wuxia-shields-icons) | 108 icon | Chuông Bão, Cờ Lụa |
-| [Wuxia Rings](https://orhstudio.itch.io/wuxia-rings-icons) · [Earrings](https://orhstudio.itch.io/wuxia-earrings-icons) · [Bracelets](https://orhstudio.itch.io/wuxia-bracelets-icons) · [Amulets](https://orhstudio.itch.io/wuxia-amulets-icons) · [Tokens](https://orhstudio.itch.io/wuxia-tokens-icons) | 96 icon mỗi bộ | 6 Hồn Ngọc + Trống Trận + Phù/Gương |
-| [Wuxia Medicines](https://orhstudio.itch.io/wuxia-medicines-icons) | 96 icon | 4 Đan Dược |
-| [Wuxia Masks](https://orhstudio.itch.io/wuxia-masks-icons) | 96 icon | Đèn Quỷ + 3 mặt thú cưng |
-| [Wuxia Gloves](https://orhstudio.itch.io/wuxia-gloves-icons) | 96 icon | Song Trảo |
+| [Wuxia Weapons](https://orhstudio.itch.io/wuxia-weapon-icons-complete) | 216 icons = 18 weapons × 12 material tiers | 8 items: weapons + Nanh Lò Rèn + Thần Đúc Sư |
+| [Wuxia Chest Armor](https://orhstudio.itch.io/wuxia-chest-armor-icons) | 96 icons | 3 armour pieces |
+| [Wuxia Shields](https://orhstudio.itch.io/wuxia-shields-icons) | 108 icons | Chuông Bão, Cờ Lụa |
+| [Wuxia Rings](https://orhstudio.itch.io/wuxia-rings-icons) · [Earrings](https://orhstudio.itch.io/wuxia-earrings-icons) · [Bracelets](https://orhstudio.itch.io/wuxia-bracelets-icons) · [Amulets](https://orhstudio.itch.io/wuxia-amulets-icons) · [Tokens](https://orhstudio.itch.io/wuxia-tokens-icons) | 96 icons per set | 6 Hồn Ngọc + Trống Trận + Phù/Gương |
+| [Wuxia Medicines](https://orhstudio.itch.io/wuxia-medicines-icons) | 96 icons | 4 Đan Dược |
+| [Wuxia Masks](https://orhstudio.itch.io/wuxia-masks-icons) | 96 icons | Đèn Quỷ + 3 pet faces |
+| [Wuxia Gloves](https://orhstudio.itch.io/wuxia-gloves-icons) | 96 icons | Song Trảo |
 
-Kích thước: **64×64, 128×128, 32×32** PNG nền trong suốt + sprite sheet. Game dùng bản
-**128×128** (nét khi phóng to / màn hình retina).
+Sizes: **64×64, 128×128, 32×32** PNG with a transparent background + sprite sheets. The game uses the
+**128×128** version (crisp when scaled up / on retina screens).
 
-⚠️ **AI Disclosure:** trang pack ghi *"AI Assisted / Graphics"* — ảnh do AI tạo, tác giả có
-rà soát lại. CC0 vẫn hợp lệ, nhưng cần biết nếu phát hành thương mại.
+⚠️ **AI Disclosure:** the pack page says *"AI Assisted / Graphics"* — the images are AI generated, and
+the author reviewed them. CC0 is still valid, but it is worth knowing before a commercial release.
 
-### ⚠️ Bẫy: pack ghi "transparent background" nhưng 31 file KHÔNG trong suốt
+### ⚠️ Trap: the pack says "transparent background" but 31 files are NOT transparent
 
-Trang pack ghi rõ *"Transparent background (PNG alpha)"*, nhưng thực tế **31 file item là
-ảnh ĐEN ĐỤC** — alpha = 255 khắp nơi, nền đen chiếm 59–88% diện tích. Đưa thẳng vào game
-thì món đồ hiện thành **khối đen**, và món dài (thương 4×1) thành khối đen méo.
+The pack page states clearly *"Transparent background (PNG alpha)"*, but in reality **31 item files are
+SOLID BLACK images** — alpha = 255 everywhere, with the black background covering 59–88% of the area.
+Put straight into the game, items show up as **black blocks**, and long items (a 4×1 spear) become a
+distorted black block.
 
-Cách phát hiện (không thấy được bằng mắt qua ảnh preview, phải đọc pixel):
+How to detect it (not visible by eye in a preview image, you have to read the pixels):
 
 ```powershell
 Add-Type -AssemblyName System.Drawing
@@ -72,38 +76,40 @@ $b = [System.Drawing.Bitmap]::FromFile('public\icons\items\wooden-blade-1.png')
 $opaque = 0
 for ($y=0; $y -lt $b.Height; $y++) { for ($x=0; $x -lt $b.Width; $x++) {
   if ($b.GetPixel($x,$y).A -gt 240) { $opaque++ } } }
-"$([Math]::Round(100*$opaque/($b.Width*$b.Height)))% đục"   # nền đen cho ~100%
+"$([Math]::Round(100*$opaque/($b.Width*$b.Height)))% opaque"   # a black background gives ~100%
 ```
 
-**Cách sửa đã dùng:** loang từ viền (flood fill) chỉ trên pixel gần đen → giữ được màu
-đen nằm *bên trong* hình (viền kiếm, mắt thú). Sau đó thu về 64×64 (nhỏ hơn 3×, vẫn nét vì
-ô lưới chỉ ~60–90px). Kết quả: 12–15% đục thay vì 100%, 4 góc trong suốt.
+**The fix that was used:** flood fill from the border over near-black pixels only → this keeps the
+black colour that lies *inside* the drawing (sword outlines, pet eyes). Then downscale to 64×64 (a
+factor >3, still crisp because grid cells are only ~60–90px). Result: 12–15% opaque instead of 100%,
+with the 4 corners transparent.
 
-Ảnh đã sửa nằm trong `public/icons/` và **được commit** — không cần chạy lại bước này.
-`frontend/src/game/__tests__/artAlpha.test.ts` canh chừng: mọi ảnh phải là PNG **RGBA (color type 6)**.
+The fixed images live in `public/icons/` and **are committed** — there is no need to run this step
+again. `frontend/src/game/__tests__/artAlpha.test.ts` guards it: every image must be a **RGBA PNG
+(colour type 6)**.
 
 ---
 
-## Ánh xạ đang dùng
+## Mapping in use
 
-Mỗi món lấy **một loại** trong pack, và mỗi mức sao lấy **một bậc vật liệu** khác nhau —
-nên món 4★ trông khác hẳn món 1★, người chơi nhìn ra ngay.
+Each item takes **one icon type** from the pack, and each star level takes a **different material
+tier** — so a 4★ item looks completely different from a 1★ one at a glance.
 
-**Bậc vật liệu theo sao:**
+**Material tier per star:**
 
-| Sao | Bậc vật liệu |
+| Star | Material tier |
 | --- | ------------ |
 | ★ | `natural_wood` |
 | ★★ | `green_jade` |
 | ★★★ | `ebony_steel` |
 | ★★★★ | `divine_gold_inlaid_wood` |
 
-Ngoại lệ (hợp chất liệu hơn): `poison-dagger` bắt đầu bằng `rusty_stone`; `twin-claws`
-dùng `worn_leather` → `forged_iron` → `shining_silver`.
+Exceptions (mixed materials): `poison-dagger` starts at `rusty_stone`; `twin-claws` uses
+`worn_leather` → `forged_iron` → `shining_silver`.
 
-**Loại icon của từng món:**
+**Icon type for each item:**
 
-| Món | Pack | Loại |
+| Item | Pack | Type |
 | --- | ---- | ---- |
 | `wooden-blade` | weapons | `jian_sword` |
 | `fire-spear` | weapons | `spear` |
@@ -133,90 +139,93 @@ dùng `worn_leather` → `forged_iron` → `shining_silver`.
 | `tiger-tonic` | medicines | `orange_medicine` |
 | `iron-brew` | medicines | `gold_medicine` |
 
-**Thú cưng** (masks, bậc ★★★): `fire-pup`→`tiger_mask` · `white-rabbit`→`fox_mask` ·
+**Pets** (masks, tier ★★★): `fire-pup`→`tiger_mask` · `white-rabbit`→`fox_mask` ·
 `spirit-cat`→`skull_mask`
 
-**Kỹ năng** (weapons, bậc ★★★): `fire-pup`→`monk_spade` · `white-rabbit`→`ji_halberd` ·
+**Skills** (weapons, tier ★★★): `fire-pup`→`monk_spade` · `white-rabbit`→`ji_halberd` ·
 `spirit-cat`→`whip`
 
-Đổi ánh xạ thì sửa bảng chọn icon và chạy lại script chép — **không** sửa tay từng file.
+To change the mapping, edit the icon-selection table and re-run the copy script — **not** by hand,
+file by file.
 
 ---
 
-## Phương án dự phòng
+## Fallback options
 
 ### game-icons.net (CC BY 3.0)
 
-Nguồn: <https://game-icons.net/> · kho ~5000 SVG một màu, tô được theo màu của game.
+Source: <https://game-icons.net/> · a library of ~5000 single-colour SVGs, tintable to the game's
+colours.
 
-**Giấy phép: CC BY 3.0 — BẮT BUỘC ghi công.** Nguồn: [about](https://game-icons.net/about.html),
+**Licence: CC BY 3.0 — attribution is MANDATORY.** Source: [about](https://game-icons.net/about.html),
 [license.txt](https://raw.githubusercontent.com/game-icons/icons/master/license.txt).
 
-Cách ghi công: `Icons made by {tác giả}. Available on https://game-icons.net`
+How to attribute: `Icons made by {author}. Available on https://game-icons.net`
 
-Trong game phải có mục **Ghi công** mở được từ menu ([FAQ](https://game-icons.net/faq.html)
-nói rõ điều này là đủ cho video game). Các tác giả đang dùng: **Lorc**, **Delapouite**.
+The game must have an **attribution** section reachable from the menu (the
+[FAQ](https://game-icons.net/faq.html) states this is enough for video games). Authors currently used:
+**Lorc**, **Delapouite**.
 
-Ưu điểm: tải được tự động từ repo GitHub, không cần thao tác tay.
+Advantage: it can be downloaded automatically from the GitHub repo, no manual steps.
 
 ### Kenney (CC0)
 
-Nguồn: <https://kenney.nl/assets> · mỗi pack ghi rõ **CC0**. Phong cách fantasy châu Âu,
-hợp cho **icon UI** (nút, chỉ số) hơn là vật phẩm võ hiệp.
+Source: <https://kenney.nl/assets> · every pack states **CC0** clearly. European fantasy style, better
+suited to **UI icons** (buttons, stats) than to wuxia items.
 
 ---
 
-## Cách đặt file
+## Where to put files
 
 ```
 public/icons/
-├─ items/   <templateId>-<star>.png     ví dụ: wooden-blade-1.png, great-axe-4.png
-├─ pets/    <petId>.png                 ví dụ: fire-pup.png
-├─ skills/  <petId>-skill.png           ví dụ: fire-pup-skill.png
-└─ ui/      (icon giao diện, tuỳ ý)
+├─ items/   <templateId>-<star>.png     e.g. wooden-blade-1.png, great-axe-4.png
+├─ pets/    <petId>.png                 e.g. fire-pup.png
+├─ skills/  <petId>-skill.png           e.g. fire-pup-skill.png
+└─ ui/      (interface icons, optional)
 ```
 
-Đuôi file khác `png` thì khai báo `artExt` trong template.
+For an extension other than `png`, declare `artExt` in the template.
 
-## Cách code tìm art
+## How the code finds art
 
-`frontend/src/game/art.ts` tra đường dẫn; `frontend/src/components/ItemIcon.tsx` hiển thị
-(`ItemIcon`, `PetIcon`, `SkillIcon`), nền là `ArtIcon`.
+`frontend/src/game/art.ts` resolves the path; `frontend/src/components/ItemIcon.tsx` displays it
+(`ItemIcon`, `PetIcon`, `SkillIcon`), built on `ArtIcon`.
 
-**Nguyên tắc quan trọng:** chỉ trả đường dẫn khi **biết chắc file có thật**, dựa trên danh
-sách sao khai báo trong `items.ts` (`stars: [1, 2, 3, 4]`) / `pets.ts` (`art: true`).
-Không đoán tên file — đoán sai sẽ hiện icon vỡ.
+**Important principle:** only return a path when you **know for sure the file exists**, based on the
+star list declared in `items.ts` (`stars: [1, 2, 3, 4]`) / `pets.ts` (`art: true`). Do not guess file
+names — a wrong guess shows a broken icon.
 
-Không có art, hoặc ảnh tải lỗi → **tự lùi về emoji**. Nhờ vậy thêm art dần dần được, và
-game chưa bao giờ hiện ô trống.
+When there is no art, or the image fails to load → it **falls back to the emoji**. That way art can be
+added little by little, and the game has never shown an empty cell.
 
 ```ts
-// items.ts — khai báo art có ở những sao nào
+// items.ts — declare which stars have art
 {
   id: 'wooden-blade',
-  icon: '🗡️',                    // dự phòng, luôn giữ
-  stars: [1, 2, 3, 4],          // có art cho cả 4 sao
-  artExt: 'png',                // tuỳ chọn, mặc định 'png'
+  icon: '🗡️',                    // fallback, always keep
+  stars: [1, 2, 3, 4],          // art exists for all 4 stars
+  artExt: 'png',                // optional, defaults to 'png'
 }
 
 // pets.ts
 {
   id: 'fire-pup',
-  icon: '🐶',                    // dự phòng, luôn giữ
-  art: true,                    // có public/icons/pets/fire-pup.png
-  skillArt: true,               // có public/icons/skills/fire-pup-skill.png
+  icon: '🐶',                    // fallback, always keep
+  art: true,                    // public/icons/pets/fire-pup.png exists
+  skillArt: true,               // public/icons/skills/fire-pup-skill.png exists
 }
 ```
 
-## Test bảo vệ
+## Guard tests
 
-`frontend/src/game/__tests__/art.test.ts` kiểm tra:
-- mọi template khai báo `stars` đều có **file thật** cho từng sao đó
-- mọi `art`/`skillArt` của thú cưng đều có file
-- **không có file thừa** trong `public/icons/` (file không khớp template nào — dấu hiệu ánh xạ sai)
-- trả `null` đúng lúc để lùi về emoji
+`frontend/src/game/__tests__/art.test.ts` checks:
+- every template declaring `stars` has a **real file** for each of those stars
+- every pet `art`/`skillArt` flag has a file
+- **no leftover files** in `public/icons/` (a file matching no template — a sign of a wrong mapping)
+- it returns `null` at the right moment so the emoji fallback kicks in
 
-Test này đã bắt được 4 file `vine-fan-*.png` thừa từ một lần ánh xạ sai.
+This test already caught 4 leftover `vine-fan-*.png` files from a bad mapping.
 
-`frontend/src/game/__tests__/artAlpha.test.ts` kiểm tra mọi ảnh là **PNG RGBA** (có kênh alpha) —
-xem phần "Bẫy" ở trên.
+`frontend/src/game/__tests__/artAlpha.test.ts` checks that every image is a **RGBA PNG** (has an alpha
+channel) — see the "Trap" section above.

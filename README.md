@@ -1,72 +1,72 @@
 # Martial Cutie — Đấu Trường Thú Cưng
 
-Auto-battler nuôi thú cưng chạy trên trình duyệt (**React 19 + Vite + TypeScript + Tailwind CSS v4**, điều hướng bằng **TanStack Router**, dữ liệu máy chủ bằng **TanStack Query**), có **backend Fastify + Prisma** để đăng nhập Google và đồng bộ tiến trình. Repo là một **pnpm workspace** gồm hai gói `frontend/` và `backend/`. Lấy cảm hứng từ **event Martial Cutie (武林萌主)** của *NARAKA: BLADEPOINT*.
+A browser pet-raising auto-battler (**React 19 + Vite + TypeScript + Tailwind CSS v4**, routed with **TanStack Router**, server data with **TanStack Query**), with a **Fastify + Prisma backend** for Google sign-in and progress sync. The repo is a **pnpm workspace** with two packages, `frontend/` and `backend/`. Inspired by the **Martial Cutie (武林萌主) event** in *NARAKA: BLADEPOINT*.
 
-Dự án này **tự viết lại toàn bộ luật chơi** theo mô tả công khai của event — không sao chép tài nguyên, mã nguồn, hình ảnh, âm thanh hay văn bản của NetEase. Art vật phẩm/thú cưng là **icon CC0 của [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** (xem [`docs/ASSETS.md`](docs/ASSETS.md)); emoji được giữ làm phương án dự phòng. Tên vật phẩm/thú cưng và phần chữ đều là nội dung gốc.
+This project **rewrites every game rule from scratch** based on the event's public description — it copies no assets, source code, images, audio or text from NetEase. Item/pet art is **CC0 icons from [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** (see [`docs/ASSETS.md`](docs/ASSETS.md)); emoji are kept as the fallback. Item/pet names and all copy are original content.
 
-## Chạy nhanh
+## Quick start
 
-### Cách 1 — Docker production: 3 image riêng biệt (khuyến nghị để chơi)
+### Option 1 — Docker production: 3 separate images (recommended for playing)
 
 ```bash
-cp .env.example .env      # điền JWT_SECRET, và key Google nếu muốn đăng nhập
-docker compose up --build -d   # mở http://localhost:5190
+cp .env.example .env      # fill in JWT_SECRET, and the Google keys if you want sign-in
+docker compose up --build -d   # open http://localhost:5190
 ```
 
-⚠️ Image là **bản chụp lúc build**. Sửa code xong phải chạy lại `docker compose up --build -d`
-thì 5190 mới thấy code mới. Muốn sửa code là thấy ngay thì dùng **Cách 1b** bên dưới.
+⚠️ An image is a **snapshot from build time**. After changing code you have to run `docker compose up --build -d`
+again before 5190 shows the new code. If you want to see edits immediately, use **Option 1b** below.
 
-Ba image độc lập, mỗi cái một vai trò:
+Three independent images, each with one role:
 
-| Image | Vai trò | Cổng |
-| ----- | ------- | ---- |
+| Image | Role | Port |
+| ----- | ---- | ---- |
 | `db`  | PostgreSQL 17 | 5432 |
-| `be`  | Fastify + Prisma (**không** chứa frontend) | 8000 |
-| `fr`  | nginx phục vụ bản build Vite + proxy `/api` → `be` | **5190** → 80 |
+| `be`  | Fastify + Prisma (**no** frontend) | 8000 |
+| `fr`  | nginx serving the Vite build + proxying `/api` → `be` | **5190** → 80 |
 
-Mở **http://localhost:5190**. `fr` chuyển tiếp `/api/*` sang `be` nên trình duyệt chỉ thấy một origin — cookie phiên đăng nhập hoạt động đúng và không cần CORS.
+Open **http://localhost:5190**. `fr` forwards `/api/*` to `be`, so the browser only sees one origin — the sign-in session cookie works correctly and no CORS is needed.
 
-### Cách 1b — Docker dev: sửa code là tự nạp lại (hot reload cả hai phía)
+### Option 1b — Docker dev: edits reload by themselves (hot reload on both sides)
 
 ```bash
-docker compose --profile dev up -d db be-dev vite   # mở http://localhost:5190
+docker compose --profile dev up -d db be-dev vite   # open http://localhost:5190
 ```
 
-| Service | Vai trò | Cổng ngoài |
-| ------- | ------- | ---------- |
+| Service | Role | Host port |
+| ------- | ---- | --------- |
 | `vite`   | Vite dev server + HMR (`/api` proxy → `be-dev`) | **5190** |
-| `be-dev` | Fastify chạy `nodemon --legacy-watch` — sửa file là API khởi động lại | 8001 |
+| `be-dev` | Fastify running under `nodemon --legacy-watch` — editing a file restarts the API | 8001 |
 
-Sửa file trong `frontend/` hoặc `backend/` → container tự nạp lại, **không cần build lại image**.
+Edit a file in `frontend/` or `backend/` → the container reloads by itself, **no image rebuild needed**.
 
-⚠️ `vite` và `fr` **tranh nhau cổng 5190** — chạy cái này thì phải tắt cái kia:
+⚠️ `vite` and `fr` **compete for port 5190** — running one means stopping the other:
 
 ```bash
-docker compose stop fr be                            # sang chế độ dev
+docker compose stop fr be                            # switch to dev mode
 docker compose --profile dev up -d db be-dev vite
-# … và quay lại production:
+# … and back to production:
 docker compose --profile dev stop && docker compose up --build -d
 ```
 
-⚠️ Vì sao `be-dev` dùng `nodemon --legacy-watch` chứ không `tsx watch`: bind mount của Windows
-**không phát sự kiện filesystem** vào container, mà `tsx watch` không có chế độ polling → sửa file
-xong API vẫn chạy code cũ. `--legacy-watch` là polling nên chạy được mọi loại filesystem. Tương tự,
-`vite` bật `VITE_USE_POLLING=1` (đọc trong `frontend/vite.config.ts`).
+⚠️ Why `be-dev` uses `nodemon --legacy-watch` and not `tsx watch`: Windows bind mounts
+**do not emit filesystem events** into the container, and `tsx watch` has no polling mode → after editing a
+file the API keeps running the old code. `--legacy-watch` is polling, so it works on any kind of filesystem.
+Likewise, `vite` sets `VITE_USE_POLLING=1` (read in `frontend/vite.config.ts`).
 
 ```bash
-docker compose up -d db                       # chỉ database
-docker compose down                           # dừng (giữ dữ liệu)
-docker compose down -v                        # dừng và XOÁ dữ liệu
+docker compose up -d db                       # database only
+docker compose down                           # stop (keep the data)
+docker compose down -v                        # stop and DELETE the data
 ```
 
-### Cách 2 — Dev trên máy (hot reload nhanh nhất)
+### Option 2 — Local dev (fastest hot reload)
 
 ```bash
-# Terminal 1: chỉ cần PostgreSQL trong Docker
+# Terminal 1: only PostgreSQL inside Docker
 docker compose up -d db
 
-# Terminal 2: backend (Fastify, cổng 8000)
-pnpm install              # một lần, ở gốc repo (cài cả hai gói)
+# Terminal 2: backend (Fastify, port 8000)
+pnpm install              # once, at the repo root (installs both packages)
 pnpm db:migrate           # prisma migrate deploy
 pnpm dev:be
 
@@ -74,200 +74,200 @@ pnpm dev:be
 pnpm dev                  # http://localhost:5190
 ```
 
-Vite proxy `/api` sang `http://localhost:8000`, nên một lần nữa trình duyệt chỉ nói chuyện cùng origin. Điểm gọi lại OAuth cũng là cổng 5190 ở cả hai cách chạy — không phải đăng ký thêm URI.
+Vite proxies `/api` to `http://localhost:8000`, so once again the browser only ever talks to one origin. The OAuth redirect port is 5190 in both ways of running, too — no extra URI to register.
 
-### Cách 3 — Chỉ chơi frontend (không cần backend)
+### Option 3 — Frontend only (no backend needed)
 
 ```bash
 pnpm install
-pnpm dev                  # game chơi được đầy đủ, tiến trình lưu ở localStorage
+pnpm dev                  # the game is fully playable, progress is stored in localStorage
 ```
 
-Không có backend thì nút **Đăng nhập** vẫn hiện nhưng hộp thoại báo chưa cấu hình — mọi tính năng chơi vẫn hoạt động bình thường.
+Without a backend the **Đăng nhập** button is still shown but the dialog reports that it is not configured — every gameplay feature keeps working normally.
 
-## Lệnh
+## Commands
 
-| Lệnh                            | Việc                                        |
+| Command                         | What it does                                |
 | ------------------------------- | ------------------------------------------- |
-| `pnpm dev`                      | Dev server tại http://localhost:5190 (HMR)  |
-| `pnpm build`                    | Build production vào `frontend/dist/` + typecheck |
-| `pnpm test`                     | Chạy test frontend (Vitest)                 |
-| `pnpm lint`                     | Lint cả hai gói (oxlint)                    |
-| `pnpm dev:be`                   | Chạy backend Fastify ở cổng 8000            |
-| `pnpm build:be`                 | `prisma generate` + typecheck backend       |
-| `pnpm test:be`                  | Chạy test backend (Vitest)                  |
-| `pnpm db:migrate`               | Chạy migration (`prisma migrate deploy`)    |
+| `pnpm dev`                      | Dev server at http://localhost:5190 (HMR)   |
+| `pnpm build`                    | Production build into `frontend/dist/` + typecheck |
+| `pnpm test`                     | Run the frontend tests (Vitest)             |
+| `pnpm lint`                     | Lint both packages (oxlint)                 |
+| `pnpm dev:be`                   | Run the Fastify backend on port 8000        |
+| `pnpm build:be`                 | `prisma generate` + typecheck the backend   |
+| `pnpm test:be`                  | Run the backend tests (Vitest)              |
+| `pnpm db:migrate`               | Run migrations (`prisma migrate deploy`)    |
 
-## Đăng nhập Google
+## Google sign-in
 
-Backend dùng luồng **OAuth 2.0 authorization code**. Điểm gọi lại phải đăng ký đúng với Google:
+The backend uses the **OAuth 2.0 authorization code** flow. The redirect URI has to be registered with Google exactly:
 
-| Nơi tạo khoá | Redirect URI cần đăng ký |
+| Where you create the keys | Redirect URI to register |
 | ------------ | ------------------------------------------------- |
 | https://console.cloud.google.com/auth/clients | `http://localhost:5190/api/auth/google/callback` |
 
-**Cả hai cách chạy đều dùng cổng 5190** (Docker: nginx `fr`; dev: Vite), nên chỉ cần đăng ký **một** URI duy nhất — không phải thêm URI cho cổng 8000.
+**Both ways of running use port 5190** (Docker: nginx `fr`; dev: Vite), so only **one** URI has to be registered — no extra URI for port 8000.
 
-Điền `GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_SECRET` vào `.env` — cần **cả hai**, thiếu một trong hai thì nút đăng nhập không hiện.
+Fill `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` into `.env` — you need **both**; with either one missing the sign-in button is not shown.
 
-> 📖 **Hướng dẫn từng bước lấy khoá, chế độ bắt buộc đăng nhập, và bảng lỗi thường gặp: [`docs/OAUTH-SETUP.md`](docs/OAUTH-SETUP.md)**
+> 📖 **Step-by-step instructions for getting the keys, forced sign-in mode, and a table of common errors: [`docs/OAUTH-SETUP.md`](docs/OAUTH-SETUP.md)**
 
-### Bắt buộc đăng nhập mới chơi được?
+### Requiring sign-in before playing?
 
-Mặc định người chơi **vào game ngay** (chơi ẩn danh), tự bấm **Đăng nhập** khi muốn đồng bộ. Đặt `AUTO_LOGIN=true` trong `.env` thì khách chưa đăng nhập được đưa thẳng tới Google. Cờ này **vô hiệu khi chưa cấu hình khoá Google**, nên bật nhầm cũng không làm game chết.
+By default players **enter the game immediately** (anonymous play) and click **Đăng nhập** when they want to sync. Setting `AUTO_LOGIN=true` in `.env` sends visitors who are not signed in straight to Google. This flag **has no effect when the Google keys are not configured**, so turning it on by mistake does not kill the game.
 
-Sau khi đăng nhập, tiến trình được đồng bộ lên server (`PUT /api/me/save`) — `localStorage` vẫn là nguồn chính, server chỉ giữ bản sao để chơi tiếp trên máy khác.
+After signing in, progress is synced to the server (`PUT /api/me/save`) — `localStorage` is still the primary source, the server only keeps a copy so you can continue on another machine.
 
-## Vòng lặp chơi
+## Gameplay loop
 
-Game có **hai màn hình**, điều hướng bằng đường dẫn thật (nút Back của trình duyệt hoạt động):
+The game has **two screens**, navigated with real paths (the browser Back button works):
 
-| Màn hình | Đường dẫn | Nội dung |
+| Screen | Path | Contents |
 | -------- | --------- | -------- |
-| **Phòng chuẩn bị** | `/` | Thú cưng + bảng chỉ số (Sức mạnh, Máu, Lịch sử đấu) · sân khấu thú cưng · **Kho đồ** (dự trữ) · **Trang bị** (đồ đang mang) · thanh nút hành động |
-| **Cửa hàng** | `/cua-hang` | Mua vật phẩm bằng Paw Tally, đổi danh sách shop. Mở từ nút **Mua Vật Phẩm »** |
+| **Phòng chuẩn bị** | `/` | Pet + stat panel (Sức mạnh, Máu, Lịch sử đấu) · pet stage · **Kho đồ** (storage) · **Trang bị** (what is carried) · action button bar |
+| **Cửa hàng** | `/cua-hang` | Buy items with Paw Tally, reroll the shop list. Opened from the **Mua Vật Phẩm »** button |
 
-### Trang bị và Kho đồ khác nhau thế nào
+### How Trang bị and Kho đồ differ
 
 | | **Trang bị** | **Kho đồ** |
 | --- | --- | --- |
-| Là gì | Đồ thú cưng **đang mang** | Đồ **dự trữ**, chưa dùng |
-| Sức chứa | Lưới **4 cột**, số hàng tăng theo cấp thú (12–20 ô) | Lưới **8 cột**, **không giới hạn** (tự cao thêm) |
-| Ô khoá | Có — ô vượt cấp thú bị mờ, không đặt được | Không — mọi ô đều dùng được |
-| Có tham chiến? | ✅ Có — passive, hào khí, vũ khí đều tính | ❌ Không, nằm không thì không có hiệu lực |
-| Món vào đây khi nào | Mua ở cửa hàng nếu trang bị **còn chỗ** | Mua khi trang bị **hết chỗ**, hoặc khi bạn tháo ra |
-| Xếp chỗ | Bạn tự đặt — món nằm đúng ô | **Cũng vậy** — món nằm đúng ô, kho không xếp hộ |
-| Thả đè lên món khác loại | **Hoán đổi vị trí** hai món | ❌ **Từ chối** (viền đỏ) — món đang nằm yên không bị đẩy đi |
+| What it is | Items the pet is **carrying** | **Stored** items, not in use |
+| Capacity | **4-column** grid, rows grow with pet level (12–20 cells) | **8-column** grid, **unlimited** (grows taller by itself) |
+| Locked cells | Yes — cells above the pet level are dimmed and cannot be used | No — every cell is usable |
+| Takes part in battle? | ✅ Yes — passive, aura and weapon all count | ❌ No, sitting unused does nothing |
+| When items land here | Buying in the shop while Trang bị **has room** | Buying while Trang bị is **full**, or when you unequip |
+| Placement | You place them yourself — items sit in the exact cell | **The same** — items sit in the exact cell, Kho đồ does not arrange for you |
+| Dropping onto a differently-typed item | **Swap positions** of the two items | ❌ **Rejected** (red outline) — the item already there is not pushed away |
 
-Chuyển đồ giữa hai chỗ: **giữ chuột kéo** món sang ô khác rồi nhả. Chỉ **kéo-thả** chuyển được đồ —
-**bấm** một món để xem **chi tiết** (tên, chỉ số, hiệu lực, giá và giá bán lại).
-Khi đang kéo, bấm **R** hoặc **chuột phải** để xoay 90°, **Esc** để bỏ.
-**Cả hai bảng đều là lưới tự do**: thả ở đâu món nằm ở đó, kéo trong kho để sắp xếp lại tuỳ ý.
-Kéo xuống **Kho đồ** để cất; kéo từ Kho lên lưới để mang. Vẫn có nút **↑** và **↓ Tháo hết**.
+Moving items between the two: **hold the mouse button and drag** an item to another cell, then release. Only **drag and drop** moves items —
+**clicking** an item shows its **details** (name, stats, effect, price and sell-back price).
+While dragging, press **R** or **right click** to rotate 90°, **Esc** to cancel.
+**Both panels are free grids**: drop where you want and the item stays there, drag inside Kho đồ to rearrange it freely.
+Drag down into **Kho đồ** to store it; drag up from Kho đồ onto the grid to carry it. The **↑** and **↓ Tháo hết** buttons are still available.
 
-1. **Mua đồ** ở trang Cửa hàng bằng **Paw Tally (萌主币)** kiếm được qua mỗi màn — món tự lên trang bị nếu còn chỗ.
-2. **Xếp trang bị**: mỗi món chiếm một **hình chữ nhật ô** (kiếm 1×3, đại đao 2×3, thân đao 1×4, ngọc/đan 1×1).
-3. **Xoay 90°** món bằng **chuột phải** hoặc nút **⟳** khi chật — **kể cả đang giữ chuột kéo**. Chỉ xoay được nếu hướng mới vừa chỗ. Món dài (**1×4**) không lọt lưới trang bị đang mở thì **phải xoay** rồi mới thả được — game không tự xoay hộ.
-4. **Nhập 2 món giống hệt** (thả chồng lên nhau) → `+1★` (tối đa **4★**). Bán lại nhận **50%** Paw Tally.
-5. **Đấu Thú Cưng** — thú tự động đánh. Xem lại toàn bộ diễn biến ở tốc độ ×1/×2/×4/×8.
-6. **60 màn / 3 bản đồ** (Tụ Khốt Châu → Hỏa La Quốc → Stormchant), màn 10/20/30… là **thủ lĩnh**.
-7. **Giao hữu PvP** với đối thủ được sinh theo sức mạnh của bạn (không ảnh hưởng tiến trình màn).
+1. **Buy items** on the Cửa hàng screen with **Paw Tally (萌主币)** earned from each stage — items go onto Trang bị automatically if there is room.
+2. **Arrange Trang bị**: each item occupies a **rectangular block of cells** (sword 1×3, great sabre 2×3, blade shaft 1×4, jade/pill 1×1).
+3. **Rotate 90°** with **right click** or the **⟳** button when space is tight — **even while holding the mouse button and dragging**. Rotation only works when the new orientation fits. A long item (**1×4**) that does not fit the open Trang bị grid **must be rotated** before it can be dropped — the game does not rotate it for you.
+4. **Merge 2 identical items** (drop one on top of the other) → `+1★` (up to **4★**). Selling back returns **50%** of the Paw Tally.
+5. **Đấu Thú Cưng** — pets fight automatically. Replay the whole sequence at ×1/×2/×4/×8 speed.
+6. **60 stages / 3 maps** (Tụ Khốt Châu → Hỏa La Quốc → Stormchant), stages 10/20/30… are **bosses**.
+7. **PvP friendly matches** against a rival generated from your own power (does not affect stage progression).
 
-Tiến trình lưu tự động vào `localStorage` (khoá `martial-cutie-save`), và đồng bộ lên server khi đã đăng nhập. Nút **Nhiệm Vụ** và **Bộ Sưu Tập** đã có chỗ trong bố cục nhưng chưa có nội dung — bấm vào sẽ báo "sẽ có ở bản sau".
+Progress is saved automatically into `localStorage` (key `martial-cutie-save`) and synced to the server once signed in. The **Nhiệm Vụ** and **Bộ Sưu Tập** buttons already have a place in the layout but no content yet — clicking them reports "sẽ có ở bản sau".
 
-## Cơ chế chiến đấu
+## Combat mechanics
 
-Mô phỏng theo bước 50 ms, **hoàn toàn tất định** theo seed → cùng một trận luôn diễn ra y hệt, có thể replay.
+Simulated in 50 ms steps, **fully deterministic** by seed → the same battle always plays out identically and can be replayed.
 
-- **Máu (HP)** + **Giáp khởi đầu (shield)** hấp thụ sát thương trước.
-- **Kiếm Thế (Sword Energy)**: hồi theo thời gian, và **+4 mỗi lần bị đánh**.
-    - **Chấn Đao (Counter)** — tốn **65 Kiếm Thế**, tỉ lệ theo `counterChance`: phá đòn, phản kích bằng `referenceAtk × counterPower` và **đẩy lùi thanh đòn của đối thủ 350 ms**.
-    - **Trọng kích (Charged Attack)** — tốn **24–40 Kiếm Thế** (tuỳ tốc độ vũ khí), sát thương **×2.2**.
-- **Hiệu ứng trạng thái**: Chậm, Đóng Băng, Độc, Cháy, Hồi phục, Cuồng phong, Giòn.
-- **Liền kề (adjacency)**: hào khí như *Trống Trận* chỉ kích hoạt khi có **vũ khí liền kề**; *Cờ Lụa* cần **một món không phải vũ khí liền kề** — tính từ **mọi ô** món chiếm, nhờ đó vị trí đặt đồ trong kho mới quan trọng.
+- **Máu (HP)** + **starting shield** absorb damage first.
+- **Kiếm Thế (Sword Energy)**: regenerates over time, and **+4 every time you are hit**.
+    - **Chấn Đao (Counter)** — costs **65 Kiếm Thế**, chance based on `counterChance`: breaks the attack, counters with `referenceAtk × counterPower` and **pushes the opponent's attack bar back 350 ms**.
+    - **Trọng kích (Charged Attack)** — costs **24–40 Kiếm Thế** (depending on weapon speed), damage **×2.2**.
+- **Status effects**: Chậm, Đóng Băng, Độc, Cháy, Hồi phục, Cuồng phong, Giòn.
+- **Adjacency**: an aura such as *Trống Trận* only triggers when there is an **adjacent weapon**; *Cờ Lụa* needs **one adjacent non-weapon item** — computed from **every cell** an item occupies, which is why where you place items matters.
 
-Thông số cân bằng nằm ở [`frontend/src/game/items.ts`](frontend/src/game/items.ts), [`frontend/src/game/stages.ts`](frontend/src/game/stages.ts) và [`frontend/src/game/pets.ts`](frontend/src/game/pets.ts).
+Balance numbers live in [`frontend/src/game/items.ts`](frontend/src/game/items.ts), [`frontend/src/game/stages.ts`](frontend/src/game/stages.ts) and [`frontend/src/game/pets.ts`](frontend/src/game/pets.ts).
 
-## Cấu trúc mã nguồn
+## Source layout
 
 ```
-frontend/                     # Gói `frontend`
-├─ src/game/                  # Lõi game thuần logic (không phụ thuộc React)
-│  ├─ types.ts                # Kiểu dữ liệu domain
-│  ├─ items.ts                # 24 vật phẩm × 4★ (Vũ khí / Hộ giáp / Hồn Ngọc / Pháp Bảo / Đan Dược)
-│  ├─ pets.ts                 # 3 thú cưng, 5 cấp, số hàng kho theo cấp (4 cột)
-│  ├─ stages.ts               # 60 màn / 3 bản đồ + blueprint PvP
-│  ├─ build.ts                # Gộp passive + hào khí → chỉ số chiến đấu
-│  ├─ battle.ts               # Mô phỏng auto-battle tất định
-│  ├─ sanitize.ts             # Chuẩn hoá bản lưu hỏng (chống trắng trang)
-│  ├─ art.ts                  # Tra đường dẫn art (có thì dùng ảnh, không thì emoji)
-│  ├─ bag.ts                  # Lưới nhiều ô: va chạm, xoay, nhập sao, giá bán
-│  ├─ economy.ts              # Roll shop, reroll
-│  └─ rng.ts                  # PRNG mulberry32 (tất định)
-├─ src/api/                   # Nói chuyện với backend
-│  ├─ client.ts               # fetch thuần + lớp ApiError
-│  ├─ queries.ts              # TanStack Query: phiên đăng nhập, đẩy/nạp bản lưu
+frontend/                     # The `frontend` package
+├─ src/game/                  # Pure-logic game core (no React dependency)
+│  ├─ types.ts                # Domain types
+│  ├─ items.ts                # 24 items × 4★ (Vũ khí / Hộ giáp / Hồn Ngọc / Pháp Bảo / Đan Dược)
+│  ├─ pets.ts                 # 3 pets, 5 levels, number of storage rows per level (4 columns)
+│  ├─ stages.ts               # 60 stages / 3 maps + PvP blueprint
+│  ├─ build.ts                # Merge passive + aura → combat stats
+│  ├─ battle.ts               # Deterministic auto-battle simulation
+│  ├─ sanitize.ts             # Normalise a broken save (anti blank page)
+│  ├─ art.ts                  # Resolve art paths (image when available, emoji otherwise)
+│  ├─ bag.ts                  # Multi-cell grid: collision, rotation, star merge, sell price
+│  ├─ economy.ts              # Shop rolls, reroll
+│  └─ rng.ts                  # mulberry32 PRNG (deterministic)
+├─ src/api/                   # Talking to the backend
+│  ├─ client.ts               # Plain fetch + ApiError class
+│  ├─ queries.ts              # TanStack Query: session, pushing/pulling the save
 │  ├─ queryClient.ts          # createQueryClient()
-│  └─ saveSync.ts             # pushRun/pullRun — luật đồng bộ, tách khỏi React
+│  └─ saveSync.ts             # pushRun/pullRun — the sync rules, kept out of React
 ├─ src/store/
-│  ├─ gameStore.ts            # Zustand + persist localStorage (luật chơi, tiến trình)
-│  ├─ persistedSave.ts        # Đọc/ghi localStorage của bản lưu
-│  └─ uiStore.ts              # Hộp thoại bản đồ / đăng nhập
+│  ├─ gameStore.ts            # Zustand + localStorage persist (game rules, progress)
+│  ├─ persistedSave.ts        # Reading/writing the save in localStorage
+│  └─ uiStore.ts              # Map / sign-in dialogs
 ├─ src/router.tsx             # createRouter(routeTree)
-├─ src/routeTree.gen.ts       # Cây route do plugin sinh — đừng sửa tay
-├─ src/routes/                # Mỗi màn hình một file
-│  ├─ __root.tsx              # Khung chung (TopBar, hộp thoại, Toasts)
+├─ src/routeTree.gen.ts       # Route tree generated by the plugin — do not edit by hand
+├─ src/routes/                # One file per screen
+│  ├─ __root.tsx              # Shared frame (TopBar, dialogs, Toasts)
 │  ├─ index.tsx               # Phòng chuẩn bị (/)
 │  └─ cua-hang.tsx            # Cửa hàng (/cua-hang)
-├─ src/components/            # UI React
-│  ├─ ItemIcon.tsx            # ItemIcon / PetIcon / SkillIcon — art hoặc emoji dự phòng
-│  ├─ ArtIcon.tsx             # Hiển thị ảnh, tự lùi về emoji khi thiếu file
-│  ├─ GridBoard.tsx           # Lưới nhiều ô dùng chung (kho + bảng trang bị)
-│  ├─ PrepScreen.tsx          # Phòng chuẩn bị (đường dẫn /)
-│  ├─ ShopScreen.tsx          # Trang cửa hàng riêng (/cua-hang)
-│  ├─ ActionBar.tsx           # Thanh nút đáy: Mua Vật Phẩm · Nhiệm Vụ · Bộ Sưu Tập · Bản đồ · Đấu
-│  ├─ PetLoadoutPanel.tsx     # TRANG BỊ (đang mang) + nút mở cửa hàng
-│  └─ …                       # TopBar, InventoryPanel, PetPanel, BattleScreen, dialog…
-├─ src/styles/app.css         # @theme (design token) + @utility riêng
-├─ src/test/router.tsx        # Helper render có router cho test
-├─ public/icons/              # Art vật phẩm/thú cưng/kỹ năng (xem docs/ASSETS.md)
-├─ Dockerfile                 # image `fr` (ngữ cảnh build = gốc repo)
-└─ nginx.conf                 # SPA fallback + proxy /api → be:8000
+├─ src/components/            # React UI
+│  ├─ ItemIcon.tsx            # ItemIcon / PetIcon / SkillIcon — art or emoji fallback
+│  ├─ ArtIcon.tsx             # Renders the image, falls back to emoji when the file is missing
+│  ├─ GridBoard.tsx           # Shared multi-cell grid (Kho đồ + Trang bị panel)
+│  ├─ PrepScreen.tsx          # Phòng chuẩn bị (path /)
+│  ├─ ShopScreen.tsx          # Separate Cửa hàng screen (/cua-hang)
+│  ├─ ActionBar.tsx           # Bottom button bar: Mua Vật Phẩm · Nhiệm Vụ · Bộ Sưu Tập · Bản đồ · Đấu
+│  ├─ PetLoadoutPanel.tsx     # Trang bị (currently carried) + shop button
+│  └─ …                       # TopBar, InventoryPanel, PetPanel, BattleScreen, dialogs…
+├─ src/styles/app.css         # @theme (design tokens) + project @utility rules
+├─ src/test/router.tsx        # Router-aware render helper for tests
+├─ public/icons/              # Item/pet/skill art (see docs/ASSETS.md)
+├─ Dockerfile                 # The `fr` image (build context = repo root)
+└─ nginx.conf                 # SPA fallback + /api proxy → be:8000
 
-backend/                      # Gói `backend`
+backend/                      # The `backend` package
 ├─ src/                       # Fastify: config, db, oauth, security, services, routes
-├─ prisma/schema.prisma       # Bảng users, oauth_identities, game_saves
-├─ prisma/migrations/0_init/  # SQL baseline (idempotent, chạy được trên DB đang có)
-├─ tests/                     # Vitest — mỗi test rollback, không để lại dữ liệu
-├─ Dockerfile                 # image `be` (ngữ cảnh build = gốc repo), chạy bằng tsx
-└─ docker-entrypoint.sh       # chờ DB → prisma migrate deploy → tsx src/main.ts
+├─ prisma/schema.prisma       # users, oauth_identities, game_saves tables
+├─ prisma/migrations/0_init/  # Baseline SQL (idempotent, runs on an existing DB)
+├─ tests/                     # Vitest — every test rolls back, leaves no data behind
+├─ Dockerfile                 # The `be` image (build context = repo root), run with tsx
+└─ docker-entrypoint.sh       # wait for DB → prisma migrate deploy → tsx src/main.ts
 ```
 
-### API chính
+### Main API
 
-| Method | Đường dẫn                        | Việc                                          |
+| Method | Path                             | What it does                                  |
 | ------ | -------------------------------- | --------------------------------------------- |
-| GET    | `/api/auth/session`              | Trạng thái đăng nhập + nhà cung cấp khả dụng  |
-| GET    | `/api/auth/google/login`         | Chuyển hướng sang Google                       |
-| GET    | `/api/auth/google/callback`      | Nhận mã uỷ quyền, tạo phiên                   |
-| POST   | `/api/auth/logout`               | Đăng xuất, thu hồi token cũ                   |
-| GET    | `/api/me`                        | Hồ sơ người dùng hiện tại                     |
-| GET    | `/api/me/save`                   | Bản lưu trên server                           |
-| PUT    | `/api/me/save`                   | Ghi bản lưu (có kiểm tra `revision`)          |
-| GET    | `/api/health`                    | Kiểm tra sống + nhà cung cấp đã cấu hình      |
-| GET    | `/docs` (Fastify)                | Không có Swagger; xem `backend/src/routes/`    |
+| GET    | `/api/auth/session`              | Sign-in status + available providers          |
+| GET    | `/api/auth/google/login`         | Redirect to Google                            |
+| GET    | `/api/auth/google/callback`      | Receive the authorization code, create a session |
+| POST   | `/api/auth/logout`               | Sign out, revoke old tokens                   |
+| GET    | `/api/me`                        | Current user profile                          |
+| GET    | `/api/me/save`                   | The save stored on the server                 |
+| PUT    | `/api/me/save`                   | Write the save (with a `revision` check)      |
+| GET    | `/api/health`                    | Liveness check + configured providers         |
+| GET    | `/docs` (Fastify)                | No Swagger; see `backend/src/routes/`          |
 
-## Kiểm thử
+## Testing
 
 ```bash
-pnpm test                      # 312 test frontend
-pnpm test:be                   # test backend (Vitest, chạy trong transaction rollback)
+pnpm test                      # 312 frontend tests
+pnpm test:be                   # backend tests (Vitest, run inside a rolling-back transaction)
 ```
 
-Frontend bao phủ: lưới trang bị nhiều ô & luật nhập sao, hình dạng/xoay vật phẩm, **tách trang bị ↔ kho** (mua tự lên trang bị, hết chỗ thì vào kho, tháo/mang qua lại), giá bán 50%, catalog vật phẩm, roll shop, thang 60 màn, chỉ số thú cưng, gộp passive/hào khí, tính tất định của battle, Chấn Đao, hiệu ứng trạng thái, toàn bộ vòng lặp store, playback màn đấu, **điều hướng phòng chuẩn bị ↔ cửa hàng**, **migration v1 → v2**, **chuẩn hoá bản lưu hỏng + màn hình khôi phục**, và **art có nền trong suốt thật** (`artAlpha.test.ts`).
+Frontend coverage: multi-cell Trang bị grids & star-merge rules, item shape/rotation, **splitting Trang bị ↔ Kho đồ** (buying puts items on Trang bị automatically, going to Kho đồ when full, unequipping/equipping back and forth), the 50% sell price, the item catalogue, shop rolls, the 60-stage ladder, pet stats, merging passives/auras, battle determinism, Chấn Đao, status effects, the whole store loop, battle playback, **navigating Phòng chuẩn bị ↔ Cửa hàng**, the **v1 → v2 migration**, **normalising a broken save + the recovery screen**, and **art with a real transparent background** (`artAlpha.test.ts`).
 
 ### Art
 
-Icon vật phẩm/thú cưng là **CC0 của [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** — không bắt buộc ghi công. Chi tiết nguồn, giấy phép, bảng ánh xạ và một cái bẫy đã gặp (pack ghi "transparent background" nhưng 31 file là ảnh đen đục): xem [`docs/ASSETS.md`](docs/ASSETS.md).
+Item/pet icons are **CC0 from [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** — attribution not required. For sources, licences, the mapping table and one trap that was hit (the pack says "transparent background" but 31 files are solid black): see [`docs/ASSETS.md`](docs/ASSETS.md).
 
-![Bảng icon vật phẩm](docs/images/icon-sheet.png)
+![Item icon sheet](docs/images/icon-sheet.png)
 
-Backend bao phủ: phiên đăng nhập, ẩn danh vẫn chơi được, đăng xuất thu hồi token, đồng bộ bản lưu + xung đột `revision`, giới hạn kích thước, luồng OAuth (state giả mạo, lỗi nhà cung cấp, chuẩn hoá hồ sơ), liên kết tài khoản theo email, và cấu hình (từ chối `JWT_SECRET` mẫu/quá ngắn).
+Backend coverage: sign-in sessions, anonymous play still working, logging out revoking tokens, save sync + `revision` conflicts, size limits, the OAuth flow (forged state, provider errors, profile normalisation), account linking by email, and configuration (rejecting a sample/too-short `JWT_SECRET`).
 
-## Dự án còn có thể làm
+## Things still worth doing
 
-- **Âm thanh / hiệu ứng đánh** — hiện chỉ có animation `shake` và floater sát thương.
-- **Tooltip chi tiết cho vật phẩm** — đang dùng thuộc tính `title`.
-- **PvP thật** — bảng xếp hạng, hoặc seed đối thủ chia sẻ được giữa người chơi.
-- **Nhiều bộ thú cưng hơn**, và lọc/tìm đồ khi kho đã nhiều món.
-- **Đa ngôn ngữ** — hiện hardcode tiếng Việt trong `items.ts`/`pets.ts`/component.
-- **Backend** — refresh token OAuth, rate limit, dọn phiên hết hạn. Bảng `oauth_identities` đã sẵn
-  sàng cho việc liên kết nhiều nhà cung cấp nhưng hiện chỉ dùng Google.
-- **`autoCodeSplitting` cho TanStack Router** — bundle hiện ~422 KB (134 KB gzip).
-- **Swagger/OpenAPI cho Fastify** — `/api/docs` của FastAPI đã mất khi chuyển sang Fastify.
+- **Audio / hit effects** — currently only a `shake` animation and a damage floater.
+- **Detailed item tooltips** — currently the `title` attribute.
+- **Real PvP** — leaderboards, or rival seeds that can be shared between players.
+- **More pet sets**, and filtering/searching items once Kho đồ is crowded.
+- **Localisation** — Vietnamese is currently hardcoded in `items.ts`/`pets.ts`/components.
+- **Backend** — OAuth refresh tokens, rate limiting, cleaning up expired sessions. The `oauth_identities`
+  table is ready for linking multiple providers but only Google is used today.
+- **`autoCodeSplitting` for TanStack Router** — the bundle is currently ~422 KB (134 KB gzip).
+- **Swagger/OpenAPI for Fastify** — FastAPI's `/api/docs` was lost when moving to Fastify.
 
-## Dành cho AI agent / phiên làm việc tiếp theo
+## For AI agents / the next session
 
-Đọc **[`AGENTS.md`](AGENTS.md)** trước khi sửa: bảng tra tài liệu, lệnh chạy, bố cục mã nguồn, các bất biến bắt buộc, và công thức thêm tính năng mới.
+Read **[`AGENTS.md`](AGENTS.md)** before changing anything: the documentation lookup table, the commands, the source layout, the mandatory invariants, and the recipe for adding a new feature.
 
-Chi tiết theo chủ đề nằm trong [`docs/`](docs/): [kiến trúc](docs/ARCHITECTURE.md) · [luật chơi](docs/GAME-RULES.md) · [kiểm thử](docs/TESTING.md) · [cân bằng](docs/BALANCE.md) · [art](docs/ASSETS.md) · [OAuth](docs/OAUTH-SETUP.md).
+Topic-specific details live in [`docs/`](docs/): [architecture](docs/ARCHITECTURE.md) · [game rules](docs/GAME-RULES.md) · [testing](docs/TESTING.md) · [balance](docs/BALANCE.md) · [art](docs/ASSETS.md) · [OAuth](docs/OAUTH-SETUP.md).

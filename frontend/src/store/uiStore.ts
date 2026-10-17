@@ -1,16 +1,17 @@
 import { create } from 'zustand'
 
 /**
- * Trạng thái giao diện dùng chung giữa thanh trên và các màn hình.
+ * UI state shared between the top bar and the screens.
  *
- * Vì sao không để trong component: `TopBar` nằm ở layout gốc còn nút mở bản đồ
- * nằm sâu trong `ActionBar` của phòng chuẩn bị. Với router, hai chỗ đó không còn
- * chung một component cha để truyền prop, nên trạng thái mở/đóng hộp thoại đặt ở đây.
+ * Why not keep it inside a component: `TopBar` sits in the root layout while the button that
+ * opens the stage map lives deep inside `ActionBar` in the preparation room. With the router those
+ * two no longer share a parent component to pass props through, so the open/closed state of the
+ * dialogs lives here.
  */
 interface UiStore {
 	mapOpen: boolean
 	loginOpen: boolean
-	/** `uid` của món đang mở **hộp thoại chi tiết**, `null` là đóng. */
+	/** `uid` of the item whose **detail dialog** is open; `null` means closed. */
 	itemUid: string | null
 	/**
 	 * Bumped every time the **content overlay** changes (loaded, or an admin just saved).

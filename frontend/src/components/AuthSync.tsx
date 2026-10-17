@@ -4,22 +4,22 @@ import { usePullRemoteSave, usePushRun, useSessionState } from '../api/queries'
 import { useGameStore } from '../store/gameStore'
 import { hasLocalRun } from '../store/persistedSave'
 
-/** Chờ bao lâu sau thay đổi cuối rồi mới đẩy lên máy chủ, tránh gọi API liên tục. */
+/** How long to wait after the last change before pushing to the server, to avoid hammering the API. */
 const PUSH_DEBOUNCE_MS = 1500
 
 /**
- * Cờ chống vòng lặp cho chế độ tự đăng nhập. Đặt trong `sessionStorage` (không
- * phải localStorage) để mở tab mới vẫn được đưa tới trang đăng nhập, nhưng một
- * tab đã thử rồi thì không thử lại — tránh vòng lặp vô hạn khi đăng nhập lỗi.
+ * Loop guard for auto-login mode. It lives in `sessionStorage` (not localStorage) so a new tab
+ * still gets taken to the login page, while a tab that already tried never tries again —
+ * avoiding an endless loop when login fails.
  */
 const AUTO_LOGIN_GUARD = 'martial-cutie-auto-login-attempted'
 
 /**
- * Cầu nối giữa game và backend:
- * 1. nạp bản máy chủ khi đăng nhập trên máy chưa có tiến trình,
- * 2. đọc kết quả đăng nhập từ query string,
- * 3. đẩy tiến trình lên máy chủ khi đã đăng nhập (localStorage vẫn là nguồn chính),
- * 4. tự chuyển tới Google nếu backend bật AUTO_LOGIN và khách chưa đăng nhập.
+ * The bridge between the game and the backend:
+ * 1. pull the server save when signing in on a device with no progress,
+ * 2. read the login outcome from the query string,
+ * 3. push progress to the server once signed in (localStorage stays the source of truth),
+ * 4. redirect to Google by itself when the backend enables AUTO_LOGIN and the guest is signed out.
  */
 export function AuthSync() {
 	const { user, loading, autoLogin, availableProviders } = useSessionState()
@@ -28,15 +28,15 @@ export function AuthSync() {
 	const run = useGameStore((state) => state.run)
 	const pushToast = useGameStore((state) => state.pushToast)
 
-	// `push` giữ trong ref thay vì đưa vào dependency của effect bên dưới: nếu không, mỗi
-	// lần mutation đổi trạng thái lại reset bộ đếm debounce và lần đẩy có thể không chạy.
+	// `push` is kept in a ref instead of becoming a dependency of the effect below: otherwise every
+	// mutation state change would reset the debounce timer and the push might never run.
 	const pushRef = useRef(push)
 	useEffect(() => {
 		pushRef.current = push
 	}, [push])
 
-	// Chơi trên máy mới: máy chưa có tiến trình nào thì lấy bản trên máy chủ.
-	// Chỉ chạy một lần cho mỗi phiên đăng nhập, và ❌ không chạy khi máy đã có tiến trình.
+	// Playing on a new device: when this device has no progress yet, take the server save.
+	// Runs once per login session, and ❌ does not run when the device already has progress.
 	const pulledRef = useRef(false)
 	useEffect(() => {
 		if (loading || !user || pulledRef.current) return
@@ -45,8 +45,8 @@ export function AuthSync() {
 		void pullRemoteSave()
 	}, [loading, user, pullRemoteSave])
 
-	// Đọc kết quả đăng nhập do backend chuyển hướng về, rồi xoá query cho sạch URL.
-	// Phải chạy trước effect tự đăng nhập bên dưới để không chuyển hướng lần nữa.
+	// Read the login outcome the backend redirected back with, then clean the query string.
+	// It must run before the auto-login effect below so it does not redirect again.
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search)
 		const outcome = params.get('login')
@@ -72,10 +72,10 @@ export function AuthSync() {
 	}, [loading, user, autoLogin, availableProviders])
 
 	/**
-	 * ⚠️ Guard `pushedRef`: so nội dung tiến trình đã đẩy với nội dung hiện tại.
+	 * ⚠️ The `pushedRef` guard: compares the pushed progress content with the current content.
 	 *
-	 * Không có guard này thì mỗi lần đẩy thành công lại làm store đổi → effect chạy lại →
-	 * **vòng lặp PUT vô tận**. Đã gặp đúng vòng lặp đó một lần, log xen kẽ 200/400.
+	 * Without this guard every successful push changes the store → the effect runs again →
+	 * **an endless PUT loop**. That loop really happened once, with logs alternating 200/400.
 	 */
 	const pushedRef = useRef<string | null>(null)
 	useEffect(() => {

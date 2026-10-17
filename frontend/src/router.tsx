@@ -2,14 +2,14 @@ import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 
 /**
- * Router của ứng dụng. Cây route sinh tự động từ `src/routes/` (xem vite.config.ts).
+ * The application router. The route tree is generated from `src/routes/` (see vite.config.ts).
  *
- * ⚠️ Đường dẫn URL là **nguồn sự thật** của màn hình đang mở. ❌ Không lưu màn hình
- * trong store nữa — làm vậy sẽ có hai nguồn và chúng lệch nhau.
+ * ⚠️ The URL is the **source of truth** for which screen is open. ❌ The screen is no longer kept
+ * in the store — that would create two sources, and they would drift apart.
  */
 export const appRouter = createRouter({
 	routeTree,
-	// Không cần khôi phục vị trí cuộn: mỗi màn hình đều vừa một khung nhìn.
+	// No need to restore scroll position: every screen fits in one viewport.
 	scrollRestoration: false,
 })
 

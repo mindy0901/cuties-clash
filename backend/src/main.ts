@@ -1,4 +1,4 @@
-/** Khởi động API: kết nối database, tạo bảng còn thiếu rồi lắng nghe ở cổng 8000. */
+/** Start the API: connect to the database, create missing tables, then listen on port 8000. */
 
 import { PrismaClient } from '@prisma/client'
 import { buildApp } from './app'
@@ -7,7 +7,7 @@ import { loadConfig } from './config'
 
 const API_PORT = 8000
 
-// `loadConfig` ném lỗi ngay nếu JWT_SECRET yếu — dừng trước khi mở cổng.
+// `loadConfig` throws immediately if JWT_SECRET is weak — stop before opening the port.
 const config = loadConfig()
 
 const prisma = new PrismaClient({
@@ -26,10 +26,10 @@ async function main(): Promise<void> {
 	})
 
 	await app.listen({ host: '0.0.0.0', port: API_PORT })
-	app.log.info(`${config.appName} đang nghe tại http://0.0.0.0:${API_PORT}`)
+	app.log.info(`${config.appName} listening at http://0.0.0.0:${API_PORT}`)
 
 	const shutdown = async (signal: string): Promise<void> => {
-		app.log.info(`Nhận ${signal}, đang dừng…`)
+		app.log.info(`Received ${signal}, shutting down…`)
 		await app.close()
 		await prisma.$disconnect()
 		process.exit(0)
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 }
 
 main().catch(async (error: unknown) => {
-	console.error('Không khởi động được API:', error)
+	console.error('Could not start the API:', error)
 	await prisma.$disconnect()
 	process.exit(1)
 })

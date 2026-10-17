@@ -5,15 +5,15 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
-/** Backend Fastify khi chạy dev (xem backend/README.md hoặc docker-compose.yml). */
+/** Fastify backend when running dev (see backend/README.md or docker-compose.yml). */
 const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:8000'
 
 /**
- * Trả `index.html` cho mọi đường dẫn không phải tệp có thật và không phải `/api/*`.
+ * Return `index.html` for every path that is not a real file and not `/api/*`.
  *
- * Dev server của Vite cũng cần việc này: mở thẳng http://localhost:5190/cua-hang
- * sẽ 404 nếu không có, còn trong Docker thì nginx lo (frontend/nginx.conf).
- * Middleware này chạy SAU proxy `/api` nên không nuốt mất lời gọi API.
+ * Vite's dev server needs this too: opening http://localhost:5190/cua-hang directly
+ * would 404 without it, while in Docker nginx takes care of it (frontend/nginx.conf).
+ * This middleware runs AFTER the `/api` proxy, so it does not swallow API calls.
  */
 function spaFallback(): Plugin {
 	return {
@@ -26,7 +26,7 @@ function spaFallback(): Plugin {
 				if (path.extname(url)) return next()
 				const indexFile = path.resolve(server.config.root, 'index.html')
 				if (!fs.existsSync(indexFile)) return next()
-				// Ghi đè URL để Vite chạy đúng transform HTML cho index.html.
+				// Override the URL so Vite runs the correct HTML transform for index.html.
 				req.url = '/index.html'
 				next()
 			})
@@ -37,7 +37,7 @@ function spaFallback(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [
-		// Sinh `src/routeTree.gen.ts` từ thư mục `src/routes`. Phải đứng TRƯỚC react().
+		// Generate `src/routeTree.gen.ts` from the `src/routes` directory. Must come BEFORE react().
 		tanstackRouter({
 			target: 'react',
 			routesDirectory: './src/routes',
@@ -50,17 +50,17 @@ export default defineConfig({
 	],
 	server: {
 		port: 5190,
-		// Trong container phải nghe trên 0.0.0.0 mới ra khỏi Docker được. Đặt qua biến
-		// môi trường thay vì truyền `--host` qua pnpm: dạng `pnpm --filter x dev -- --host`
-		// KHÔNG chuyển được tham số tới Vite (đã thử, Vite vẫn chỉ nghe 127.0.0.1).
+		// Inside a container it must listen on 0.0.0.0 to be reachable outside Docker. Set it via
+		// an environment variable instead of passing `--host` via pnpm: the form `pnpm --filter x dev -- --host`
+		// does NOT forward arguments to Vite (tried it, Vite still listened on 127.0.0.1 only).
 		host: process.env.VITE_DEV_HOST === 'true' ? true : undefined,
-		// Bind mount của Windows/Docker nhiều khi không phát sự kiện filesystem tới
-		// container, làm HMR im lặng không chạy. Service `vite` trong compose đặt
-		// VITE_USE_POLLING=1; chạy trực tiếp trên máy thì không bật (polling tốn CPU).
+		// Windows/Docker bind mounts often do not emit filesystem events to the
+		// container, which silently stops HMR. The `vite` service in compose sets
+		// VITE_USE_POLLING=1; running directly on the machine leaves it off (polling costs CPU).
 		watch: process.env.VITE_USE_POLLING ? { usePolling: true, interval: 300 } : undefined,
 		proxy: {
-			// Chuyển tiếp mọi lời gọi API sang Fastify. Nhờ vậy trình duyệt luôn nói
-			// chuyện cùng origin, cookie phiên hoạt động giống hệt khi chạy production.
+			// Forward every API call to Fastify. That way the browser always talks
+			// to the same origin, and the session cookie behaves exactly as in production.
 			'/api': {
 				target: API_TARGET,
 				changeOrigin: false,

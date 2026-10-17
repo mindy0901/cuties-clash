@@ -151,7 +151,7 @@ describe('editing content', () => {
 		await screen.findByText('wooden-blade')
 		await waitFor(() => {
 			const entry = document.querySelector<HTMLElement>('[data-admin-entry="fire-spear"]')
-			expect(entry?.textContent, 'mục đang bị ghi đè phải được đánh dấu').toContain('●')
+			expect(entry?.textContent, 'an overridden entry must be marked').toContain('●')
 		})
 	})
 })

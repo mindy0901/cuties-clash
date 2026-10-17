@@ -24,17 +24,17 @@ import {
 const DEBUFFS: StatusKey[] = ['slow', 'freeze', 'poison', 'burn', 'brittle']
 const DAMAGE_KINDS = new Set(['attack', 'charged', 'counter', 'active'])
 const SPEEDS = [1, 2, 4, 8]
-/** Nhịp diễn lại: mỗi 60 ms thực thi một nhịp thời gian mô phỏng ở tốc độ ×1. */
+/** Replay tick: every 60 ms of real time advances 60 ms of simulated time at ×1 speed. */
 const TICK_MS = 60
 
-/** Kỹ năng hiện ở đáy khung đại diện — kèm `uid` để tra tiến độ hồi trong `SideState.cooldowns`. */
+/** A skill shown at the bottom of the avatar frame — with `uid` to look up charge in `SideState.cooldowns`. */
 interface SkillChip {
 	uid: string
 	icon: ReactNode
 	label: string
 }
 
-/** Trang bị của đối thủ (`ItemBlueprint`) → món hiển thị được trên lưới. */
+/** Opponent loadout (`ItemBlueprint`) → items the grid can display. */
 function toGridItems(entries: ItemBlueprint[]): ItemInstance[] {
 	return entries.map((entry) => ({
 		uid: combatItemUid(entry.templateId, entry.slot),
@@ -47,10 +47,11 @@ function toGridItems(entries: ItemBlueprint[]): ItemInstance[] {
 }
 
 /**
- * Ô kỹ năng của **món**: chỉ món có **hiệu lực chủ động** mới hiện, vì chỉ chúng có nhịp riêng.
+ * Skill slot for an **item**: only items with an **active effect** show up, since only they have
+ * a cycle of their own.
  *
- * `uid` phải trùng cách `buildCombatant` đặt uid cho món (`combatItemUid`) thì mới tra được tiến
- * độ hồi chiêu mà màn đấu nhận từ `SideState.cooldowns`.
+ * `uid` must match how `buildCombatant` sets an item's uid (`combatItemUid`) for the cooldown
+ * progress from `SideState.cooldowns` to be found.
  */
 function activeItemChips(items: ItemInstance[]): SkillChip[] {
 	return items
@@ -62,7 +63,7 @@ function activeItemChips(items: ItemInstance[]): SkillChip[] {
 		}))
 }
 
-/** Gắn tiến độ hồi chiêu (0–100) của từng ô kỹ năng theo trạng thái hiện tại của bên đó. */
+/** Attaches each skill slot's cooldown progress (0–100) from that side's current state. */
 function withCharge(state: SideState, chips: SkillChip[]): AvatarSkill[] {
 	return chips.map((chip) => {
 		const cooldown = state.cooldowns.find((entry) => entry.uid === chip.uid)
@@ -73,10 +74,10 @@ function withCharge(state: SideState, chips: SkillChip[]): AvatarSkill[] {
 }
 
 /**
- * Thanh máu + Kiếm Thế của **một bên**, đặt hai đầu thanh trên.
+ * Health + Sword Energy bars for **one side**, placed at the two ends of the top bar.
  *
- * Bên địch soi gương (`items-end` + `ml-auto`) để hai thanh cùng rút về phía huy hiệu ở giữa —
- * giống ảnh tham chiếu, và nhìn là biết bên nào đang mất máu.
+ * The enemy side is mirrored (`items-end` + `ml-auto`) so both bars drain towards the badge in
+ * the middle — like the reference art, and it is obvious which side is losing health.
  */
 function HpPanel({ side, state }: { side: 'player' | 'enemy'; state: SideState }) {
 	const enemy = side === 'enemy'
@@ -136,7 +137,7 @@ function HpPanel({ side, state }: { side: 'player' | 'enemy'; state: SideState }
 	)
 }
 
-/** Huy hiệu giữa hai thanh máu: hai ảnh đại diện nhỏ, tên hai bên, và nhịp thời gian trận. */
+/** Badge between the two health bars: the two small avatars, both names, and the battle clock. */
 function VersusBadge({
 	petId,
 	opponentEmoji,
@@ -186,7 +187,8 @@ function VersusBadge({
 }
 
 /**
- * Vách ngăn giữa hai lưới trang bị — chỉ để trang trí, thay cho cột đá giữa ảnh tham chiếu.
+ * Divider between the two loadout grids — purely decorative, standing in for the stone pillar in
+ * the reference art.
  */
 function ArenaDivider() {
 	return (
@@ -199,7 +201,7 @@ function ArenaDivider() {
 	)
 }
 
-/** Diễn lại trận đã mô phỏng sẵn, rồi chốt kết quả. */
+/** Replays the pre-simulated battle, then commits the result. */
 export function BattleScreen() {
 	const battle = useGameStore((state) => state.battle)
 	const run = useGameStore((state) => state.run)
@@ -335,7 +337,7 @@ export function BattleScreen() {
 					</div>
 				</div>
 
-				{/* ── Thanh trên: máu hai bên + huy hiệu đối đầu ───────────────────── */}
+				{/* ── Top bar: both sides' health + the versus badge ──────────────── */}
 				<div className="grid items-center gap-3 lg:grid-cols-[1fr_auto_1fr]">
 					<HpPanel side="player" state={current.player} />
 					<VersusBadge
@@ -350,7 +352,7 @@ export function BattleScreen() {
 					<HpPanel side="enemy" state={current.enemy} />
 				</div>
 
-				{/* ── Sàn đấu: đại diện hai bên + lưới trang bị (dùng lại `LoadoutGrid`) ── */}
+				{/* ── Arena: both avatars + the loadout grids (reusing `LoadoutGrid`) ── */}
 				<div className="flex flex-wrap items-stretch justify-center gap-3">
 					<AvatarCard
 						side="player"

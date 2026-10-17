@@ -5,46 +5,47 @@ import { PETS } from '../pets'
 import type { Star } from '../types'
 
 /**
- * Art khai báo trong `items.ts`/`pets.ts` **phải có file thật**.
+ * Art declared in `items.ts`/`pets.ts` **must have a real file behind it**.
  *
- * Nếu thiếu, giao diện vẫn không vỡ (tự lùi về emoji), nhưng người chơi sẽ thấy lẫn
- * lộn: món này có ảnh, món kia là emoji. Test này bắt lỗi đó ngay.
+ * When one is missing the UI still does not break (it falls back to the emoji), but the player sees
+ * an inconsistent mix: one item has an image and the next one is an emoji. This test catches that
+ * right away.
  *
- * `import.meta.glob` chạy qua Vite nên không cần type Node — `tsconfig.app.json` chỉ
- * khai báo `types: ["vite/client"]`.
+ * `import.meta.glob` runs through Vite, so no Node types are needed — `tsconfig.app.json` only
+ * declares `types: ["vite/client"]`.
  */
 const FILES = new Set(Object.keys(import.meta.glob('../../../public/icons/**/*.png')))
 
-/** Đổi đường dẫn public (`/icons/x.png`) thành khoá trong `FILES`. */
+/** Turn a public path (`/icons/x.png`) into a key inside `FILES`. */
 function toKey(publicPath: string): string {
 	return `../../../public${publicPath}`
 }
 
-describe('art vật phẩm', () => {
+describe('item art', () => {
 	const templatesWithStars = ITEM_TEMPLATES.filter((template) => template.stars?.length)
 
-	it('có ít nhất một template dùng art', () => {
+	it('has at least one template that uses art', () => {
 		expect(templatesWithStars.length).toBeGreaterThan(0)
 	})
 
 	it.each(templatesWithStars.map((template) => [template.id, template] as const))(
-		'%s có đủ file cho mọi sao đã khai báo',
+		'%s has a file for every declared star rank',
 		(_id, template) => {
 			for (const star of template.stars ?? []) {
 				const src = itemArtSrc(template.id, star)
-				expect(src, `${template.id} sao ${star} phải trả đường dẫn`).not.toBeNull()
-				expect(FILES.has(toKey(src!)), `thiếu file ${src}`).toBe(true)
+				expect(src, `${template.id} star ${star} must return a path`).not.toBeNull()
+				expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
 			}
 		},
 	)
 
-	it('không khai báo art cho sao không tồn tại', () => {
+	it('never declares art for a star rank that does not exist', () => {
 		const declared = new Set(templatesWithStars.flatMap((template) => template.stars ?? []))
 		for (const star of declared) expect([1, 2, 3, 4]).toContain(star)
 	})
 
-	it('mọi file item trong public/ đều có template tương ứng', () => {
-		// Bắt file thừa/thừa gõ sai tên — dấu hiệu ánh xạ sai.
+	it('every item file in public/ has a matching template', () => {
+		// Catches extra files or typos in the name — a sign of a wrong mapping.
 		const orphans = [...FILES]
 			.filter((key) => key.includes('/icons/items/'))
 			.map((key) => key.replace(/^.*\/icons\/items\//, '').replace(/-\d\.png$/, ''))
@@ -53,21 +54,21 @@ describe('art vật phẩm', () => {
 	})
 })
 
-describe('art thú cưng và kỹ năng', () => {
-	it.each(PETS.map((pet) => [pet.id, pet] as const))('%s có art và art kỹ năng nếu đã khai báo', (_id, pet) => {
+describe('pet and skill art', () => {
+	it.each(PETS.map((pet) => [pet.id, pet] as const))('%s has art and skill art when declared', (_id, pet) => {
 		if (pet.art) {
 			const src = petArtSrc(pet.id)
 			expect(src).not.toBeNull()
-			expect(FILES.has(toKey(src!)), `thiếu file ${src}`).toBe(true)
+			expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
 		}
 		if (pet.skillArt) {
 			const src = skillArtSrc(pet.id)
 			expect(src).not.toBeNull()
-			expect(FILES.has(toKey(src!)), `thiếu file ${src}`).toBe(true)
+			expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
 		}
 	})
 
-	it('mọi file pet/skill trong public/ đều có thú cưng tương ứng', () => {
+	it('every pet/skill file in public/ has a matching pet', () => {
 		const orphanPets = [...FILES]
 			.filter((key) => key.includes('/icons/pets/'))
 			.map((key) => key.replace(/^.*\/icons\/pets\//, '').replace(/\.png$/, ''))
@@ -82,13 +83,13 @@ describe('art thú cưng và kỹ năng', () => {
 	})
 })
 
-describe('lùi về emoji khi không có art', () => {
-	it('trả null cho món không khai báo sao nào', () => {
+describe('falls back to the emoji when art is missing', () => {
+	it('returns null for an item that declares no star rank', () => {
 		const bare = ITEM_TEMPLATES.find((template) => !template.stars?.length)
 		if (bare) expect(itemArtSrc(bare.id, 1 as Star)).toBeNull()
 	})
 
-	it('trả null cho sao không nằm trong danh sách khai báo', () => {
+	it('returns null for a star rank outside the declared list', () => {
 		const template = ITEM_TEMPLATES.find((entry) => entry.stars?.length)
 		if (!template) return
 		const missingStar = ([1, 2, 3, 4] as Star[]).find((star) => !template.stars!.includes(star))

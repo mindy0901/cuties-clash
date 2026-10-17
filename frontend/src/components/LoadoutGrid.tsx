@@ -6,7 +6,7 @@ import { ItemIcon } from './ItemIcon'
 import type { HeldItem } from './useHeldItem'
 import { ITEM_BORDER_BY_CLASS, cn } from './ui'
 
-/** Số cột của bảng trang bị ở phòng chuẩn bị. */
+/** Number of columns of the loadout board in the preparation room. */
 export const LOADOUT_WIDTH = 4
 
 export interface LoadoutGridProps {
@@ -14,15 +14,15 @@ export interface LoadoutGridProps {
 	rows: number
 	usableCells?: number
 	items: ItemInstance[]
-	/** Cho phép bấm/kéo món trong lưới (chỉ ở trang bị). */
+	/** Allows clicking/dragging items on the board (loadout only). */
 	interactive?: boolean
 	held?: HeldItem | null
-	/** Bấm một món → mở hộp thoại chi tiết. */
+	/** Clicking an item → opens the detail dialog. */
 	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
-	/** Ô neo đang vẽ gợi ý — chỗ đặt dùng đúng ô này. */
+	/** Anchor cell the hint is drawn from — placement uses exactly this cell. */
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
@@ -30,8 +30,8 @@ export interface LoadoutGridProps {
 }
 
 /**
- * Lưới **Trang bị** — chỉ là lớp mỏng trên `GridBoard`, thêm nút ⟳ / ✕ cho mỗi món.
- * Nhờ vậy nó dùng **chung công thức và giao diện gợi ý** với lưới Kho đồ.
+ * The **Loadout** grid — a thin layer on top of `GridBoard` that adds the ⟳ / ✕ buttons per item.
+ * That way it shares **the same formulas and hint UI** as the inventory grid.
  */
 export function LoadoutGrid({
 	width = LOADOUT_WIDTH,

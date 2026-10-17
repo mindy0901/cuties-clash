@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitest/config'
 
 /**
- * Test chạy tuần tự (`fileParallelism: false`) vì mọi test dùng **chung một database
- * thật** (Postgres dev) và mỗi test nằm trong một transaction riêng. Chạy song song
- * thì hai transaction cùng chèn một email sẽ chờ khoá của nhau → dễ deadlock.
+ * Tests run sequentially (`fileParallelism: false`) because every test shares **one real
+ * database** (the dev Postgres) and each test sits in its own transaction. Running them in
+ * parallel would make two transactions inserting the same email wait on each other's lock →
+ * deadlock is easy.
  */
 export default defineConfig({
   test: {

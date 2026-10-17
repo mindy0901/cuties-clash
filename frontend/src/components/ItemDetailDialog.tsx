@@ -7,14 +7,15 @@ import { itemArtSrc } from '../game/art'
 import { ITEM_BORDER_BY_CLASS, btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
 
 /**
- * **Chi tiết một món** — mở khi **bấm** vào món ở kho hoặc ở trang bị.
+ * **Item details** — opened by **clicking** an item in the inventory or the loadout.
  *
- * Vì sao là hộp thoại chứ không phải tooltip: `title` của trình duyệt không hiện trên cảm ứng,
- * biến mất khi rê chuột, và không chứa được bảng chỉ số. Trước đây bấm món là **nhấc lên**;
- * giờ thao tác đó đã dành hẳn cho kéo-thả nên bấm món rảnh ra để xem chi tiết.
+ * Why a dialog instead of a tooltip: the browser's `title` does not show on touch devices,
+ * disappears when the mouse moves away, and cannot hold a stat table. Clicking an item used to
+ * **pick it up**; that gesture now belongs to drag and drop, which frees the click for details.
  *
- * ⚠️ Hộp thoại tự tra món theo `uid` trong `run`: món có thể bị **bán trong lúc hộp thoại đang
- * mở**, lúc đó `item` là `undefined` và hộp thoại tự đóng (trả `null`) thay vì ném lỗi.
+ * ⚠️ The dialog looks the item up by `uid` in `run` itself: the item may be **sold while the
+ * dialog is open**, in which case `item` is `undefined` and the dialog closes itself (returns
+ * `null`) instead of throwing.
  */
 export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () => void }) {
 	const run = useGameStore((state) => state.run)

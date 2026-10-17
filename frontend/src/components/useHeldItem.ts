@@ -1,50 +1,52 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemInstance, Star } from '../game/types'
 
-/** Món đang được **kéo** (đang giữ chuột, chưa nhả). */
+/** The item being **dragged** (mouse still held down, not released yet). */
 export interface HeldItem {
 	uid: string
 	from: 'inventory' | 'loadout'
-	/** Hướng sẽ áp dụng khi đặt. Phím `R` hoặc chuột phải đổi giá trị này. */
+	/** Orientation to apply on drop. `R` or the right mouse button flips this. */
 	rotated: boolean
 	templateId: string
 	star: Star
-	/** Toạ độ con trỏ (px, viewport) — ảnh món bám theo đây. */
+	/** Cursor position (px, viewport) — the ghost image follows it. */
 	x: number
 	y: number
 }
 
 /**
- * Trạng thái "đang kéo một món" — **chỉ sống trong lúc giữ chuột**: từ `pointerdown` (đã đi
- * quá ngưỡng kéo) tới `pointerup`.
+ * The "an item is being dragged" state — it **only lives while the mouse is held**: from
+ * `pointerdown` (past the drag threshold) until `pointerup`.
  *
- * ⚠️ ❌ **Không còn nhấc/đặt bằng bấm.** Bấm một món giờ mở **hộp thoại chi tiết**, nên trạng
- * thái "đang cầm" không được phép sống qua cú nhả chuột. Nhờ vậy không còn cảnh món "cầm lửng"
- * bám theo con trỏ khi người chơi đã nhả chuột.
+ * ⚠️ ❌ **Picking up / placing by click is gone.** Clicking an item now opens the **detail
+ * dialog**, so the "held" state must not survive the pointer release. That removes the leftover
+ * item ghost that used to follow the cursor after the player let go.
  *
- * Thao tác:
- * - **Kéo** món (giữ chuột rồi di chuyển) → nhấc lên; **nhả chuột** → đặt xuống ô đang trỏ.
- * - `R` hoặc **chuột phải** khi đang kéo → xoay 90°. `Esc` → bỏ.
+ * Interactions:
+ * - **Drag** an item (hold the mouse and move) → picks it up; **release** → places it on the
+ *   hovered cell.
+ * - `R` or the **right mouse button** while dragging → rotates 90°. `Esc` → cancels.
  */
 export function useHeldItem(
 	loadout: ItemInstance[],
 	inventory: ItemInstance[],
 	/**
-	 * Gọi khi người chơi **huỷ** thao tác kéo (`Esc`).
+	 * Called when the player **cancels** the drag (`Esc`).
 	 *
-	 * ⚠️ VÌ SAO CẦN: cha còn giữ "món đang kéo" để đặt lúc **nhả chuột**. Chỉ `clear()` thôi thì
-	 * cú nhả sau đó vẫn đặt món xuống ô cuối cùng con trỏ đi qua — người chơi đã bấm huỷ mà món
-	 * vẫn bị dời.
+	 * ⚠️ WHY THIS IS NEEDED: the parent still holds "the dragged item" so it can place it on
+	 * **pointer release**. Clearing only the local state would let the following release drop the
+	 * item on the last cell the cursor passed over — the player cancelled, yet the item moved.
 	 */
 	onCancel?: () => void,
 ) {
 	const [held, setHeld] = useState<HeldItem | null>(null)
 
 	/**
-	 * Vị trí con trỏ gần nhất.
+	 * The most recent cursor position.
 	 *
-	 * ⚠️ VÌ SAO CẦN REF RIÊNG: khi kéo món từ trang bị xuống **kho**, `pointerup` bắn ở kho
-	 * nên lưới không nhận được; cha phải tự biết con trỏ đang ở đâu để quyết định "thả vào kho".
+	 * ⚠️ WHY A SEPARATE REF: when dragging an item from the loadout down into **storage**,
+	 * `pointerup` fires on the storage panel so the board never sees it; the parent has to know
+	 * where the cursor is to decide "drop into storage".
 	 */
 	const pointerRef = useRef({ x: 0, y: 0 })
 
@@ -54,12 +56,12 @@ export function useHeldItem(
 		[loadout, inventory],
 	)
 
-	/** Bắt đầu kéo một món. Ảnh bám con trỏ xuất phát từ vị trí con trỏ hiện tại. */
+	/** Starts dragging an item. The ghost starts from the current cursor position. */
 	const hold = useCallback((item: ItemInstance, from: 'inventory' | 'loadout') => {
 		setHeld({
 			uid: item.uid,
 			from,
-			// Giữ hướng đang có của món làm điểm bắt đầu.
+			// Start from the item's current orientation.
 			rotated: item.rotated ?? false,
 			templateId: item.templateId,
 			star: item.star,
@@ -70,12 +72,12 @@ export function useHeldItem(
 
 	const clear = useCallback(() => setHeld(null), [])
 
-	/** Xoay món đang kéo. An toàn khi không kéo gì. */
+	/** Rotates the dragged item. Safe when nothing is being dragged. */
 	const rotateHeld = useCallback(() => {
 		setHeld((current) => (current ? { ...current, rotated: !current.rotated } : current))
 	}, [])
 
-	// Giữ ảnh món bám theo con trỏ, và nghe phím tắt. Chỉ gắn khi thật sự đang kéo.
+	// Keep the ghost following the cursor and listen for shortcuts. Only attached while dragging.
 	useEffect(() => {
 		if (!held) return
 
@@ -94,7 +96,7 @@ export function useHeldItem(
 			}
 		}
 		const menu = (event: MouseEvent) => {
-			// Chuột phải = xoay (thay cho menu ngữ cảnh).
+			// Right mouse button = rotate (instead of the context menu).
 			event.preventDefault()
 			rotateHeld()
 		}

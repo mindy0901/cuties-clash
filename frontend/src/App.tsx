@@ -6,7 +6,7 @@ import { appRouter } from './router'
 const defaultQueryClient = createQueryClient()
 
 export interface AppProps {
-	/** Test truyền router riêng để mỗi ca có lịch sử điều hướng sạch. */
+	/** Tests pass their own router so each case has a clean navigation history. */
 	router?: AnyRouter
 	queryClient?: QueryClient
 }

@@ -1,9 +1,9 @@
 /**
- * Luồng OAuth 2.0 authorization code cho Google.
+ * OAuth 2.0 authorization code flow for Google.
  *
- * Dùng `fetch` (có sẵn trong Node 22) thay vì thư viện bao sẵn: luồng này chỉ có ba
- * bước (chuyển hướng, đổi code lấy token, đọc hồ sơ) nên tự viết dễ kiểm soát và dễ
- * thêm nhà cung cấp khác sau này.
+ * Uses `fetch` (built into Node 22) instead of a wrapper library: the flow only has three
+ * steps (redirect, exchange the code for a token, read the profile), so writing it by hand is
+ * easier to control and easier to extend with other providers later.
  */
 
 import type { Config } from './config'
@@ -16,7 +16,7 @@ export interface OAuthProvider {
 	readonly tokenUrl: string
 	readonly profileUrl: string
 	readonly scope: string
-	/** Google bắt buộc gửi lại scope khi đổi token. */
+	/** Google requires the scope to be sent again when exchanging the token. */
 	readonly scopeInTokenRequest: boolean
 	readonly extraAuthorizeParams: Readonly<Record<string, string>>
 	readonly extraTokenParams: Readonly<Record<string, string>>
@@ -44,7 +44,7 @@ export interface OAuthProfile {
 	avatarUrl?: string
 }
 
-/** Timeout cho mọi lời gọi ra nhà cung cấp (giây 15 như bản Python). */
+/** Timeout for every call out to the provider (15 seconds, same as the Python version). */
 const REQUEST_TIMEOUT_MS = 15_000
 
 const DEFAULT_GOOGLE_DISPLAY_NAME = 'Người chơi Google'
@@ -131,7 +131,7 @@ function optionalString(value: unknown): string | undefined {
 	return typeof value === 'string' ? value : undefined
 }
 
-/** Đọc hồ sơ OpenID Connect của Google (`sub`, `email`, `name`, `picture`). */
+/** Read Google's OpenID Connect profile (`sub`, `email`, `name`, `picture`). */
 export function parseGoogleProfile(provider: OAuthProvider, raw: Record<string, unknown>): OAuthProfile {
 	const email = optionalString(raw['email'])
 	const displayName =

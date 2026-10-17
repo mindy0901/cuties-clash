@@ -1,29 +1,30 @@
 /**
- * Đồng bộ bản lưu với máy chủ — logic thuần, **tách khỏi React** để test trực tiếp.
+ * Save synchronization with the server — pure logic, **kept out of React** so it can be tested
+ * directly.
  *
- * ⚠️ Ba lỗi đã từng xảy ra ở đây, cả ba đều gây 400 liên tục (xem AGENTS.md §4.4). Đọc kỹ
- * trước khi sửa:
+ * ⚠️ Three bugs happened here before, all three causing repeated 400s (see AGENTS.md §4.4). Read
+ * carefully before changing:
  *
- * 1. Gặp `revision_conflict` mà **nạp bản máy chủ đè lên** thì mất thay đổi vừa làm và lại
- *    xung đột ở lần sau. Phải: lấy revision mới → PUT lại **dữ liệu của mình** → thử lại
- *    **đúng một lần**.
- * 2. Nạp bản máy chủ mà ghi revision **sau** khi ghi localStorage thì lần đẩy ngay sau đó
- *    dùng revision cũ → xung đột. Phải ghi revision **trước**.
- * 3. Đẩy lên trong mỗi lần render → vòng lặp PUT vô tận. Guard `pushedRef` nằm ở `AuthSync`.
+ * 1. On `revision_conflict`, **loading the server save on top** loses the change just made and
+ *    conflicts again next time. Correct: fetch the new revision → PUT **your own data** again →
+ *    retry **exactly once**.
+ * 2. Loading the server save and recording the revision **after** writing localStorage makes the
+ *    push right after use a stale revision → conflict. The revision must be recorded **first**.
+ * 3. Pushing on every render → an endless PUT loop. The `pushedRef` guard lives in `AuthSync`.
  */
 import { ApiError, api } from './client'
 
-/** Nơi giữ revision đã biết của bản lưu. */
+/** Holds the known revision of the save. */
 export interface RevisionHolder {
 	get(): number
 	set(revision: number): void
 }
 
 /**
- * Đẩy tiến trình lên máy chủ.
+ * Pushes progress to the server.
  *
- * Trả về revision mới. Ném lỗi nếu thất bại (kể cả khi lần thử lại sau xung đột cũng lỗi) —
- * ❌ không thử vô tận.
+ * Returns the new revision. Throws when it fails (including when the retry after a conflict also
+ * fails) — ❌ it never retries forever.
  */
 export async function pushRun(run: unknown, revision: RevisionHolder): Promise<number> {
 	try {
@@ -33,7 +34,7 @@ export async function pushRun(run: unknown, revision: RevisionHolder): Promise<n
 	} catch (error) {
 		if (!(error instanceof ApiError) || error.code !== 'revision_conflict') throw error
 
-		// Máy khác vừa ghi. Lấy revision mới rồi thử lại **một lần** với tiến trình của mình.
+		// Another device just wrote. Fetch the new revision and retry **once** with our own progress.
 		const remote = await api.getSave()
 		const saved = await api.putSave(run as Record<string, unknown>, remote.revision)
 		revision.set(saved.revision)
@@ -43,17 +44,17 @@ export async function pushRun(run: unknown, revision: RevisionHolder): Promise<n
 
 export interface PullTargets {
 	revision: RevisionHolder
-	/** Ghi tiến trình của máy chủ vào localStorage. */
+	/** Writes the server's progress into localStorage. */
 	writeRun(run: unknown): void
-	/** Nạp lại store từ localStorage. */
+	/** Rehydrates the store from localStorage. */
 	rehydrate(): Promise<void>
 }
 
 /**
- * Nạp bản lưu từ máy chủ. Trả `false` khi máy chủ chưa có bản lưu nào.
+ * Loads the save from the server. Returns `false` when the server has no save yet.
  *
- * ⚠️ Thứ tự `revision.set()` → `writeRun()` → `rehydrate()` là **cố định**: ghi localStorage
- * sẽ kích hoạt effect đẩy lên, và lúc đó phải dùng đúng revision vừa lấy.
+ * ⚠️ The order `revision.set()` → `writeRun()` → `rehydrate()` is **fixed**: writing localStorage
+ * triggers the push effect, and by then it must use the revision just fetched.
  */
 export async function pullRun(targets: PullTargets): Promise<boolean> {
 	const remote = await api.getSave()

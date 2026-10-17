@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "API đăng nhập Google và đồng bộ tiến trình cho Martial Cutie (Fastify + Prisma)",
+  "description": "Google login and progress sync API for Martial Cutie (Fastify + Prisma)",
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "prisma generate && tsc --noEmit",

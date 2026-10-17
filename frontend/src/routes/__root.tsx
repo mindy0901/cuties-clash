@@ -14,10 +14,10 @@ import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 
 /**
- * Khung chung của mọi màn hình: thanh trên, các hộp thoại và thông báo.
+ * Shared frame for every screen: the top bar, the dialogs and the toasts.
  *
- * ⚠️ Trong trận (`battle` / `result`) thì hiện **màn đấu** thay cho `Outlet`, bất kể
- * đang ở đường dẫn nào — trận đấu không gắn với một route.
+ * ⚠️ During a battle (`battle` / `result`) the **battle screen** replaces `Outlet`, whichever URL
+ * is open — a battle is not tied to a route.
  */
 function RootLayout() {
 	const phase = useGameStore((state) => state.phase)
@@ -29,7 +29,7 @@ function RootLayout() {
 	const closeItem = useUiStore((state) => state.closeItem)
 	const contentVersion = useUiStore((state) => state.contentVersion)
 
-	// Trong trận thì luôn hiện màn đấu, bất kể đang ở đường dẫn nào.
+	// During a battle the battle screen is always shown, whichever URL is open.
 	const inBattle = phase === 'battle' || phase === 'result'
 
 	return (
@@ -55,7 +55,7 @@ function RootLayout() {
 	)
 }
 
-/** Đường dẫn lạ vẫn cho vào phòng chuẩn bị, không hiện trang trắng. */
+/** Unknown paths still open the preparation room instead of a blank page. */
 function NotFound() {
 	return <PrepScreen />
 }

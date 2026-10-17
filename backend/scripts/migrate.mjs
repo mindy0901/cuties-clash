@@ -1,17 +1,18 @@
 /**
- * Áp migration Prisma, tự xử lý trường hợp database **đã có bảng nhưng Prisma chưa biết**.
+ * Apply Prisma migrations, handling the case where the database **already has tables but
+ * Prisma does not know about them**.
  *
- * ⚠️ Vì sao cần script này: database dev/production hiện tại được tạo bởi **Alembic**, nên
- * `prisma migrate deploy` trần sẽ chết với **P3005 "The database schema is not empty"** —
- * Prisma từ chối áp migration `0_init` lên một schema không rỗng khi chưa có lịch sử.
+ * ⚠️ Why this script is needed: the current dev/production database was created by **Alembic**,
+ * so a bare `prisma migrate deploy` dies with **P3005 "The database schema is not empty"** —
+ * Prisma refuses to apply migration `0_init` to a non-empty schema when there is no history.
  *
- * Ba tình huống, xử lý hết:
- * 1. DB rỗng → `migrate deploy` tạo mọi thứ.
- * 2. DB đã có bảng, chưa có `_prisma_migrations` → đánh dấu baseline `0_init` **đã áp dụng**
- *    (không chạy lại DDL) rồi mới `deploy`.
- * 3. DB đã có `_prisma_migrations` → `deploy` như bình thường.
+ * Three situations, all handled:
+ * 1. Empty DB → `migrate deploy` creates everything.
+ * 2. DB already has tables but no `_prisma_migrations` → mark baseline `0_init` as **already
+ *    applied** (without re-running the DDL), then `deploy`.
+ * 3. DB already has `_prisma_migrations` → plain `deploy`.
  *
- * Nhờ vậy không phải "baseline bằng tay" và cũng không phải xoá database của ai.
+ * That way nobody has to "baseline by hand" and nobody has to drop anyone's database.
  */
 import { spawnSync } from 'node:child_process'
 import { PrismaClient } from '@prisma/client'
@@ -20,7 +21,7 @@ const BASELINE_MIGRATION = '0_init'
 
 const prisma = new PrismaClient()
 
-/** `::text` để Prisma không phải ánh xạ kiểu `regclass` (không có kiểu tương ứng). */
+/** `::text` so Prisma does not have to map the `regclass` type (which has no equivalent). */
 async function relationExists(name) {
 	const rows = await prisma.$queryRaw`SELECT to_regclass(${name})::text AS name`
 	return rows[0]?.name != null
@@ -36,7 +37,7 @@ const hasHistory = await relationExists('public._prisma_migrations')
 await prisma.$disconnect()
 
 if (hasAppTables && !hasHistory) {
-	console.log(`→ Database đã có bảng nhưng chưa có lịch sử Prisma: đánh dấu ${BASELINE_MIGRATION} là đã áp dụng.`)
+	console.log(`→ The database already has tables but no Prisma history: marking ${BASELINE_MIGRATION} as applied.`)
 	prismaCli(['migrate', 'resolve', '--applied', BASELINE_MIGRATION])
 }
 

@@ -2,7 +2,7 @@ import { MAPS, STAGES } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
 import { btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass } from './ui'
 
-/** Hành trình 60 màn thuộc 3 bản đồ của event (20 màn mỗi bản đồ). */
+/** The 60-stage journey across the event's 3 maps (20 stages per map). */
 export function StageMapDialog({ onClose }: { onClose: () => void }) {
 	const run = useGameStore((state) => state.run)
 

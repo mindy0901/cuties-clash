@@ -3,22 +3,22 @@ import { getPet } from './pets'
 import type { Star } from './types'
 
 /**
- * Tra đường dẫn art trong `public/`.
+ * Resolve an art path inside `public/`.
  *
- * Nguyên tắc: **chỉ trả về đường dẫn khi biết chắc file có thật**. Danh sách sao có
- * art được khai báo trong `items.ts`/`pets.ts` (`stars`, `artExt`), nên không cần
- * đoán file — đoán sai sẽ hiện icon vỡ.
+ * Rule: **only return a path when the file is known to exist**. The star ranks that have art are
+ * declared in `items.ts`/`pets.ts` (`stars`, `artExt`), so nothing is guessed — a wrong guess would
+ * render a broken icon.
  *
- * Không có art thì trả `null`, và component dùng emoji dự phòng.
+ * With no art this returns `null` and the component falls back to the emoji.
  */
 
-/** Art của một món đồ ở mức sao cụ thể. `null` = chưa có art, dùng emoji. */
+/** Art for one item at a specific star rank. `null` = no art yet, use the emoji. */
 export function itemArtSrc(templateId: string, star: Star): string | null {
 	const template = getTemplate(templateId)
 	return artPath('items', templateId, template.stars, star, template.artExt)
 }
 
-/** Art cho thú cưng (không phụ thuộc sao). */
+/** Art for a pet (independent of the star rank). */
 export function petArtSrc(petId: string): string | null {
 	const pet = getPet(petId)
 	if (!pet.art) return null
@@ -26,10 +26,10 @@ export function petArtSrc(petId: string): string | null {
 }
 
 /**
- * Art **đại diện** của thú cưng cho khung đấu sĩ (`/icons/pets/<id>-avatar.png`).
+ * The pet's **avatar** art for the fighter frame (`/icons/pets/<id>-avatar.png`).
  *
- * `null` = chưa có ảnh đại diện riêng; chỗ gọi lùi về `petArtSrc` rồi emoji, nên bổ sung ảnh sau
- * không phải sửa component nào (xem `docs/ASSETS.md`).
+ * `null` = no dedicated avatar yet; callers fall back to `petArtSrc` and then the emoji, so adding
+ * an image later needs no component change (see `docs/ASSETS.md`).
  */
 export function avatarArtSrc(petId: string): string | null {
 	const pet = getPet(petId)
@@ -37,7 +37,7 @@ export function avatarArtSrc(petId: string): string | null {
 	return `/icons/pets/${petId}-avatar.${pet.avatarExt ?? 'png'}`
 }
 
-/** Art cho kỹ năng của thú cưng. */
+/** Art for the pet's skill. */
 export function skillArtSrc(petId: string): string | null {
 	const pet = getPet(petId)
 	if (!pet.skillArt) return null

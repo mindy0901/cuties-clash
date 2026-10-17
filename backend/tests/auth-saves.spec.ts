@@ -1,4 +1,4 @@
-/** Phiên đăng nhập và đồng bộ bản lưu. */
+/** Login sessions and save syncing. */
 
 import { describe, expect, it } from 'vitest'
 import { config, cookieValue, findSetCookie, seedLoggedInUser, sessionCookies, withApp } from './helpers'
@@ -9,20 +9,20 @@ const RUN = {
 	items: [{ uid: 'a', templateId: 'great-axe', star: 2, slot: 0 }],
 }
 
-describe('phiên đăng nhập', () => {
-	it('ẩn danh khi không có cookie', () =>
+describe('login session', () => {
+	it('stays anonymous without a cookie', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({ method: 'GET', url: '/api/auth/session' })
 			expect(response.statusCode).toBe(200)
 			const body = response.json()
 			expect(body.authenticated).toBe(false)
 			expect(body.user).toBeNull()
-			// Chỉ Google được hỗ trợ và đã có key trong môi trường test.
+			// Only Google is supported and its keys are present in the test environment.
 			expect(body.available_providers).toEqual(['google'])
 			expect(body.auto_login).toBe(false)
 		}))
 
-	it('báo người dùng khi đã đăng nhập', () =>
+	it('reports the user when already signed in', () =>
 		withApp(async ({ app, db }) => {
 			const { user, sessionToken } = await seedLoggedInUser(db)
 			const body = (
@@ -34,17 +34,17 @@ describe('phiên đăng nhập', () => {
 			expect(body.user.providers).toEqual(['google'])
 		}))
 
-	it('bỏ qua cookie phiên không hợp lệ', () =>
+	it('ignores an invalid session cookie', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({
 				method: 'GET',
 				url: '/api/auth/session',
-				cookies: sessionCookies('token-bia-dat'),
+				cookies: sessionCookies('fake-token'),
 			})
 			expect(response.json().authenticated).toBe(false)
 		}))
 
-	it('GET kèm Content-Type JSON (frontend gắn cho mọi lời gọi) vẫn chạy', () =>
+	it('still works for a GET with a JSON Content-Type (the frontend sets it on every call)', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const response = await app.inject({
@@ -57,7 +57,7 @@ describe('phiên đăng nhập', () => {
 			expect(response.json().authenticated).toBe(true)
 		}))
 
-	it('/api/me đòi đăng nhập', () =>
+	it('/api/me requires a login', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({ method: 'GET', url: '/api/me' })
 			expect(response.statusCode).toBe(401)
@@ -65,7 +65,7 @@ describe('phiên đăng nhập', () => {
 			expect(response.headers['x-error-code']).toBe('unauthorized')
 		}))
 
-	it('/api/me trả hồ sơ người dùng đang đăng nhập', () =>
+	it('/api/me returns the signed-in user profile', () =>
 		withApp(async ({ app, db }) => {
 			const { user, sessionToken } = await seedLoggedInUser(db)
 			const body = (await app.inject({ method: 'GET', url: '/api/me', cookies: sessionCookies(sessionToken) })).json()
@@ -80,7 +80,7 @@ describe('phiên đăng nhập', () => {
 			})
 		}))
 
-	it('đăng xuất xoá cookie và thu hồi token cũ', () =>
+	it('logout clears the cookie and revokes old tokens', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			expect(
@@ -88,7 +88,7 @@ describe('phiên đăng nhập', () => {
 					.authenticated,
 			).toBe(true)
 
-			// Frontend gửi `Content-Type: application/json` kèm body rỗng cho lời gọi này.
+			// The frontend sends `Content-Type: application/json` with an empty body for this call.
 			const logout = await app.inject({
 				method: 'POST',
 				url: '/api/auth/logout',
@@ -97,20 +97,20 @@ describe('phiên đăng nhập', () => {
 			})
 			expect(logout.statusCode).toBe(200)
 			expect(logout.json()).toEqual({ ok: true })
-			// Cookie phiên bị xoá (giá trị rỗng) trên cùng đường dẫn.
+			// The session cookie is cleared (empty value) on the same path.
 			const cleared = findSetCookie(logout, config.cookieName)
 			expect(cleared).not.toBeNull()
 			expect(cookieValue(logout, config.cookieName)).toBe('')
 
-			// Token cũ mang epoch cũ nên hết hiệu lực ngay.
+			// The old token carries the old epoch, so it stops working immediately.
 			const stale = await app.inject({ method: 'GET', url: '/api/me', cookies: sessionCookies(sessionToken) })
 			expect(stale.statusCode).toBe(401)
 			expect(stale.json().message).toBe('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.')
 		}))
 })
 
-describe('đồng bộ bản lưu', () => {
-	it('đọc/ghi tròn vòng', () =>
+describe('save syncing', () => {
+	it('round-trips a read/write', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const cookies = sessionCookies(sessionToken)
@@ -131,7 +131,7 @@ describe('đồng bộ bản lưu', () => {
 			expect(loaded.updated_at).not.toBeNull()
 		}))
 
-	it('từ chối revision cũ và giữ nguyên bản lưu', () =>
+	it('rejects a stale revision and leaves the save untouched', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const cookies = sessionCookies(sessionToken)
@@ -149,11 +149,11 @@ describe('đồng bộ bản lưu', () => {
 			expect(conflict.json().message).toBe(
 				'Bản lưu trên máy chủ đã thay đổi ở thiết bị khác. Hãy tải lại trước khi ghi đè.',
 			)
-			// Bản lưu cũ vẫn nguyên vẹn.
+			// The old save is still intact.
 			expect((await app.inject({ method: 'GET', url: '/api/me/save', cookies })).json().run).toEqual({ stage: 1 })
 		}))
 
-	it('nhận revision khớp và tăng revision', () =>
+	it('accepts the matching revision and increments it', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const cookies = sessionCookies(sessionToken)
@@ -170,7 +170,7 @@ describe('đồng bộ bản lưu', () => {
 			expect((await app.inject({ method: 'GET', url: '/api/me/save', cookies })).json().run).toEqual({ stage: 2 })
 		}))
 
-	it('thiếu revision thì ghi đè không kiểm tra', () =>
+	it('overwrites without checking when revision is missing', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const cookies = sessionCookies(sessionToken)
@@ -187,13 +187,13 @@ describe('đồng bộ bản lưu', () => {
 			expect(overwritten.json().run).toEqual({ stage: 3 })
 		}))
 
-	it('đòi đăng nhập cho cả đọc lẫn ghi', () =>
+	it('requires a login for both read and write', () =>
 		withApp(async ({ app }) => {
 			expect((await app.inject({ method: 'GET', url: '/api/me/save' })).statusCode).toBe(401)
 			expect((await app.inject({ method: 'PUT', url: '/api/me/save', payload: { run: {} } })).statusCode).toBe(401)
 		}))
 
-	it('từ chối bản lưu quá lớn', () =>
+	it('rejects a save that is too large', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const response = await app.inject({
@@ -208,20 +208,20 @@ describe('đồng bộ bản lưu', () => {
 			expect(response.headers['x-error-code']).toBe('save_too_large')
 		}))
 
-	it('từ chối body sai kiểu bằng 422', () =>
+	it('rejects a body with the wrong types using 422', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const response = await app.inject({
 				method: 'PUT',
 				url: '/api/me/save',
 				cookies: sessionCookies(sessionToken),
-				payload: { run: 'khong-phai-object' },
+				payload: { run: 'not-an-object' },
 			})
 			expect(response.statusCode).toBe(422)
 			expect(response.json().error).toBe('validation_error')
 		}))
 
-	it('body rỗng kèm content-type JSON vẫn là 422 chứ không phải lỗi 400 của Fastify', () =>
+	it('an empty body with a JSON content-type is still 422, not Fastify\'s 400', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const response = await app.inject({
@@ -235,7 +235,7 @@ describe('đồng bộ bản lưu', () => {
 			expect(response.json().error).toBe('validation_error')
 		}))
 
-	it('JSON hỏng vẫn là 422', () =>
+	it('malformed JSON is still 422', () =>
 		withApp(async ({ app, db }) => {
 			const { sessionToken } = await seedLoggedInUser(db)
 			const response = await app.inject({
@@ -249,7 +249,7 @@ describe('đồng bộ bản lưu', () => {
 			expect(response.json().error).toBe('validation_error')
 		}))
 
-	it('không để lộ bản lưu của người khác', () =>
+	it('does not leak another player\'s save', () =>
 		withApp(async ({ app, db }) => {
 			const first = await seedLoggedInUser(db)
 			const second = await seedLoggedInUser(db, {
@@ -274,8 +274,8 @@ describe('đồng bộ bản lưu', () => {
 		}))
 })
 
-describe('health và đường dẫn lạ', () => {
-	it('health báo nhà cung cấp đã cấu hình', () =>
+describe('health and unknown paths', () => {
+	it('health reports the configured providers', () =>
 		withApp(async ({ app }) => {
 			const body = (await app.inject({ method: 'GET', url: '/api/health' })).json()
 			expect(body.status).toBe('ok')
@@ -283,9 +283,9 @@ describe('health và đường dẫn lạ', () => {
 			expect(body.environment).toBe('test')
 		}))
 
-	it('API không tồn tại trả 404 JSON tiếng Việt', () =>
+	it('an unknown API path returns 404 JSON', () =>
 		withApp(async ({ app }) => {
-			const response = await app.inject({ method: 'GET', url: '/api/khong-co' })
+			const response = await app.inject({ method: 'GET', url: '/api/no-such-thing' })
 			expect(response.statusCode).toBe(404)
 			expect(response.json()).toEqual({ error: 'not_found', message: 'Không có API này.' })
 			expect(response.headers['x-error-code']).toBe('not_found')

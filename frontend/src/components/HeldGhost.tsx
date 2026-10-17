@@ -3,14 +3,15 @@ import { getTemplate } from '../game/items'
 import type { Star } from '../game/types'
 import { ArtIcon } from './ArtIcon'
 
-/** Cạnh dài nhất của ảnh món đang nhấc, tính bằng px. */
+/** Longest side of the held item's image, in px. */
 const GHOST_SIZE = 60
 
 /**
- * Ảnh món **bám theo con trỏ** trong lúc **đang kéo** món.
+ * The item image **following the cursor** while an item is **being dragged**.
  *
- * Món trong lưới neo ở ô của nó, nên nếu chỉ làm mờ tại chỗ thì người chơi không thấy mình
- * đang cầm gì. Ảnh này giữ **đúng tỉ lệ ô** (1×3 nằm dọc, 3×1 nằm ngang) để khớp ô gợi ý.
+ * An item in the grid is anchored to its own cell, so merely dimming it would leave the player
+ * unable to see what they are holding. This image keeps the **cell's aspect ratio** (1×3 upright,
+ * 3×1 sideways) so it matches the hint cell.
  */
 export function HeldGhost({
 	templateId,
@@ -30,7 +31,7 @@ export function HeldGhost({
 	y: number
 }) {
 	const template = getTemplate(templateId)
-	// Ảnh dọc/ngang theo hướng sẽ đặt.
+	// Portrait/landscape depending on the orientation it will be placed with.
 	const size = rotated ? { w: h, h: w } : { w, h }
 	const scale = GHOST_SIZE / Math.max(size.w, size.h)
 	const width = Math.round(keepVisible(size.w * scale))
@@ -44,9 +45,9 @@ export function HeldGhost({
 			aria-hidden
 		>
 			{/*
-				Chỉ vẽ **icon** món, ❌ không vẽ khung/nền của ô.
-				Khung bo góc màu vàng nhìn như một "ô nhỏ" thừa, và nó còn che mất ô gợi ý
-				bên dưới. Icon trần vẫn đủ cho biết đang cầm món gì.
+				Draw **only the item's icon**, ❌ not a cell frame/background.
+				The rounded golden frame looks like an extra "small cell" and it also covers the
+				hint cell underneath. A bare icon is enough to tell what is being held.
 			*/}
 			<div
 				className="flex items-center justify-center drop-shadow-[0_2px_6px_rgb(0_0_0/70%)]"
@@ -63,7 +64,7 @@ export function HeldGhost({
 	)
 }
 
-/** Không để cạnh nào nhỏ hơn ngưỡng nhìn thấy được. */
+/** Never let a side shrink below the visible threshold. */
 function keepVisible(value: number): number {
 	return Math.max(20, value)
 }

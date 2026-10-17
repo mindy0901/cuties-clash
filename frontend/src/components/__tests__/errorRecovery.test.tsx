@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Lá chắn lỗi: khi component ném lỗi, UI phải hiện màn hình khôi phục — **không**
- * được để trang trắng, vì người chơi sẽ không còn cách nào thoát.
+ * Error boundary: when a component throws, the UI must show the recovery screen — it must
+ * **not** leave a blank page, because the player would have no way out.
  */
 import { createElement, type ReactNode } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -10,16 +10,16 @@ import { AppErrorBoundary } from '../AppErrorBoundary'
 import { useGameStore } from '../../store/gameStore'
 
 function Boom(): ReactNode {
-	throw new Error('loi gia dinh trong test')
+	throw new Error('assumed error in test')
 }
 
 function Fine() {
-	return createElement('p', null, 'noi dung binh thuong')
+	return createElement('p', null, 'normal content')
 }
 
 beforeEach(() => {
 	window.localStorage.clear()
-	// React in lỗi ra console khi boundary bắt được; giữ log test sạch.
+	// React prints the error to the console when the boundary catches it; keep the test log clean.
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -29,23 +29,23 @@ afterEach(() => {
 })
 
 describe('AppErrorBoundary', () => {
-	it('hiện màn hình khôi phục thay vì trang trắng', () => {
+	it('shows the recovery screen instead of a blank page', () => {
 		render(createElement(AppErrorBoundary, null, createElement(Boom)))
 		expect(screen.getByText(/Đã xảy ra lỗi khi hiển thị game/)).toBeTruthy()
 		expect(screen.getByText(/Xoá bản lưu và chơi lại/)).toBeTruthy()
-		// Có chi tiết kỹ thuật để gỡ lỗi.
+		// The technical details are there for debugging.
 		expect(screen.getByText(/Chi tiết kỹ thuật/)).toBeTruthy()
 	})
 
-	it('không can thiệp khi mọi thứ bình thường', () => {
+	it('stays out of the way when everything is normal', () => {
 		render(createElement(AppErrorBoundary, null, createElement(Fine)))
-		expect(screen.getByText('noi dung binh thuong')).toBeTruthy()
+		expect(screen.getByText('normal content')).toBeTruthy()
 		expect(screen.queryByText(/Đã xảy ra lỗi/)).toBeNull()
 	})
 
-	it('nút khôi phục xoá bản lưu trong localStorage', () => {
+	it('the recovery button clears the save from localStorage', () => {
 		window.localStorage.setItem('martial-cutie-save', JSON.stringify({ state: {}, version: 2 }))
-		// `window.location.assign` không chạy được trong jsdom → chặn lại.
+		// `window.location.assign` does not work in jsdom → stub it.
 		const assign = vi.fn()
 		Object.defineProperty(window, 'location', { value: { assign }, writable: true })
 
@@ -57,9 +57,9 @@ describe('AppErrorBoundary', () => {
 	})
 })
 
-describe('store chống bản lưu hỏng', () => {
-	it('bản lưu thiếu equipped/inventory vẫn cho state dùng được', async () => {
-		// Đây là dạng bản lưu đã làm trắng trang: version 2 nhưng thiếu trường mới.
+describe('the store protects against broken saves', () => {
+	it('a save missing equipped/inventory still yields a usable state', async () => {
+		// This is the kind of save that blanked the page: version 2 but missing the new fields.
 		window.localStorage.setItem(
 			'martial-cutie-save',
 			JSON.stringify({
@@ -87,11 +87,11 @@ describe('store chống bản lưu hỏng', () => {
 		expect(Array.isArray(run.equipped)).toBe(true)
 		expect(Array.isArray(run.inventory)).toBe(true)
 		expect(run.currency).toBe(40)
-		// Suy ra được chỉ số chiến đấu → render không ném lỗi.
+		// Combat stats can be derived → rendering does not throw.
 		expect(() => useGameStore.getState().run.equipped.filter(() => true)).not.toThrow()
 	})
 
-	it('bản lưu v1 vẫn migrate được sang equipped + inventory', async () => {
+	it('a v1 save still migrates to equipped + inventory', async () => {
 		window.localStorage.setItem(
 			'martial-cutie-save',
 			JSON.stringify({
@@ -121,7 +121,7 @@ describe('store chống bản lưu hỏng', () => {
 		expect(run.inventory).toEqual([])
 	})
 
-	it('petId lạ trong bản lưu không làm sập state', async () => {
+	it('an unknown petId in the save does not crash the state', async () => {
 		window.localStorage.setItem(
 			'martial-cutie-save',
 			JSON.stringify({

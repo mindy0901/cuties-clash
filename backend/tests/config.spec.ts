@@ -1,8 +1,10 @@
 /**
- * Cấu hình: khoá ký phiên yếu phải bị từ chối để tránh chạy production với khoá mẫu.
+ * Configuration: a weak session signing key must be rejected so production never runs with
+ * the sample key.
  *
- * Mọi test ở đây truyền tường minh một bộ biến môi trường (`buildConfig`) nên không
- * phụ thuộc file `.env` của máy — tương đương `Settings(_env_file=None, …)` bên Python.
+ * Every test here passes an explicit set of environment variables (`buildConfig`), so it does
+ * not depend on the machine's `.env` file — equivalent to `Settings(_env_file=None, …)` in
+ * Python.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -20,32 +22,32 @@ function build(env: EnvLike = {}) {
 	return buildConfig({ JWT_SECRET: STRONG, ...env })
 }
 
-describe('khoá ký phiên', () => {
-	it('từ chối khoá mẫu trong .env.example', () => {
+describe('session signing key', () => {
+	it('rejects the placeholder key from .env.example', () => {
 		expect(() => buildConfig({ JWT_SECRET: PLACEHOLDER_JWT_SECRET })).toThrow(/JWT_SECRET/)
 	})
 
-	it('từ chối khoá ngắn hơn 32 ký tự', () => {
-		expect(() => buildConfig({ JWT_SECRET: 'qua-ngan' })).toThrow(/JWT_SECRET/)
+	it('rejects a key shorter than 32 characters', () => {
+		expect(() => buildConfig({ JWT_SECRET: 'too-short' })).toThrow(/JWT_SECRET/)
 	})
 
-	it('từ chối cả khi thiếu hẳn JWT_SECRET', () => {
+	it('rejects a completely missing JWT_SECRET', () => {
 		expect(() => buildConfig({})).toThrow(/JWT_SECRET/)
 	})
 
-	it('nhận khoá đủ mạnh', () => {
+	it('accepts a key that is strong enough', () => {
 		expect(build().jwtSecret).toBe(STRONG)
 	})
 })
 
-describe('điểm gọi lại OAuth', () => {
-	it('callbackUrl dùng origin của frontend', () => {
+describe('OAuth callback', () => {
+	it('callbackUrl uses the frontend origin', () => {
 		expect(build({ FRONTEND_URL: 'http://localhost:5190' }).callbackUrl('google')).toBe(
 			'http://localhost:5190/api/auth/google/callback',
 		)
 	})
 
-	it('oauthRedirectBase ghi đè frontendUrl và bỏ dấu / ở cuối', () => {
+	it('oauthRedirectBase overrides frontendUrl and strips the trailing /', () => {
 		expect(
 			build({
 				FRONTEND_URL: 'http://localhost:5190',
@@ -54,29 +56,29 @@ describe('điểm gọi lại OAuth', () => {
 		).toBe('https://game.example.com/api/auth/google/callback')
 	})
 
-	it('postLoginRedirect ghi đè nơi quay về sau khi đăng nhập', () => {
+	it('postLoginRedirect overrides where the browser returns after a login', () => {
 		expect(build({ FRONTEND_URL: 'http://localhost:5190', POST_LOGIN_REDIRECT: 'https://x/y/' }).postLoginUrl).toBe(
 			'https://x/y',
 		)
 	})
 })
 
-describe('nhà cung cấp đăng nhập', () => {
-	it('cần đủ cả hai khoá mới coi là đã cấu hình', () => {
+describe('login providers', () => {
+	it('needs both keys before it counts as configured', () => {
 		expect(build({ GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: '' }).isConfigured('google')).toBe(false)
 		expect(build({ GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: 'secret' }).isConfigured('google')).toBe(false)
 		expect(build({ GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' }).isConfigured('google')).toBe(true)
 	})
 
-	it('facebook/zing không bao giờ được coi là đã cấu hình', () => {
+	it('facebook/zing are never treated as configured', () => {
 		const cfg = build({ GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' })
 		expect(cfg.isConfigured('facebook')).toBe(false)
 		expect(cfg.isConfigured('zing')).toBe(false)
 	})
 })
 
-describe('giá trị mặc định', () => {
-	it('giống bản Python (Settings)', () => {
+describe('default values', () => {
+	it('match the Python version (Settings)', () => {
 		const cfg = build()
 		expect(cfg.appName).toBe('Martial Cutie API')
 		expect(cfg.environment).toBe('development')
@@ -98,39 +100,39 @@ describe('giá trị mặc định', () => {
 })
 
 describe('DATABASE_URL', () => {
-	it('bỏ hậu tố driver psycopg để Prisma dùng được', () => {
+	it('strips the psycopg driver suffix so Prisma can use it', () => {
 		expect(normalizeDatabaseUrl('postgresql+psycopg://u:p@localhost:5432/martial_cutie')).toBe(
 			'postgresql://u:p@localhost:5432/martial_cutie',
 		)
 	})
 
-	it('giữ nguyên URL không có hậu tố', () => {
+	it('keeps a URL without a suffix as it is', () => {
 		expect(normalizeDatabaseUrl('postgresql://u:p@db:5432/martial_cutie')).toBe(
 			'postgresql://u:p@db:5432/martial_cutie',
 		)
 	})
 
-	it('áp dụng luôn cho giá trị trong cấu hình', () => {
+	it('also applies to the value inside the configuration', () => {
 		expect(build({ DATABASE_URL: 'postgresql+psycopg://u:p@h:5432/d' }).databaseUrl).toBe('postgresql://u:p@h:5432/d')
 	})
 })
 
 describe('CORS_ORIGINS', () => {
-	it('nhận mảng JSON', () => {
+	it('accepts a JSON array', () => {
 		expect(build({ CORS_ORIGINS: '["https://a.example","https://b.example"]' }).corsOrigins).toEqual([
 			'https://a.example',
 			'https://b.example',
 		])
 	})
 
-	it('nhận danh sách ngăn bằng dấu phẩy', () => {
+	it('accepts a comma-separated list', () => {
 		expect(build({ CORS_ORIGINS: 'https://a.example, https://b.example' }).corsOrigins).toEqual([
 			'https://a.example',
 			'https://b.example',
 		])
 	})
 
-	it('mảng rỗng nghĩa là tắt CORS', () => {
+	it('an empty array means CORS is off', () => {
 		expect(build({ CORS_ORIGINS: '[]' }).corsOrigins).toEqual([])
 	})
 })

@@ -1,8 +1,8 @@
-// Schema Prisma — phản chiếu đúng schema Alembic cũ (tên bảng/cột đều snake_case).
+// Prisma schema — mirrors the old Alembic schema exactly (table/column names are all snake_case).
 //
-// ⚠️ Database dev của người dùng đã có sẵn ba bảng này do Alembic tạo. Prisma KHÔNG
-// được phép đổi chúng: không `migrate reset`, không `db push`. Migration `0_init`
-// chỉ dùng cho database trống và đã được viết lại thành idempotent (xem file SQL).
+// ⚠️ The user's dev database already has these tables, created by Alembic. Prisma must NOT
+// change them: no `migrate reset`, no `db push`. Migration `0_init` is only for an empty
+// database and has been rewritten to be idempotent (see the SQL file).
 
 generator client {
   provider      = "prisma-client-js"
@@ -19,7 +19,7 @@ model User {
   email        String?  @unique(map: "ix_users_email") @db.VarChar(320)
   displayName  String   @map("display_name") @db.VarChar(120)
   avatarUrl    String?  @map("avatar_url") @db.Text
-  // Tăng lên mỗi lần đăng xuất để thu hồi mọi token cũ của tài khoản.
+  // Incremented on every logout so all old tokens of the account are revoked.
   sessionEpoch Int      @default(0) @map("session_epoch")
   createdAt    DateTime @map("created_at") @db.Timestamptz(6)
   lastLoginAt  DateTime @map("last_login_at") @db.Timestamptz(6)
@@ -34,7 +34,7 @@ model OAuthIdentity {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
   provider  String   @db.VarChar(32)
-  // Mã định danh phía nhà cung cấp (với Google là `sub`).
+  // Identifier on the provider's side (for Google this is `sub`).
   subject   String   @db.VarChar(255)
   email     String?  @db.VarChar(320)
   createdAt DateTime @map("created_at") @db.Timestamptz(6)
@@ -49,9 +49,9 @@ model OAuthIdentity {
 model GameSave {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique(map: "game_saves_user_id_key") @map("user_id")
-  // `RunState` của frontend, lưu nguyên dạng JSON.
+  // The frontend's `RunState`, stored as raw JSON.
   payload   String   @db.Text
-  // Số lần ghi, giúp client phát hiện ghi đè.
+  // Write counter, so the client can detect an overwrite.
   revision  Int
   updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
 

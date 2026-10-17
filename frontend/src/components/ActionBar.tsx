@@ -5,11 +5,11 @@ import { useUiStore } from '../store/uiStore'
 import { btnClass, cn } from './ui'
 
 /**
- * Thanh nút dưới cùng của phòng chuẩn bị, theo bố cục bản gốc:
+ * The bottom button bar of the preparation room, following the original layout:
  * `Mua Vật Phẩm` · `Nhiệm Vụ` · `Bộ Sưu Tập` · `Đấu Thú Cưng`.
  *
- * "Nhiệm Vụ" và "Bộ Sưu Tập" chưa có nội dung nên chỉ báo "sắp có" — hiện nút để
- * giữ đúng bố cục, nhưng không hứa tính năng chưa làm.
+ * "Nhiệm Vụ" and "Bộ Sưu Tập" have no content yet, so they only report "coming soon" — the
+ * buttons are shown to keep the layout intact, without pretending the feature exists.
  */
 export function ActionBar() {
 	const run = useGameStore((state) => state.run)

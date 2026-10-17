@@ -115,8 +115,8 @@ export function petLevelStats(pet: PetDef, level: number) {
 }
 
 /**
- * Lưới **hiển thị luôn đủ `MAX_BAG_ROWS` hàng**, kể cả khi thú chưa đủ cấp.
- * Ô vượt `bagSize` là ô **khoá** — hiện mờ, chưa đặt được.
+ * The **rendered grid always has `MAX_BAG_ROWS` rows**, even when the pet level is not high enough.
+ * Cells past `bagSize` are **locked** — dimmed and not usable yet.
  */
 export const GRID_MAX_ROWS = MAX_BAG_ROWS
 export const GRID_MAX_CELLS = GRID_WIDTH * GRID_MAX_ROWS

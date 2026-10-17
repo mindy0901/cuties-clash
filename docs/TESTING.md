@@ -1,45 +1,48 @@
-# Kiểm thử & kiểm chứng
+# Testing & verification
 
-> Lệnh kiểm chứng ở [`../AGENTS.md`](../AGENTS.md) §2. File này là **toàn bộ** quy tắc kiểm thử,
-> cùng những cái bẫy đã tốn thời gian thật.
+> Verification commands live in [`../AGENTS.md`](../AGENTS.md) §2. This file is **all** the testing
+> rules, plus the traps that cost real time.
 
-## 0. Chạy gì trước khi kết thúc phiên
+## 0. What to run before ending a session
 
 ```bash
 pnpm build && pnpm test && pnpm lint && pnpm test:be
 ```
 
-Cả bốn phải xanh. `pnpm lint` chạy cho **cả hai gói**.
+All four must be green. `pnpm lint` runs for **both** packages.
 
 ## 1. Frontend — Vitest
 
 | | |
 | --- | --- |
-| Lõi game | `frontend/src/game/__tests__/` — môi trường `node` |
-| UI | `frontend/src/components/__tests__/` — cần `// @vitest-environment jsdom` ở dòng đầu |
+| Game core | `frontend/src/game/__tests__/` — `node` environment |
+| UI | `frontend/src/components/__tests__/` — needs `// @vitest-environment jsdom` on the first line |
 
-### Bẫy 1 — `renderToString` không thấy state của store
+### Trap 1 — `renderToString` cannot see store state
 
-Zustand v5 trả **state khởi tạo** cho `getServerSnapshot`. Component render bằng `renderToString`
-luôn thấy store rỗng dù test vừa `setState`. ✅ Luôn dùng `render()` của @testing-library.
+Zustand v5 returns the **initial state** for `getServerSnapshot`. A component rendered with
+`renderToString` always sees an empty store even though the test just called `setState`. ✅ Always use
+`render()` from @testing-library.
 
-### Bẫy 2 — từ khi có router, `renderToString(<App/>)` cũng không dùng được
+### Trap 2 — since the router exists, `renderToString(<App/>)` is unusable too
 
-`RouterProvider` cần router đã `load()` và cần DOM, nếu không sẽ ném
-`Cannot read properties of undefined (reading 'matches')`. Dùng helper ở **`frontend/src/test/router.tsx`**:
+`RouterProvider` needs a router that has been `load()`ed and needs the DOM, otherwise it throws
+`Cannot read properties of undefined (reading 'matches')`. Use the helpers in
+**`frontend/src/test/router.tsx`**:
 
-| Helper | Kiểu | Dùng khi |
+| Helper | Kind | Use when |
 | --- | --- | --- |
-| `renderInRouter(<PrepScreen/>)` | **đồng bộ** | Chỉ cần component có `useNavigate`. Test lưới/kéo-thả dùng cái này nên **không phải** đổi sang `async` |
-| `await renderApp('/cua-hang')` | **`async`** | Test điều hướng — dựng cả cây route thật với browser history |
+| `renderInRouter(<PrepScreen/>)` | **synchronous** | You only need the component to have `useNavigate`. Grid/drag-and-drop tests use this one so they do **not** have to switch to `async` |
+| `await renderApp('/cua-hang')` | **`async`** | Navigation tests — builds the whole real route tree with browser history |
 
-⚠️ Vì sao `renderInRouter` đồng bộ được: nó dùng `RouterContextProvider` (chỉ cần context), còn
-`renderApp` phải qua `RouterProvider` — thứ này **render rỗng ở nhịp đầu** rồi mới khớp route sau
-khi `router.load()` xong.
+⚠️ Why `renderInRouter` can be synchronous: it uses `RouterContextProvider` (which only needs the
+context), while `renderApp` has to go through `RouterProvider` — which **renders nothing on the first
+tick** and only matches the route after `router.load()` completes.
 
-### Bẫy 3 — điều hướng là transition bất đồng bộ
+### Trap 3 — navigation is an async transition
 
-Sau cú bấm, `window.location` có thể đổi **sau** một nhịp. ✅ Chờ DOM trước rồi mới kiểm URL:
+After the click, `window.location` may change **one tick later**. ✅ Wait for the DOM first, then
+check the URL:
 
 ```tsx
 fireEvent.click(screen.getByText(/Quay về/))
@@ -47,134 +50,144 @@ expect(await screen.findByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 expect(window.location.pathname).toBe('/')
 ```
 
-### Bẫy 4 — file test không dùng được `node:fs`
+### Trap 4 — test files cannot use `node:fs`
 
-`tsconfig.app.json` chỉ khai báo `types: ["vite/client"]`. Muốn kiểm tra file có tồn tại thì dùng
-`import.meta.glob('...')` (chạy qua Vite) — xem `game/__tests__/art.test.ts`.
+`tsconfig.app.json` only declares `types: ["vite/client"]`. To check whether a file exists, use
+`import.meta.glob('...')` (it runs through Vite) — see `game/__tests__/art.test.ts`.
 
-### Bẫy 5 — mô phỏng **kéo-thả** trong jsdom
+### Trap 5 — simulating **drag and drop** in jsdom
 
-Kéo-thả là **cách duy nhất** chuyển/đổi chỗ đồ (bấm món = mở chi tiết), nên test lưới phải giả lập
-đúng chuỗi sự kiện thật (xem `components/__tests__/dragAndDrop.test.tsx`):
+Drag and drop is **the only** way to move/swap items (clicking an item opens its details), so grid
+tests must reproduce the real event sequence (see `components/__tests__/dragAndDrop.test.tsx`):
 
 ```tsx
 fireEvent.pointerDown(button, { button: 0, clientX: 10, clientY: 10 })
-fireEvent.pointerMove(button, { clientX: 300, clientY: 300 })   // > 4px mới tính là kéo
-fireEvent.mouseMove(cellOf(slot), { clientX: 0, clientY: 0 })   // chọn ô đích
-act(() => document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true })))  // nhả
+fireEvent.pointerMove(button, { clientX: 300, clientY: 300 })   // must exceed 4px to count as a drag
+fireEvent.mouseMove(cellOf(slot), { clientX: 0, clientY: 0 })   // pick the target cell
+act(() => document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true })))  // release
 ```
 
-- ⚠️ `pointerup` nghe ở **`document`** (con trỏ có thể đang ở panel khác), ❌ không qua `fireEvent`
-  ⇒ **phải bọc `act`**, nếu không state đã đổi mà DOM chưa render lại.
-- ⚠️ `fireEvent.click` **không** nhấc món: nó chỉ mở hộp thoại chi tiết. Muốn nhấc phải kéo.
-- ⚠️ **jsdom không có layout**: `getBoundingClientRect()` trả toàn số 0 và `document.elementFromPoint`
-  không tồn tại. Hệ quả: "con trỏ có đang trong kho không" (`PrepScreen.trongKho`) luôn đúng với
-  điểm `(0,0)` ⇒ phải tự đặt vùng cho kho (`stubKhoRect`) rồi đẩy con trỏ (`pointerMove` trên
-  `document`) nếu muốn thử nhánh "thả ở lưới trang bị".
-- ✅ Một bất biến đáng khoá bằng test: **khối gợi ý phải trùng khối đã đặt** (so `[data-preview]`
-  với `itemCells(item, width)` sau khi thả). Bất biến này đã bắt được lỗi xoay giữa lúc kéo làm
-  ô neo cũ nằm lại.
+- ⚠️ `pointerup` is listened for on **`document`** (the cursor may be over a different panel), ❌ not
+  through `fireEvent` ⇒ you **must wrap it in `act`**, otherwise the state has changed but the DOM has
+  not re-rendered.
+- ⚠️ `fireEvent.click` does **not** pick an item up: it only opens the details dialog. To pick up you
+  must drag.
+- ⚠️ **jsdom has no layout**: `getBoundingClientRect()` returns all zeros and
+  `document.elementFromPoint` does not exist. Consequence: "is the cursor inside Kho đồ"
+  (`PrepScreen.trongKho`) is always true for the point `(0,0)` ⇒ you have to define the Kho đồ rect
+  yourself (`stubKhoRect`) and then move the cursor (`pointerMove` on `document`) if you want to
+  exercise the "drop on the Trang bị grid" branch.
+- ✅ One invariant worth locking down with a test: **the preview block must match the block that was
+  placed** (compare `[data-preview]` with `itemCells(item, width)` after the drop). This invariant
+  already caught a bug where rotating mid-drag left the old anchor cell behind.
 
-### Bẫy 6 — không có backend là trạng thái hợp lệ
+### Trap 6 — no backend is a valid state
 
-Test UI chạy khi backend không tồn tại nên `fetch` thất bại. Đó **không** phải lỗi: game phải vẫn
-chơi ẩn danh được. Đừng "sửa" bằng cách cho test cần backend.
+UI tests run when the backend does not exist, so `fetch` fails. That is **not** an error: the game
+must still be fully playable anonymously. Do not "fix" it by making tests require a backend.
 
-### Bẫy 7 — ảnh PNG đọc bằng `?raw`
+### Trap 7 — PNG images read with `?raw`
 
-Byte đầu của PNG (`0x89`) không phải UTF-8 hợp lệ nên bị thay bằng ký tự thay thế. Chỉ kiểm tra 3
-byte `PNG`.
+The first byte of a PNG (`0x89`) is not valid UTF-8, so it is replaced by a replacement character.
+Only check the 3 bytes `PNG`.
 
 ## 2. Backend — Vitest
 
 ```bash
-pnpm test:be           # cần PostgreSQL đang chạy: docker compose up -d db
+pnpm test:be           # needs PostgreSQL running: docker compose up -d db
 ```
 
-**Một database duy nhất, và không để lại dấu vết.** Mỗi ca chạy trong
-`prisma.$transaction(tx => { …; throw sentinel })` rồi bắt sentinel ở ngoài ⇒ rollback.
+**A single database, and no traces left behind.** Each case runs inside
+`prisma.$transaction(tx => { …; throw sentinel })` and catches the sentinel outside ⇒ rollback.
 
-Điều kiện để cách này hoạt động: **mọi truy cập DB đi qua `db` được tiêm vào**
-`buildApp({ db, config })`. ❌ Import `PrismaClient` ở phạm vi module là phá vỡ nó — và test sẽ ghi
-vào DB thật.
+The condition for this to work: **every DB access goes through the `db` injected into**
+`buildApp({ db, config })`. ❌ Importing `PrismaClient` at module scope breaks it — and the tests
+will write into the real DB.
 
-- ❌ Không tạo database phụ, ❌ không dùng SQLite, ❌ không `migrate reset` / `DROP` / truncate.
-- ⚠️ `fileParallelism: false` để hai transaction không chặn nhau ở unique index của `users.email`.
-- ⚠️ Sequence **không** rollback theo (`users_id_seq` tăng dần mỗi lần chạy test). Vô hại.
-- ✅ `tests/setup.ts` cài `fetch` **ném lỗi** ⇒ mọi lời gọi mạng lọt ra ngoài sẽ đổ ngay. Test OAuth
-  thay `fetch` bằng stub trả `Response` thật.
-- ✅ Test config truyền env **tường minh** vào `loadConfig`, ❌ đừng phụ thuộc `.env` của máy.
+- ❌ Do not create a secondary database, ❌ do not use SQLite, ❌ no `migrate reset` / `DROP` /
+  truncate.
+- ⚠️ `fileParallelism: false` so that two transactions do not block each other on the unique index of
+  `users.email`.
+- ⚠️ Sequences do **not** roll back (`users_id_seq` keeps increasing with every test run). Harmless.
+- ✅ `tests/setup.ts` installs a `fetch` that **throws** ⇒ every network call escaping outward fails
+  immediately. OAuth tests replace `fetch` with a stub returning a real `Response`.
+- ✅ Test config passes env **explicitly** into `loadConfig`, ❌ do not depend on the machine's `.env`.
 
-### Kiểm chứng dữ liệu người dùng không bị đụng
+### Verifying that user data was not touched
 
 ```bash
 docker exec martial-cutie-db-1 psql -U martial -d martial_cutie -t -c \
   "SELECT 'users=' || (SELECT count(*) FROM users) || ' saves=' || (SELECT count(*) FROM game_saves);"
 ```
 
-So số **trước và sau** khi chạy test. Phải giống nhau.
+Compare the numbers **before and after** running the tests. They must be identical.
 
-## 3. Kiểm chứng giao diện
+## 3. Verifying the UI
 
-### ⚠️ Cái bẫy đã ghi đè bản lưu thật
+### ⚠️ The trap that overwrote a real save
 
-`.env` có `AUTO_LOGIN=true`. Mở `http://localhost:5190` trong **profile trình duyệt riêng**:
+`.env` has `AUTO_LOGIN=true`. Opening `http://localhost:5190` in a **separate browser profile**:
 
 ```
-profile mới, không có martial-cutie-save
-  → app tự đăng nhập tài khoản người dùng (AUTO_LOGIN)
-  → restore() nạp bản máy chủ thất bại (không có tiến trình cục bộ để so)
-  → AuthSync đẩy run RỖNG lên
-  → GHI ĐÈ BẢN LƯU THẬT
+new profile, no martial-cutie-save
+  → the app auto-signs in to the user's account (AUTO_LOGIN)
+  → restore() fails to load the server save (no local progress to compare against)
+  → AuthSync pushes an EMPTY run
+  → OVERWRITES THE REAL SAVE
 ```
 
-**Đã xảy ra một lần.** Bản lưu thật chỉ còn cứu được vì localStorage là nguồn chính.
+**This happened once.** The real save could only be rescued because localStorage is the primary
+source.
 
-### Hai cách kiểm chứng an toàn
+### Two safe ways to verify
 
-**A. Chỉ test tự động** (mặc định nên dùng): `pnpm test` phủ 19 file; không mở trình duyệt, không
-thêm cổng nào.
+**A. Automated tests only** (the default choice): `pnpm test` covers 19 files; no browser is opened
+and no extra port is added.
 
-**B. Harness cách ly** khi thật sự cần nhìn giao diện:
+**B. An isolated harness** when you really need to look at the UI:
 
 ```powershell
 cd frontend
-$env:VITE_API_TARGET='http://127.0.0.1:9'   # cổng chết ⇒ mọi /api đều 502
-pnpm dev --port <cổng đang trống>
+$env:VITE_API_TARGET='http://127.0.0.1:9'   # dead port ⇒ every /api call is a 502
+pnpm dev --port <a free port>
 ```
 
-⇒ **Không thể đăng nhập, không thể ghi gì lên tài khoản người dùng.** Nhưng:
+⇒ **Signing in is impossible, nothing can be written to the user's account.** But:
 
-- ⚠️ Phải **nói trước** dùng cổng nào (5190 là của container `fr`, không dùng được).
-- ⚠️ Trong harness, giao diện sẽ hiện "Không kết nối được máy chủ đăng nhập" — **đó là hành vi
-  đúng**, không phải bug.
-- ✅ **Tắt server và đóng tab ngay sau khi xong.** Tab trỏ vào harness rất dễ bị hiểu nhầm là game lỗi.
+- ⚠️ You must **say up front** which port you are using (5190 belongs to the `fr` container and is not
+  available).
+- ⚠️ In the harness the UI will show "Không kết nối được máy chủ đăng nhập" — **that is correct
+  behaviour**, not a bug.
+- ✅ **Stop the server and close the tab as soon as you are done.** A tab pointing at the harness is
+  easily mistaken for a broken game.
 
-**C. Muốn kiểm chứng thật trên 5190**: đặt `AUTO_LOGIN=false` trong `.env`, khởi động lại `be`, rồi
-mở như người dùng thật.
+**C. To verify for real on 5190**: set `AUTO_LOGIN=false` in `.env`, restart `be`, then open it like a
+real user.
 
-### Đăng nhập
+### Signing in
 
-Mở hộp thoại **Đăng nhập** ở thanh trên. Nếu backend chưa có khoá OAuth, hộp thoại hiện hướng dẫn
-điền `.env` — hành vi đúng. Nếu **không gọi được** backend, hộp thoại phải nói "Không kết nối được
-máy chủ" kèm nút **Thử lại** (đừng nhầm hai tình huống này).
+Open the **Đăng nhập** dialog in the top bar. If the backend has no OAuth keys yet, the dialog shows
+instructions for filling in `.env` — correct behaviour. If the backend **cannot be reached**, the
+dialog must say "Không kết nối được máy chủ" with a **Thử lại** button (do not confuse the two
+situations).
 
-### Backend nhanh
+### Backend quick check
 
 ```bash
 curl http://localhost:8000/api/health      # {"status":"ok","providers":["google"]}
 curl -i http://localhost:8000/api/me       # 401 + x-error-code: unauthorized
 ```
 
-## 4. Kiểm chứng CSS của Tailwind
+## 4. Verifying Tailwind CSS
 
-Build xanh **không** bảo đảm class đúng — Tailwind im lặng bỏ qua class viết sai.
+A green build does **not** guarantee the classes are right — Tailwind silently skips misspelled
+classes.
 
-1. `pnpm build` rồi đọc CSS thật trong `frontend/dist/assets/*.css`.
-2. Với mỗi class nghi ngờ, tìm chuỗi selector tương ứng.
-3. ⚠️ **Đừng tự mô phỏng luật escape của Tailwind** — nó escape `[`, `]`, `/`, `.`, `:`, `(`, `)`,
-   `,` và cả `-` trong arbitrary value (`.max-w-\[1400px\]`), đồng thời minify số (`0.02em` →
-   `.02em`). Mô phỏng sai sẽ báo "thiếu class" giả. ✅ Cách chắc chắn: trích **tên class** trong CSS
-   (bỏ backslash) thành một `Set` rồi tra.
-4. ❌ Không viết test Vitest gọi `vite build` để kiểm CSS — build trong Vitest cho kết quả khác
-   build CLI. Chạy `pnpm build` ở CLI rồi kiểm file CSS.
+1. `pnpm build` then read the real CSS in `frontend/dist/assets/*.css`.
+2. For every suspicious class, look for the matching selector string.
+3. ⚠️ **Do not simulate Tailwind's escaping rules yourself** — it escapes `[`, `]`, `/`, `.`, `:`,
+   `(`, `)`, `,` and even `-` inside arbitrary values (`.max-w-\[1400px\]`), and it minifies numbers
+   (`0.02em` → `.02em`). A wrong simulation reports a fake "missing class". ✅ The sure way: extract
+   the **class names** found in the CSS (strip the backslashes) into a `Set` and look them up there.
+4. ❌ Do not write a Vitest test that calls `vite build` to check the CSS — a build inside Vitest
+   produces different output from a CLI build. Run `pnpm build` on the CLI and inspect the CSS file.

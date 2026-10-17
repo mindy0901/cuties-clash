@@ -1,4 +1,4 @@
-/** Nghiệp vụ: liên kết tài khoản OAuth và đọc/ghi tiến trình chơi. */
+/** Domain logic: linking OAuth accounts and reading/writing play progress. */
 
 import type { User } from '@prisma/client'
 import { isAdminEmail, type Config } from './config'
@@ -6,11 +6,11 @@ import type { Db } from './db'
 import { badRequest } from './errors'
 import type { OAuthProfile } from './oauth'
 
-/** Kích thước tối đa của một bản lưu (JSON đã mã hoá), tránh payload phình to. */
+/** Maximum size of one save (encoded JSON), so the payload cannot balloon. */
 export const MAX_SAVE_BYTES = 200_000
 
 export const DEFAULT_DISPLAY_NAME = 'Người chơi ẩn danh'
-/** Tên do hệ thống đặt — bị thay khi có tên thật từ nhà cung cấp. */
+/** Name chosen by the system — replaced once a real name arrives from the provider. */
 const PLACEHOLDER_DISPLAY_NAME_PREFIX = 'Người chơi'
 
 export interface UserOut {
@@ -18,9 +18,9 @@ export interface UserOut {
 	display_name: string
 	email: string | null
 	avatar_url: string | null
-	/** Nhà cung cấp đã liên kết với tài khoản này, ví dụ `["google"]`. */
+	/** Providers linked to this account, for example `["google"]`. */
 	providers: string[]
-	/** Email có trong `ADMIN_EMAILS` → hiện được trang quản trị nội dung. */
+	/** The email is listed in `ADMIN_EMAILS` → the content admin page is available. */
 	is_admin: boolean
 }
 
@@ -51,10 +51,10 @@ export async function toUserOut(db: Db, user: User, config: Config): Promise<Use
 }
 
 /**
- * Tìm hoặc tạo người dùng từ hồ sơ OAuth.
+ * Find or create a user from an OAuth profile.
  *
- * Ưu tiên khớp theo `(provider, subject)`. Nếu chưa có, khớp tiếp theo email đã xác
- * thực để một người dùng không bị tách thành hai tài khoản.
+ * Matching by `(provider, subject)` comes first. If there is no match, fall back to matching
+ * on a verified email so one person does not end up split across two accounts.
  */
 export async function upsertUserFromProfile(db: Db, profile: OAuthProfile): Promise<User> {
 	const identity = await db.oAuthIdentity.findFirst({
@@ -66,8 +66,8 @@ export async function upsertUserFromProfile(db: Db, profile: OAuthProfile): Prom
 	if (identity) {
 		user = identity.user
 	} else {
-		// `created_at` / `last_login_at` không có default ở tầng database (giống Alembic)
-		// nên phải gửi tường minh.
+		// `created_at` / `last_login_at` have no database-level default (same as Alembic),
+		// so they must be sent explicitly.
 		const now = new Date()
 		user =
 			(profile.email ? await db.user.findFirst({ where: { email: profile.email } }) : null) ??
@@ -132,7 +132,8 @@ export async function putSave(
 		return { run, revision: created.revision, updated_at: created.updatedAt.toISOString() }
 	}
 
-	// Ghi đè có kiểm soát: client gửi revision đã biết, lệch nghĩa là có thiết bị khác vừa lưu.
+	// Controlled overwrite: the client sends the revision it knows; a mismatch means another
+	// device saved in the meantime.
 	if (revision !== null && revision !== save.revision) {
 		throw badRequest(
 			'Bản lưu trên máy chủ đã thay đổi ở thiết bị khác. Hãy tải lại trước khi ghi đè.',
@@ -147,7 +148,7 @@ export async function putSave(
 	return { run, revision: updated.revision, updated_at: updated.updatedAt.toISOString() }
 }
 
-/** Bản lưu cũ có thể hỏng hoặc không phải object — khi đó coi như chưa có gì. */
+/** An old save can be corrupt or not an object — in that case treat it as empty. */
 function loadPayload(payload: string): Record<string, unknown> | null {
 	let value: unknown
 	try {

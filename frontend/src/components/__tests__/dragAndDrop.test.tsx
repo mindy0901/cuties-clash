@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 /**
- * **Kéo-thả là cách duy nhất** để chuyển hoặc đổi chỗ đồ; **bấm** một món thì mở hộp thoại
- * chi tiết (xem `itemDetailDialog.test.tsx`).
+ * **Drag and drop is the only way** to move or swap items; **clicking** an item opens the detail
+ * dialog (see `itemDetailDialog.test.tsx`).
  *
- * ⚠️ VÌ SAO BỎ "BẤM–BẤM": trước đây bấm món để nhấc rồi bấm ô để đặt. Hai thao tác đó dùng
- * chung một trạng thái "đang cầm" nên rất dễ sinh trạng thái lửng lơ (món bám con trỏ dù người
- * chơi đã nhả chuột), và cú `click` sau `pointerup` lại vừa nhấc vừa đặt. Giờ mỗi cú click có
- * đúng một nghĩa: nhấc thì phải **giữ chuột và di chuyển**.
+ * ⚠️ WHY "CLICK–CLICK" WAS REMOVED: clicking an item used to pick it up and clicking a cell used to
+ * place it. Both gestures shared one "held" state, which easily left things dangling (the item ghost
+ * following the cursor after the player let go), and the `click` after `pointerup` both picked up
+ * and dropped. Now every click has exactly one meaning: picking up requires **holding the mouse and
+ * moving**.
  */
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -17,17 +18,17 @@ import { useUiStore } from '../../store/uiStore'
 import { renderInRouter } from '../../test/router'
 import type { ItemInstance } from '../../game/types'
 
-/** Đao Gỗ 1×3 — xoay được thành 3×1 trong lưới 4 cột. */
+/** Đao Gỗ 1×3 — rotates to 3×1 inside a 4-column grid. */
 function blade(uid: string, slot: number, rotated = false): ItemInstance {
 	return { uid, templateId: 'wooden-blade', star: 1, slot, rotated, paid: 3 }
 }
 
-/** Ngọc 1×1 — hình không đổi khi xoay, tiện kiểm tra vị trí thuần. */
+/** Ngọc 1×1 — its shape does not change on rotation, handy for testing raw positions. */
 function jade(uid: string, slot: number): ItemInstance {
 	return { uid, templateId: 'jade-fury', star: 1, slot, rotated: false, paid: 3 }
 }
 
-/** Món trong **kho** (đã có ô thật — kho là lưới tự do). */
+/** An item in the **inventory** (it already has a real cell — the inventory is a free grid). */
 function stored(uid: string, templateId = 'jade-fury', slot = 0): ItemInstance {
 	return { uid, templateId, star: 1, slot, rotated: false, paid: 3 }
 }
@@ -49,79 +50,80 @@ function panel(title: string): HTMLElement {
 	const found = [...document.querySelectorAll('section')].find(
 		(s) => s.querySelector('h2')?.textContent === title,
 	)
-	if (!found) throw new Error(`không thấy bảng ${title}`)
+	if (!found) throw new Error(`board ${title} not found`)
 	return found
 }
 
-/** Vỏ một món trong lưới trang bị. */
+/** The box of one item on the loadout board. */
 function boxOf(uid: string): HTMLElement {
 	const box = document.querySelector<HTMLElement>(`[data-item-box="${uid}"]`)
-	if (!box) throw new Error(`không thấy món ${uid}`)
+	if (!box) throw new Error(`item ${uid} not found`)
 	return box
 }
 
-/** Nút bên trong vỏ món (chỗ nhận cú bấm/giữ chuột). */
+/** The button inside the item box (the element that receives clicks/mouse presses). */
 function buttonOf(uid: string): HTMLElement {
 	const button = boxOf(uid).querySelector('button')
-	if (!button) throw new Error(`món ${uid} không có nút`)
+	if (!button) throw new Error(`item ${uid} has no button`)
 	return button
 }
 
 /**
- * Ô của **lưới trang bị** theo chỉ số.
+ * A cell of the **loadout board** by index.
  *
- * ⚠️ Phải giới hạn theo bảng: kho dùng chung `[data-cell]`, nên truy vấn toàn trang sẽ bắt
- * nhầm ô của kho.
+ * ⚠️ Must be scoped to the board: the inventory shares `[data-cell]`, so a page-wide query would
+ * pick up inventory cells by mistake.
  */
 function cellOf(slot: number): HTMLElement {
 	const cell = panel('Trang bị').querySelector<HTMLElement>(`[data-cell="${slot}"]`)
-	if (!cell) throw new Error(`không thấy ô ${slot}`)
+	if (!cell) throw new Error(`cell ${slot} not found`)
 	return cell
 }
 
-/** Nút của một món trong **kho**. */
+/** The button of an item in the **inventory**. */
 function invTileOf(uid: string): HTMLElement {
 	const tile = document.querySelector<HTMLElement>(`button[data-inv-tile="${uid}"]`)
-	if (!tile) throw new Error(`không thấy món ${uid} trong kho`)
+	if (!tile) throw new Error(`item ${uid} not found in the inventory`)
 	return tile
 }
 
 function boardOf(title: string): HTMLElement {
 	const board = panel(title).querySelector<HTMLElement>('[data-grid-board]')
-	if (!board) throw new Error(`bảng ${title} không có lưới`)
+	if (!board) throw new Error(`board ${title} has no grid`)
 	return board
 }
 
-/** Ô gợi ý đang được tô (cả hai bảng). */
+/** Hint cells currently filled (both boards). */
 function previewSlots(): number[] {
 	return Array.from(document.querySelectorAll<HTMLElement>('[data-preview]')).map((node) =>
 		Number(node.dataset.preview),
 	)
 }
 
-/** Ô gợi ý đang tô **trong một bảng**. */
+/** Hint cells filled **inside one board**. */
 function previewSlotsIn(title: string): number[] {
 	return Array.from(panel(title).querySelectorAll<HTMLElement>('[data-preview]')).map((node) =>
 		Number(node.dataset.preview),
 	)
 }
 
-/** Ảnh món bám theo con trỏ. */
+/** The item image following the cursor. */
 function ghost(): HTMLElement | null {
 	return document.querySelector<HTMLElement>('[data-held-ghost]')
 }
 
-/** Class của khung gợi ý — `border-danger` nghĩa là chỗ đó **không đặt được**. */
+/** Class of the hint outline — `border-danger` means that spot **cannot take the item**. */
 function outlineClass(): string {
 	const outline = document.querySelector<HTMLElement>('[data-preview-outline]')
-	if (!outline) throw new Error('không có khung gợi ý')
+	if (!outline) throw new Error('no hint outline')
 	return outline.className
 }
 
 /**
- * Nội dung các thông báo đang hiện.
+ * The text of the toasts currently shown.
  *
- * ⚠️ Đọc từ store: `Toasts` nằm ở layout gốc, mà test ở đây chỉ render `PrepScreen`.
+ * ⚠️ Read from the store: `Toasts` sits in the root layout, while these tests only render
+ * `PrepScreen`.
  */
 function toastText(): string {
 	return useGameStore
@@ -135,13 +137,13 @@ function pressKey(key: string) {
 }
 
 /**
- * Đặt vùng của **Kho đồ** (px) — thay cho layout thật mà jsdom không có.
+ * Stubs the **Inventory** area (px) — standing in for the real layout jsdom does not have.
  *
- * ⚠️ Bắt buộc khi cần phân biệt "thả trong kho" với "thả ở lưới": jsdom trả
- * `getBoundingClientRect()` toàn số 0 nên vùng kho là 0×0 và **mọi** điểm đều bị coi là ngoài
- * kho; còn con trỏ mặc định là (0,0) nên cũng có lúc lại nằm trong.
+ * ⚠️ Required to tell "dropped inside the inventory" apart from "dropped on the board": jsdom
+ * returns `getBoundingClientRect()` with all zeros, so the inventory area is 0×0 and **every**
+ * point counts as outside it; the default cursor is (0,0), which then sometimes counts as inside.
  */
-function stubKhoRect(left: number, top: number, width: number, height: number) {
+function stubInventoryRect(left: number, top: number, width: number, height: number) {
 	const section = panel('Kho đồ')
 	section.getBoundingClientRect = () =>
 		({
@@ -157,47 +159,49 @@ function stubKhoRect(left: number, top: number, width: number, height: number) {
 		}) as DOMRect
 }
 
-/** Đưa con trỏ tới toạ độ (px) — chỉ cha nghe, không lưới nào nghe. */
+/** Moves the cursor to a coordinate (px) — only the parent listens for it, no board does. */
 function movePointerTo(x: number, y: number) {
 	fireEvent.pointerMove(document, { clientX: x, clientY: y })
 }
 
-/** Vùng kho không chứa (0,0) → thao tác thả được hiểu là "ở lưới trang bị". */
-function khoRoiXa() {
-	stubKhoRect(200, 200, 100, 100)
+/** An inventory area not containing (0,0) → a drop is understood as "on the loadout board". */
+function inventoryFarAway() {
+	stubInventoryRect(200, 200, 100, 100)
 }
 
 /**
- * Đưa con trỏ qua một ô.
+ * Moves the cursor over a cell.
  *
- * Handler thật tính ô theo **toạ độ** (`mousemove` + `elementFromPoint`) vì món dài đè lên ô
- * nên `mouseenter` sẽ bắn lên món. jsdom không có layout, nên ở đây bắn trực tiếp `mousemove`
- * lên chính ô — component đọc `data-cell` từ phần tử trúng đích.
+ * The real handler derives the cell from **coordinates** (`mousemove` + `elementFromPoint`) because
+ * a long item covers cells, so `mouseenter` would fire on the item. jsdom has no layout, so this
+ * dispatches `mousemove` straight onto the cell — the component reads `data-cell` from the event
+ * target.
  */
 function hoverCell(slot: number) {
 	fireEvent.mouseMove(cellOf(slot), { clientX: 0, clientY: 0 })
 }
 
-/** Đưa con trỏ qua một ô của **kho**. */
+/** Moves the cursor over an **inventory** cell. */
 function hoverInvCell(slot: number) {
 	const cell = panel('Kho đồ').querySelector<HTMLElement>(`[data-cell="${slot}"]`)
-	if (!cell) throw new Error(`kho không có ô ${slot}`)
+	if (!cell) throw new Error(`the inventory has no cell ${slot}`)
 	fireEvent.mouseMove(cell, { clientX: 0, clientY: 0 })
 }
 
-/** Bắt đầu kéo: giữ chuột rồi di chuyển quá ngưỡng 4px (giống trình duyệt thật). */
-function batDauKeo(target: HTMLElement) {
+/** Starts a drag: hold the mouse, then move past the 4px threshold (like a real browser). */
+function startDrag(target: HTMLElement) {
 	fireEvent.pointerDown(target, { button: 0, clientX: 10, clientY: 10 })
 	fireEvent.pointerMove(target, { clientX: 300, clientY: 300 })
 }
 
 /**
- * Nhả chuột.
+ * Releases the mouse.
  *
- * ⚠️ Phải bọc `act`: `pointerup` được nghe ở `document` (con trỏ có thể đang ở panel khác) nên
- * không đi qua `fireEvent` — thiếu `act` thì state đã đổi mà DOM chưa render lại.
+ * ⚠️ Must be wrapped in `act`: `pointerup` is listened for on `document` (the cursor may be over
+ * another panel), so it does not go through `fireEvent` — without `act` the state has changed but
+ * the DOM has not re-rendered.
  */
-function nhaChuot() {
+function releaseMouse() {
 	act(() => {
 		document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 0, clientY: 0 }))
 	})
@@ -206,42 +210,42 @@ function nhaChuot() {
 beforeEach(() => reset([blade('sword', 0)]))
 afterEach(cleanup)
 
-describe('kéo món để nhấc', () => {
-	it('kéo món trong lưới thì món mờ đi và có ảnh bám con trỏ', () => {
+describe('dragging an item to pick it up', () => {
+	it('dragging an item on the board dims it and shows a cursor ghost', () => {
 		renderPrep()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 
 		expect(boxOf('sword').style.opacity).toBe('0.45')
 		expect(ghost()).not.toBeNull()
 	})
 
-	it('BẤM món (không kéo) thì KHÔNG nhấc — chỉ mở hộp thoại chi tiết', () => {
+	it('CLICKING an item (without dragging) does NOT pick it up — it only opens the detail dialog', () => {
 		renderPrep()
 
 		fireEvent.click(buttonOf('sword'))
 
-		expect(ghost(), 'bấm không được nhấc món').toBeNull()
-		expect(boxOf('sword').style.opacity, 'món không bị làm mờ').toBe('1')
-		expect(useUiStore.getState().itemUid, 'hộp thoại chi tiết mở').toBe('sword')
+		expect(ghost(), 'a click must not pick the item up').toBeNull()
+		expect(boxOf('sword').style.opacity, 'the item is not dimmed').toBe('1')
+		expect(useUiStore.getState().itemUid, 'the detail dialog opens').toBe('sword')
 	})
 
-	it('kéo món thì KHÔNG mở hộp thoại chi tiết', () => {
+	it('dragging an item does NOT open the detail dialog', () => {
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(4)
-		nhaChuot()
-		// Trình duyệt vẫn bắn `click` sau `pointerup` — nó phải bị bỏ qua.
+		releaseMouse()
+		// The browser still fires `click` after `pointerup` — it must be ignored.
 		fireEvent.click(buttonOf('sword'))
 
-		expect(useUiStore.getState().itemUid, 'cú click đi kèm thao tác kéo bị bỏ qua').toBeNull()
+		expect(useUiStore.getState().itemUid, 'a click accompanying a drag is ignored').toBeNull()
 	})
 
-	it('ảnh món bám theo con trỏ', () => {
+	it('the item image follows the cursor', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 
 		fireEvent.pointerMove(document, { clientX: 120, clientY: 240 })
 		expect(ghost()!.style.left).toBe('120px')
@@ -252,9 +256,9 @@ describe('kéo món để nhấc', () => {
 		expect(ghost()!.style.top).toBe('80px')
 	})
 
-	it('Esc thì bỏ kéo', () => {
+	it('Esc cancels the drag', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 
 		pressKey('Escape')
 
@@ -263,19 +267,19 @@ describe('kéo món để nhấc', () => {
 	})
 })
 
-describe('gợi ý chỗ đặt', () => {
-	it('đưa chuột qua ô thì tô đúng số ô của món', () => {
+describe('the placement hint', () => {
+	it('moving the mouse over a cell fills exactly the number of cells the item needs', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(0)
 
-		// Đao Gỗ dọc 1×3 → 3 ô.
+		// Đao Gỗ upright 1×3 → 3 cells.
 		expect(previewSlots()).toHaveLength(3)
 	})
 
-	it('gợi ý nằm gọn trong MỘT cột cho món 1×3', () => {
+	it('the hint stays inside ONE column for a 1×3 item', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(2)
 
 		const columns = new Set(
@@ -287,19 +291,20 @@ describe('gợi ý chỗ đặt', () => {
 		expect([...columns]).toHaveLength(1)
 	})
 
-	it('không có gợi ý khi chưa kéo món nào', () => {
+	it('there is no hint while nothing is being dragged', () => {
 		renderPrep()
 		hoverCell(5)
 		expect(previewSlots()).toHaveLength(0)
 	})
 
 	/**
-	 * LỖI ĐÃ GẶP: phần **bóng mờ** (các ô tô nền) và **khung đứt** được tính từ hai vị trí
-	 * khác nhau, nên khung lệch khỏi vùng tô. Test này khoá hai thứ đó vào **cùng một khối ô**.
+	 * BUG THAT HAPPENED: the **shading** (filled cells) and the **dashed outline** were computed from
+	 * two different positions, so the outline drifted away from the shaded area. This test pins both
+	 * to the **same block of cells**.
 	 */
-	it('khung đứt bao đúng các ô đang tô nền (không lệch)', () => {
+	it('the dashed outline wraps exactly the shaded cells (no drift)', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(5)
 
 		const filled = previewSlots()
@@ -317,29 +322,29 @@ describe('gợi ý chỗ đặt', () => {
 })
 
 /**
- * LỖI ĐÃ GẶP: ô đang trỏ chỉ được **ghi** khi con trỏ đi qua lưới, mà **không bao giờ bị xoá**
- * khi con trỏ rời đi — lưới bên kia vẫn hiện gợi ý ở ô cũ, và thả chuột ở chỗ khác lại đặt món
- * vào ô nhớ sẵn đó.
+ * BUG THAT HAPPENED: the hovered cell was only **written** while the cursor crossed a board and was
+ * **never cleared** when the cursor left — the other board kept showing the hint on the old cell, and
+ * releasing the mouse elsewhere placed the item on that remembered cell.
  */
-describe('gợi ý chỉ hiện khi con trỏ ở TRONG bảng', () => {
-	it('rời lưới trang bị khi đang kéo món ở kho → lưới không còn gợi ý', () => {
+describe('the hint only shows while the cursor is INSIDE a board', () => {
+	it('leaving the loadout board while dragging an inventory item → the board shows no hint', () => {
 		reset([], [stored('stored')])
 		renderPrep()
 
-		batDauKeo(invTileOf('stored'))
+		startDrag(invTileOf('stored'))
 		hoverCell(9)
-		expect(previewSlotsIn('Trang bị'), 'con trỏ vào lưới thì phải có gợi ý').toEqual([9])
+		expect(previewSlotsIn('Trang bị'), 'the cursor is on the board so a hint must show').toEqual([9])
 
 		fireEvent.pointerLeave(boardOf('Trang bị'))
 
-		expect(previewSlotsIn('Trang bị'), 'con trỏ đã rời lưới thì không được còn gợi ý').toEqual([])
+		expect(previewSlotsIn('Trang bị'), 'the cursor left the board so no hint may remain').toEqual([])
 	})
 
-	it('rời kho khi đang kéo món ở trang bị → kho không còn gợi ý', () => {
+	it('leaving the inventory while dragging a loadout item → the inventory shows no hint', () => {
 		reset([jade('gem', 0)], [])
 		renderPrep()
 
-		batDauKeo(buttonOf('gem'))
+		startDrag(buttonOf('gem'))
 		hoverInvCell(0)
 		expect(previewSlotsIn('Kho đồ')).toEqual([0])
 
@@ -348,60 +353,60 @@ describe('gợi ý chỉ hiện khi con trỏ ở TRONG bảng', () => {
 		expect(previewSlotsIn('Kho đồ')).toEqual([])
 	})
 
-	it('quay lại lưới thì gợi ý hiện lại — và thả đúng chỗ mới', () => {
+	it('coming back to the board shows the hint again — and drops on the new spot', () => {
 		reset([], [stored('stored')])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(invTileOf('stored'))
+		startDrag(invTileOf('stored'))
 		hoverCell(9)
 		fireEvent.pointerLeave(boardOf('Trang bị'))
 		expect(previewSlotsIn('Trang bị')).toEqual([])
 
 		hoverCell(6)
-		expect(previewSlotsIn('Trang bị'), 'vào lại lưới thì gợi ý phải hiện lại').toEqual([6])
+		expect(previewSlotsIn('Trang bị'), 'back on the board the hint must show again').toEqual([6])
 
-		nhaChuot()
-		expect(useGameStore.getState().run.equipped[0].slot, 'đặt vào ô đang trỏ, không phải ô cũ').toBe(6)
+		releaseMouse()
+		expect(useGameStore.getState().run.equipped[0].slot, 'placed on the hovered cell, not the old one').toBe(6)
 	})
 
-	it('rời lưới rồi thả chuột thì huỷ, không đặt vào ô cũ', () => {
+	it('leaving the board and releasing cancels, without placing on the old cell', () => {
 		reset([], [stored('stored')])
 		renderPrep()
-		// Vùng kho chứa (0,0) → thả ở đây **không** phải "cất vào kho".
-		stubKhoRect(0, 0, 1000, 1000)
+		// The inventory area contains (0,0) → dropping here is **not** "store into the inventory".
+		stubInventoryRect(0, 0, 1000, 1000)
 
-		batDauKeo(invTileOf('stored'))
+		startDrag(invTileOf('stored'))
 		movePointerTo(500, 500)
 		hoverCell(9)
 		fireEvent.pointerLeave(boardOf('Trang bị'))
-		nhaChuot()
+		releaseMouse()
 
 		const run = useGameStore.getState().run
-		expect(run.equipped, 'thả ngoài lưới thì không được đặt món').toHaveLength(0)
-		expect(run.inventory.map((item) => item.uid), 'món vẫn nằm trong kho').toEqual(['stored'])
-		expect(ghost(), 'đã nhả chuột thì không được còn ảnh bám con trỏ').toBeNull()
+		expect(run.equipped, 'released outside the board so nothing may be placed').toHaveLength(0)
+		expect(run.inventory.map((item) => item.uid), 'the item is still in the inventory').toEqual(['stored'])
+		expect(ghost(), 'after the mouse was released no cursor ghost may remain').toBeNull()
 	})
 })
 
-describe('xoay khi đang kéo', () => {
-	it('phím R đổi hướng món đang kéo', () => {
+describe('rotating while dragging', () => {
+	it('the R key flips the orientation of the dragged item', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(5)
 
-		// Dọc 1×3 ở cột 1 → ô 1, 5, 9
+		// Upright 1×3 in column 1 → cells 1, 5, 9
 		expect(previewSlots()).toEqual([1, 5, 9])
 
 		pressKey('r')
 
-		// Ngang 3×1 ở hàng của con trỏ (hàng 1) → ô 4, 5, 6
+		// Sideways 3×1 on the cursor's row (row 1) → cells 4, 5, 6
 		expect(previewSlots()).toEqual([4, 5, 6])
 	})
 
-	it('chuột phải cũng đổi hướng', () => {
+	it('the right mouse button also flips the orientation', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 
 		fireEvent.contextMenu(document)
 
@@ -409,56 +414,56 @@ describe('xoay khi đang kéo', () => {
 		expect(ghost()).not.toBeNull()
 	})
 
-	it('R hai lần thì quay về hướng cũ', () => {
+	it('pressing R twice returns to the original orientation', () => {
 		renderPrep()
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(5)
 
 		pressKey('r')
 		pressKey('R')
 
-		expect(previewSlots(), 'dọc 1×3 ở cột 1 → ô 1, 5, 9').toEqual([1, 5, 9])
+		expect(previewSlots(), 'upright 1×3 in column 1 → cells 1, 5, 9').toEqual([1, 5, 9])
 	})
 })
 
-describe('thả món xuống', () => {
-	it('thả trong lưới → món nằm đúng khối gợi ý', () => {
+describe('dropping an item', () => {
+	it('dropping inside the board → the item lands on exactly the hint block', () => {
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(6)
 		const preview = previewSlots()
-		nhaChuot()
+		releaseMouse()
 
 		const item = useGameStore.getState().run.equipped[0]
-		expect(itemCells(item, 4), 'khối đã đặt phải trùng khối gợi ý').toEqual(preview)
+		expect(itemCells(item, 4), 'the placed block must match the hinted block').toEqual(preview)
 	})
 
-	it('hướng đã xoay được áp dụng khi thả', () => {
+	it('the rotated orientation is applied on drop', () => {
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(4)
 		pressKey('r')
 		const preview = previewSlots()
-		nhaChuot()
+		releaseMouse()
 
 		const item = useGameStore.getState().run.equipped[0]
 		expect(item.rotated).toBe(true)
-		expect(itemCells(item, 4), 'món nằm ngang đúng chỗ gợi ý').toEqual(preview)
-		expect(preview, 'ngang 3×1 → một hàng ba ô').toEqual([4, 5, 6])
+		expect(itemCells(item, 4), 'the item lies sideways exactly where the hint was').toEqual(preview)
+		expect(preview, 'sideways 3×1 → one row of three cells').toEqual([4, 5, 6])
 	})
 
-	it('thả lên món khác loại thì hoán đổi vị trí, không chồng ô', () => {
+	it('dropping onto an item of a different kind swaps positions, with no overlap', () => {
 		reset([blade('a', 0), jade('b', 2)], [])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('b'))
+		startDrag(buttonOf('b'))
 		hoverCell(0)
-		nhaChuot()
+		releaseMouse()
 
 		const run = useGameStore.getState().run
 		const a = run.equipped.find((item) => item.uid === 'a')!
@@ -468,148 +473,154 @@ describe('thả món xuống', () => {
 		expect(new Set([...itemCells(a, 4), ...itemCells(b, 4)]).size).toBe(itemCells(a, 4).length + itemCells(b, 4).length)
 	})
 
-	it('gợi ý đè lên món khác → viền đỏ và thả xuống KHÔNG đặt, dù bên dưới còn trống', () => {
-		// LỖI ĐÃ GẶP: khối gợi ý đè lên món khác mà vẫn vẽ viền vàng, rồi thả xuống lại "ăn" —
-		// món trượt xuống ô trống bên dưới, lệch hẳn khỏi khung người chơi đang thấy.
+	it('a hint overlapping another item → red outline and dropping places NOTHING, even with room below', () => {
+		// BUG THAT HAPPENED: the hint block overlapped another item yet still drew a golden outline,
+		// and the drop then "took" it — the item slid down onto an empty cell below, far away from the
+		// outline the player was looking at.
 		reset([blade('sword', 0), jade('gem', 5)], [])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(1)
 
-		expect(previewSlots(), 'khối gợi ý đè lên Ngọc ở ô 5').toContain(5)
-		expect(outlineClass(), 'phải báo đỏ vì vướng món').toContain('border-danger')
+		expect(previewSlots(), 'the hint block overlaps Ngọc on cell 5').toContain(5)
+		expect(outlineClass(), 'must report red because an item is in the way').toContain('border-danger')
 
-		nhaChuot()
+		releaseMouse()
 
 		expect(
 			useGameStore.getState().run.equipped.find((item) => item.uid === 'sword')?.slot,
-			'món phải nằm nguyên chỗ cũ',
+			'the item must stay where it was',
 		).toBe(0)
-		expect(toastText(), 'phải báo cho người chơi biết').toMatch(/không vừa món/)
+		expect(toastText(), 'the player must be told').toMatch(/không vừa món/)
 	})
 
-	it('khối gợi ý lấn ô KHOÁ thì đỏ, dù con trỏ đang đứng trên một món', () => {
-		// LỖI ĐÃ GẶP (ảnh người chơi gửi): thương 1×4 kéo từ kho lên, khối gợi ý vừa đè lên Ngọc
-		// vừa tràn xuống hai hàng khoá. Con trỏ đứng trên Ngọc nên ngoại lệ "trỏ vào món" (dành cho
-		// nhập sao/hoán đổi) **che mất** lỗi tràn vùng → viền vẫn vàng dù thả xuống không được.
+	it('a hint block spilling into LOCKED cells is red, even with the cursor on an item', () => {
+		// BUG THAT HAPPENED (screenshot sent by a player): a 1×4 spear dragged up from the inventory had
+		// its hint block both covering Ngọc and spilling two locked rows down. The cursor stood on Ngọc,
+		// so the "pointing at an item" exception (meant for star merges/swaps) **hid** the overflow
+		// error → the outline stayed golden even though the drop would fail.
 		reset([jade('gem', 5)], [stored('spear', 'fire-spear')])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(invTileOf('spear'))
+		startDrag(invTileOf('spear'))
 		hoverCell(5)
 
-		expect(previewSlotsIn('Trang bị'), 'khối lấn sang hàng khoá').toContain(13)
-		expect(outlineClass(), 'tràn vùng đặt thì phải báo đỏ').toContain('border-danger')
+		expect(previewSlotsIn('Trang bị'), 'the block spills into the locked rows').toContain(13)
+		expect(outlineClass(), 'overflowing the drop area must report red').toContain('border-danger')
 
-		nhaChuot()
+		releaseMouse()
 
 		const run = useGameStore.getState().run
-		expect(run.equipped.map((item) => item.uid), 'món cũ nằm nguyên').toEqual(['gem'])
-		expect(run.inventory.map((item) => item.uid), 'không đặt được thì ở lại kho').toEqual([
+		expect(run.equipped.map((item) => item.uid), 'the existing item stays put').toEqual(['gem'])
+		expect(run.inventory.map((item) => item.uid), 'when it cannot be placed it stays in the inventory').toEqual([
 			'spear',
 		])
-		expect(toastText(), 'phải chỉ cho người chơi cách xoay').toMatch(/bấm R để xoay/)
+		expect(toastText(), 'the player must be shown how to rotate').toMatch(/bấm R để xoay/)
 	})
 
-	it('ô gợi ý nằm TRÊN lớp món — món không được che gợi ý', () => {
-		// Món là ô grid có `relative` nên vẽ **sau** các ô gợi ý trong DOM: thiếu `z-10` là khối gợi ý
-		// bị món che mất, người chơi không thấy mình sắp đặt vào đâu.
+	it('hint cells sit ABOVE the item layer — items must not cover the hint', () => {
+		// An item is a grid cell with `relative`, so it is painted **after** the hint cells in the DOM:
+		// without `z-10` the hint block is covered by items and the player cannot see where the item is
+		// about to land.
 		//
-		// ⚠️ jsdom không vẽ nên ở đây chỉ khoá được **lớp** qua class; kiểm tra thật bằng mắt trên
-		// trình duyệt (ảnh chụp) khi đổi giao diện gợi ý.
+		// ⚠️ jsdom does not paint, so only the **layer** can be checked via the class here; verify the
+		// real thing visually in a browser (screenshot) when changing the hint UI.
 		reset([blade('sword', 0), jade('gem', 5)], [])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(1)
 
 		const cells = [...document.querySelectorAll<HTMLElement>('[data-preview]')]
-		expect(cells.length, 'đang có khối gợi ý').toBeGreaterThan(0)
-		for (const cell of cells) expect(cell.className, 'ô gợi ý phải nổi lên trên').toContain('z-10')
-		expect(outlineClass(), 'khung đứt cũng phải nổi lên trên').toContain('z-10')
-		expect(boxOf('gem').className, 'món ❌ không được nâng lớp lên trên gợi ý').not.toMatch(
+		expect(cells.length, 'a hint block is present').toBeGreaterThan(0)
+		for (const cell of cells) expect(cell.className, 'hint cells must float above').toContain('z-10')
+		expect(outlineClass(), 'the dashed outline must float above too').toContain('z-10')
+		expect(boxOf('gem').className, 'an item ❌ must not be lifted above the hint').not.toMatch(
 			/(^|\s)z-/,
 		)
 	})
 
-	it('khối gợi ý vướng món THỨ BA (ngoài món dưới con trỏ) thì đỏ', () => {
-		// Ngoại lệ "trỏ vào một món" chỉ dành cho **món đó**: `resolveDrop` chỉ xử lý món nằm dưới con
-		// trỏ, nên món thứ ba lọt vào khối là thả không được → gợi ý phải đỏ.
+	it('a hint block clashing with a THIRD item (besides the one under the cursor) is red', () => {
+		// The "pointing at an item" exception applies only to **that item**: `resolveDrop` handles just
+		// the item under the cursor, so a third item caught in the block makes the drop impossible →
+		// the hint must be red.
 		reset([jade('gem-a', 1), blade('sword', 3), jade('gem-b', 5)], [])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(5)
 
-		expect(previewSlots(), 'khối đè cả Ngọc ô 5 (dưới con trỏ) lẫn Ngọc ô 1').toEqual(
+		expect(previewSlots(), 'the block covers Ngọc on cell 5 (under the cursor) and Ngọc on cell 1').toEqual(
 			expect.arrayContaining([1, 5]),
 		)
-		expect(outlineClass(), 'vướng món thứ ba thì phải báo đỏ').toContain('border-danger')
+		expect(outlineClass(), 'clashing with a third item must report red').toContain('border-danger')
 
-		nhaChuot()
+		releaseMouse()
 
 		expect(
 			useGameStore.getState().run.equipped.map((item) => item.uid),
-			'không đặt được thì mọi món nằm nguyên',
+			'when it cannot be placed every item stays put',
 		).toEqual(['gem-a', 'sword', 'gem-b'])
 	})
 
-	it('Esc giữa lúc kéo rồi nhả chuột thì KHÔNG đặt món nào', () => {
-		// LỖI ĐÃ GẶP: `Esc` chỉ xoá `held`, còn cha vẫn nhớ món đang kéo, nên cú **nhả chuột** sau đó
-		// vẫn đặt món xuống ô cuối cùng con trỏ đi qua — người chơi đã huỷ mà món vẫn bị dời.
+	it('Esc mid-drag followed by a mouse release places NOTHING', () => {
+		// BUG THAT HAPPENED: `Esc` only cleared `held`, while the parent still remembered the dragged
+		// item, so the **mouse release** after that still dropped the item on the last cell the cursor
+		// passed over — the player cancelled yet the item moved.
 		reset([blade('sword', 0), jade('gem', 5)], [])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(buttonOf('sword'))
+		startDrag(buttonOf('sword'))
 		hoverCell(2)
-		expect(outlineClass(), 'ô này đặt được (nếu không thì test không chứng minh được gì)').toContain(
+		expect(outlineClass(), 'this cell can take the item (otherwise the test proves nothing)').toContain(
 			'border-gold',
 		)
 		pressKey('Escape')
-		nhaChuot()
+		releaseMouse()
 
-		expect(ghost(), 'huỷ rồi thì không còn món bám con trỏ').toBeNull()
+		expect(ghost(), 'after cancelling no item follows the cursor').toBeNull()
 		expect(
 			useGameStore.getState().run.equipped.map((item) => [item.uid, item.slot]),
-			'huỷ rồi thì không món nào được đặt',
+			'after cancelling nothing is placed',
 		).toEqual([
 			['sword', 0],
 			['gem', 5],
 		])
 	})
 
-	it('lưới chặn bôi đen văn bản (giữ chuột ở ô trống không được hoá con trỏ 🚫)', () => {
-		// Ô trống cạnh nhau vẫn tạo được **vùng bôi đen**, và khi đó trình duyệt chuyển sang thao tác
-		// "kéo vùng bôi đen" → con trỏ thành 🚫 (lưới không nhận drop), trông như ô đó không đặt được
-		// đồ. `select-none` chặn từ gốc; jsdom không có bôi đen nên ở đây khoá bằng class.
+	it('the board blocks text selection (holding the mouse on an empty cell must not turn the cursor 🚫)', () => {
+		// Adjacent empty cells still form a **selection area**, at which point the browser switches to
+		// "drag-select" → the cursor becomes 🚫 (a board is not a drop target) and it looks like that
+		// cell cannot hold an item. `select-none` stops it at the source; jsdom has no selection, so
+		// the class is pinned here.
 		reset([blade('sword', 0)], [])
 		renderPrep()
 
 		const boards = [...document.querySelectorAll<HTMLElement>('[data-grid-board]')]
-		expect(boards.length, 'có cả hai lưới').toBe(2)
-		for (const board of boards) expect(board.className, 'lưới phải có select-none').toContain('select-none')
+		expect(boards.length, 'both boards are present').toBe(2)
+		for (const board of boards) expect(board.className, 'the board must have select-none').toContain('select-none')
 	})
 
-	it('thả vào ô KHOÁ thì không đặt được và báo rõ', () => {
+	it('dropping on a LOCKED cell places nothing and says so clearly', () => {
 		reset([], [stored('stored')])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(invTileOf('stored'))
-		hoverCell(14) // ô khoá (cấp thú 1 chỉ dùng 12 ô đầu)
-		nhaChuot()
+		startDrag(invTileOf('stored'))
+		hoverCell(14) // a locked cell (a level 1 pet only uses the first 12 cells)
+		releaseMouse()
 
-		expect(useGameStore.getState().run.equipped, 'không được đặt vào ô khoá').toHaveLength(0)
+		expect(useGameStore.getState().run.equipped, 'must not be placed on a locked cell').toHaveLength(0)
 		expect(screen.getByText(/khoá/)).toBeTruthy()
 	})
 
-	it('không kéo gì mà bấm ô thì không đổi gì', () => {
+	it('clicking a cell without dragging anything changes nothing', () => {
 		renderPrep()
 		hoverCell(9)
 		fireEvent.click(cellOf(9))
@@ -619,15 +630,15 @@ describe('thả món xuống', () => {
 	})
 })
 
-describe('kho ↔ trang bị', () => {
-	it('kéo món trong kho lên lưới thì được mang', () => {
+describe('inventory ↔ loadout', () => {
+	it('dragging an inventory item onto the board makes it carried', () => {
 		reset([], [stored('stored')])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(invTileOf('stored'))
+		startDrag(invTileOf('stored'))
 		hoverCell(0)
-		nhaChuot()
+		releaseMouse()
 
 		const run = useGameStore.getState().run
 		expect(run.inventory).toHaveLength(0)
@@ -635,57 +646,57 @@ describe('kho ↔ trang bị', () => {
 		expect(run.equipped[0].uid).toBe('stored')
 	})
 
-	it('món kho dài 1×4 không lọt lưới 3 hàng thì TỪ CHỐI (phải xoay bằng R)', () => {
+	it('a 1×4 inventory item that does not fit the 3-row board is REJECTED (must be rotated with R)', () => {
 		reset([], [stored('spear', 'fire-spear')])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(invTileOf('spear'))
+		startDrag(invTileOf('spear'))
 		hoverCell(0)
-		expect(outlineClass(), 'gợi ý phải báo đỏ: hướng này không vừa').toContain('border-danger')
-		nhaChuot()
+		expect(outlineClass(), 'the hint must report red: this orientation does not fit').toContain('border-danger')
+		releaseMouse()
 
 		const run = useGameStore.getState().run
-		expect(run.inventory, 'không đặt được thì món ở lại kho').toHaveLength(1)
-		expect(toastText(), 'phải chỉ cho người chơi cách xoay').toMatch(/bấm R để xoay/)
+		expect(run.inventory, 'when it cannot be placed the item stays in the inventory').toHaveLength(1)
+		expect(toastText(), 'the player must be shown how to rotate').toMatch(/bấm R để xoay/)
 	})
 
-	it('xoay bằng R trong lúc kéo thì món kho 1×4 vào được lưới 3 hàng', () => {
+	it('rotating with R mid-drag lets a 1×4 inventory item fit the 3-row board', () => {
 		reset([], [stored('spear', 'fire-spear')])
 		renderPrep()
-		khoRoiXa()
+		inventoryFarAway()
 
-		batDauKeo(invTileOf('spear'))
+		startDrag(invTileOf('spear'))
 		hoverCell(0)
 		pressKey('r')
-		expect(outlineClass(), 'xoay xong thì gợi ý hết đỏ').not.toContain('border-danger')
+		expect(outlineClass(), 'after rotating the hint is no longer red').not.toContain('border-danger')
 		const preview = previewSlots()
-		nhaChuot()
+		releaseMouse()
 
 		const run = useGameStore.getState().run
-		expect(run.inventory, 'đã mang lên được').toHaveLength(0)
-		expect(run.equipped[0].rotated, 'đúng hướng đang thấy').toBe(true)
+		expect(run.inventory, 'it has been moved up').toHaveLength(0)
+		expect(run.equipped[0].rotated, 'matching the orientation on screen').toBe(true)
 		expect(itemCells(run.equipped[0], 4)).toEqual(preview)
 	})
 
-	it('kéo món của trang bị xuống vùng kho thì cất vào kho', () => {
+	it('dragging a loadout item down into the inventory area stores it', () => {
 		reset([jade('gem', 0)], [])
 		renderPrep()
-		// Vùng kho chứa (0,0) → thả ở đây được hiểu là "trong kho".
-		stubKhoRect(0, 0, 1000, 1000)
+		// The inventory area contains (0,0) → a drop here counts as "inside the inventory".
+		stubInventoryRect(0, 0, 1000, 1000)
 		movePointerTo(400, 400)
 
-		batDauKeo(buttonOf('gem'))
-		nhaChuot()
+		startDrag(buttonOf('gem'))
+		releaseMouse()
 
 		const run = useGameStore.getState().run
-		expect(run.equipped, 'đã rời trang bị').toHaveLength(0)
-		expect(run.inventory, 'đã vào kho').toHaveLength(1)
+		expect(run.equipped, 'it left the loadout').toHaveLength(0)
+		expect(run.inventory, 'it went into the inventory').toHaveLength(1)
 	})
 })
 
-describe('nút ⟳ vẫn hoạt động', () => {
-	it('bấm nút xoay thì món đổi hướng', () => {
+describe('the ⟳ button still works', () => {
+	it('clicking the rotate button flips the item orientation', () => {
 		renderPrep()
 		fireEvent.click(screen.getByTitle('Xoay 90°'))
 

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { buildEnemyCombatant, buildPlayerCombatant, estimatePower } from '../game/build'
 import { REROLL_COST, STARTING_CURRENCY, rollShop } from '../game/economy'
 import { getTemplate } from '../game/items'
-import { dropInKho as moveInKho, rotateInKho as rotateKhoItem, unequipIntoKho } from '../game/kho'
+import { dropInStorage as moveInStorage, rotateInStorage as rotateStorageItem, unequipIntoStorage } from '../game/storage'
 import {
 	acquireItem,
 	dropEquipped,
@@ -25,7 +25,7 @@ import type { BattleResult, ItemBlueprint, RunState } from '../game/types'
 
 export type Phase = 'prep' | 'battle' | 'result' | 'victory'
 
-/** Nơi một món đang nằm. Dùng để biết thả vào đâu thì gọi action nào. */
+/** Where an item currently lives. Tells a drop target which action to call. */
 export type ItemHome = 'equipped' | 'inventory'
 
 export interface BattleState {
@@ -80,28 +80,28 @@ interface GameStore {
 	upgradePet: () => void
 	buyOffer: (index: number) => void
 	reroll: () => void
-	/** Bán một món, dù đang mang hay đang ở kho. */
+	/** Sells an item, whether it is carried or in storage. */
 	sell: (uid: string) => void
-	/** Kéo thả trong lưới trang bị. */
+	/** Drag and drop inside the loadout grid. */
 	dropItem: (uid: string, slot: number, rotated?: boolean) => void
-	/** Kéo thả trong lưới **kho** (kho là lưới tự do như trang bị). */
-	dropInKho: (uid: string, slot: number | null, rotated?: boolean) => void
+	/** Drag and drop inside the **storage** grid (a free grid, like the loadout). */
+	dropInStorage: (uid: string, slot: number | null, rotated?: boolean) => void
 	/**
-	 * Xoay một món đang mang 90° tại chỗ.
-	 * Trả `true` nếu xoay được — dùng để gợi ý khi kéo khỏi lệch với thực tế.
+	 * Rotates a carried item 90° in place.
+	 * Returns `true` when it rotated — used to keep the hint honest while dragging.
 	 */
 	rotate: (uid: string) => boolean
-	/** Xoay một món trong kho tại chỗ. `false` nếu hướng mới không vừa. */
-	rotateInKho: (uid: string) => boolean
-	/** Kho → trang bị (tự tìm chỗ trống). */
+	/** Rotates an item in storage in place. `false` when the new orientation does not fit. */
+	rotateInStorage: (uid: string) => boolean
+	/** Storage → loadout (finds a free spot). */
 	equip: (uid: string) => void
-	/** Đặt món từ kho vào đúng ô; `false` nếu hướng đó không vừa. */
+	/** Places a storage item on an exact cell; `false` when that orientation does not fit. */
 	equipAt: (uid: string, slot: number, rotated: boolean) => boolean
-	/** Trang bị → kho ở chỗ trống đầu tiên. */
+	/** Loadout → storage, on the first free spot. */
 	unequip: (uid: string) => void
-	/** Trang bị → kho **vào đúng ô đang trỏ** (`slot = null` thì tự tìm chỗ). */
+	/** Loadout → storage, **on the hovered cell** (`slot = null` searches for a spot). */
 	unequipAt: (uid: string, slot: number | null, rotated: boolean) => void
-	/** Chuyển một món về phía còn lại, tuỳ nó đang ở đâu. */
+	/** Moves an item to the other side, whichever side it is on. */
 	transfer: (uid: string, from: ItemHome) => void
 	startBattle: (mode: 'stage' | 'pvp') => void
 	commitBattle: () => void
@@ -220,9 +220,9 @@ export const useGameStore = create<GameStore>()(
 					return { run }
 				}),
 
-			dropInKho: (uid, slot, rotated) =>
+			dropInStorage: (uid, slot, rotated) =>
 				set((state) => {
-					const { run, result } = moveInKho(state.run, uid, slot, rotated)
+					const { run, result } = moveInStorage(state.run, uid, slot, rotated)
 					if (result.merged) get().pushToast('Nhập thành công — món đồ lên sao!', 'good')
 					return { run }
 				}),
@@ -251,10 +251,10 @@ export const useGameStore = create<GameStore>()(
 				}),
 
 			/**
-			 * Đặt món từ kho vào **đúng ô đang trỏ tới**.
+			 * Places a storage item on the **exact hovered cell**.
 			 *
-			 * Trả `false` khi hướng đang chọn không vừa ô đó — chỗ gọi sẽ lùi về `equip()`
-			 * để store tự tìm chỗ (thử cả hai hướng xoay).
+			 * Returns `false` when the chosen orientation does not fit that cell — the caller then
+			 * falls back to `equip()` so the store can search for a spot (trying both orientations).
 			 */
 			equipAt: (uid, slot, rotated) => {
 				const result = equipFromInventoryAt(get().run, uid, slot, rotated)
@@ -269,10 +269,10 @@ export const useGameStore = create<GameStore>()(
 					return result.ok ? { run: result.run } : state
 				}),
 
-			unequipAt: (uid, slot, rotated) => set((state) => ({ run: unequipIntoKho(state.run, uid, slot, rotated) })),
+			unequipAt: (uid, slot, rotated) => set((state) => ({ run: unequipIntoStorage(state.run, uid, slot, rotated) })),
 
-			rotateInKho: (uid) => {
-				const next = rotateKhoItem(get().run, uid)
+			rotateInStorage: (uid) => {
+				const next = rotateStorageItem(get().run, uid)
 				if (!next) {
 					get().pushToast('Xoay lại thì không vừa chỗ — hãy kéo món ra chỗ khác trước', 'bad')
 					return false
@@ -377,15 +377,16 @@ export const useGameStore = create<GameStore>()(
 			version: 2,
 			partialize: (state) => ({ run: state.run }),
 			/**
-			 * Bản lưu v1 chỉ có `run.items` (một danh sách, tất cả đều tính là đang mang).
-			 * Chuyển sang v2: giữ nguyên những món còn vừa lưới trang bị, phần dư dồn vào kho.
+			 * A v1 save only has `run.items` (one list, everything counts as carried).
+			 * Migrating to v2: keep the items that still fit the loadout grid, dump the rest into
+			 * storage.
 			 */
 			migrate: (persisted, version) =>
 				version >= 2 ? (persisted as Persisted) : (migrateV1ToV2(persisted as PersistedV1) as Persisted),
 			/**
-			 * Chuẩn hoá bản lưu sau khi migrate. Bắt buộc: một `RunState` hỏng (thiếu
-			 * `equipped`, `petId` lạ…) làm `run.equipped.filter` ném lỗi lúc render và
-			 * **cả trang trắng**, không còn UI để người chơi bấm "Chơi lại".
+			 * Normalizes the save after migrating. Required: a broken `RunState` (missing
+			 * `equipped`, unknown `petId`…) makes `run.equipped.filter` throw while rendering and
+			 * **blanks the whole page**, leaving no UI for the player to press "Chơi lại".
 			 */
 			merge: (persisted, current) => ({
 				...current,
@@ -395,7 +396,7 @@ export const useGameStore = create<GameStore>()(
 	),
 )
 
-/** Combatant của người chơi — **chỉ** đồ đang mang mới tham chiến. */
+/** The player's combatant — **only** carried items take part in the fight. */
 export function playerCombatantFor(run: RunState) {
 	return buildPlayerCombatant(run.petId, run.pets[run.petId] ?? 1, equippedItems(run))
 }

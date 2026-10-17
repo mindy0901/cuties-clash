@@ -1,22 +1,23 @@
 #!/bin/sh
-# Chờ cơ sở dữ liệu, chạy migration rồi khởi động API.
+# Wait for the database, run the migrations, then start the API.
 set -e
 
-echo "→ Chờ cơ sở dữ liệu sẵn sàng…"
+echo "→ Waiting for the database to be ready…"
 node scripts/wait-for-db.mjs
 
-echo "→ Áp migration Prisma…"
-# `scripts/migrate.mjs` tự baseline khi database đã có bảng từ thời Alembic (nếu không,
-# `prisma migrate deploy` chết với P3005 "The database schema is not empty").
+echo "→ Applying Prisma migrations…"
+# `scripts/migrate.mjs` baselines by itself when the database already has tables from the
+# Alembic era (otherwise `prisma migrate deploy` dies with P3005 "The database schema is not
+# empty").
 node scripts/migrate.mjs
 
-echo "→ Khởi động API tại cổng 8000…"
-# `DEV_WATCH=true` (service `be-dev` trong compose): tự nạp lại khi sửa file.
+echo "→ Starting the API on port 8000…"
+# `DEV_WATCH=true` (the `be-dev` service in compose): reload when files change.
 #
-# ⚠️ Vì sao dùng `nodemon --legacy-watch` chứ không `tsx watch`: `tsx watch` dùng
-# `node:fs.watch`, mà bind mount của Windows **không phát sự kiện filesystem** vào container
-# (đã kiểm chứng: sửa file xong log trống, API vẫn chạy code cũ). `--legacy-watch` là chế độ
-# polling của nodemon nên hoạt động bất kể loại filesystem.
+# ⚠️ Why `nodemon --legacy-watch` and not `tsx watch`: `tsx watch` uses `node:fs.watch`, and a
+# Windows bind mount does **not** deliver filesystem events into the container (verified: after
+# editing a file the log stayed empty and the API kept running the old code). `--legacy-watch`
+# is nodemon's polling mode, so it works regardless of the filesystem type.
 if [ "$DEV_WATCH" = "true" ]; then
 	exec pnpm dev:docker
 fi

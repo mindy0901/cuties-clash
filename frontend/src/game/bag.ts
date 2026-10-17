@@ -1,7 +1,7 @@
 import { MAX_STAR, getTemplate, starPrice } from './items'
 import type { GridSpace, ItemInstance, Star } from './types'
 
-/** Ô thứ tự trong lưới: hàng trước, cột sau. */
+/** Cell ordering inside the grid: row first, then column. */
 export interface Cell {
 	row: number
 	col: number
@@ -15,7 +15,7 @@ export function toSlot(cell: Cell, width: number): number {
 	return cell.row * width + cell.col
 }
 
-/** Kích thước thực tế của một món, đã tính xoay 90°. */
+/** An item's actual footprint, with a 90° rotation already applied. */
 export function footprintOf(space: GridSpace, rotated = false): GridSpace {
 	return rotated ? { w: space.h, h: space.w } : space
 }
@@ -25,10 +25,10 @@ export function templateFootprint(templateId: string, rotated = false): GridSpac
 }
 
 /**
- * Hai bản sao nhập được khi cùng template, cùng số sao và chưa đạt 4★.
+ * Two copies can merge when they share the same template and star rank and are below 4★.
  *
- * Nhận kiểu tối thiểu (`templateId` + `star`) để dùng được cả với món **đang kéo** — lúc đó chỉ
- * có `HeldItem`, không phải `ItemInstance` đầy đủ.
+ * Accepts a minimal shape (`templateId` + `star`) so it also works with the item **being dragged** —
+ * at that point only a `HeldItem` exists, not a full `ItemInstance`.
  */
 export function isMergeable(
 	a: { templateId: string; star: Star },
@@ -37,7 +37,7 @@ export function isMergeable(
 	return a.templateId === b.templateId && a.star === b.star && a.star < MAX_STAR
 }
 
-/** Mọi ô mà một món chiếm, tính từ ô neo (góc trên trái). */
+/** Every cell an item covers, counted from the anchor cell (top-left corner). */
 export function cellsOf(slot: number, size: GridSpace, width: number): number[] {
 	if (slot < 0) return []
 	const { row: startRow, col: startCol } = toCell(slot, width)
@@ -50,7 +50,7 @@ export function cellsOf(slot: number, size: GridSpace, width: number): number[] 
 	return cells
 }
 
-/** Ô của một món trong túi, đã tính xoay. Trả [] nếu món nằm ở khay chờ. */
+/** Cells an item covers in the bag, rotation included. Returns [] when it sits in the waiting tray. */
 export function itemCells(item: ItemInstance, width: number): number[] {
 	if (item.slot < 0) return []
 	return cellsOf(item.slot, templateFootprint(item.templateId, item.rotated), width)
@@ -61,7 +61,7 @@ export function blueprintCells(entry: { templateId: string; slot: number; rotate
 	return cellsOf(entry.slot, templateFootprint(entry.templateId, entry.rotated), width)
 }
 
-/** Bản đồ ô → món đang chiếm ô đó. Ô trống không xuất hiện trong bản đồ. */
+/** Cell → item map for whichever item occupies that cell. Empty cells never appear in the map. */
 export function occupancy<T extends { slot: number }>(
 	items: T[],
 	width: number,
@@ -79,7 +79,7 @@ export function occupancyOf(items: ItemInstance[], width: number): Map<number, I
 	return occupancy(items, width, (item) => templateFootprint(item.templateId, item.rotated))
 }
 
-/** Món chiếm ô `slot` (bỏ qua một uid), dùng cho drop và kiểm tra va chạm. */
+/** The item occupying cell `slot` (ignoring one uid), used by drops and collision checks. */
 export function occupantAt(
 	items: ItemInstance[],
 	slot: number,
@@ -93,7 +93,7 @@ export function occupantAt(
 	return undefined
 }
 
-/** Tập uid của các món có ít nhất một ô kề cạnh với `cells` (không tính `exceptUid`). */
+/** Uids of the items with at least one cell edge-adjacent to `cells` (excluding `exceptUid`). */
 export function adjacentUids(
 	map: Map<number, { uid: string }>,
 	cells: number[],
@@ -121,16 +121,16 @@ export function adjacentUids(
 }
 
 /**
- * Kẹp một ô thành **ô neo hợp lệ** cho khối `size`: giữ nguyên nếu khối đã nằm trọn
- * trong lưới, nếu không thì dịch ô neo về phía gần nhất mà khối vẫn trọn.
+ * Clamp a cell into a **valid anchor cell** for a `size` block: keep it when the block already fits
+ * inside the grid, otherwise shift the anchor to the closest position where it still fits.
  *
- * ⚠️ VÌ SAO CẦN: khi kéo, con trỏ có thể ở ô 5 trong lưới 4 cột. Món 4×1 không thể
- * neo ở cột 1 (`col + 4 > 4`), nên nếu vẽ gợi ý từ ô 5 thì `cellsOf` sinh ra
- * `[5, 6, 7, 8]` — tràn sang hàng dưới, nhìn như hai hàng, và `resolveDrop` cũng từ
- * chối ô 5 vì khối tràn lưới ⇒ gợi ý và chỗ thả **không khớp nhau**.
+ * ⚠️ WHY THIS IS NEEDED: while dragging, the cursor can sit on cell 5 of a 4-column grid. A 4×1 item
+ * cannot be anchored in column 1 (`col + 4 > 4`), so drawing the preview from cell 5 would make
+ * `cellsOf` produce `[5, 6, 7, 8]` — spilling onto the next row, looking like two rows, while
+ * `resolveDrop` also rejects cell 5 for that overflow ⇒ preview and drop target **disagree**.
  *
- * ❌ Không dùng hàm này để **đổi chỗ** cho khỏi vướng món khác: kẹp ở đây chỉ để khối nằm
- * trọn trong lưới, còn vướng món thì `resolveDrop` **từ chối** chứ không trượt đi.
+ * ❌ Do not use this to **move things out of the way**: clamping here only keeps the block inside the
+ * grid, whereas a colliding item is **rejected** by `resolveDrop` rather than slid aside.
  */
 export function anchorFor(slot: number, size: GridSpace, width: number, gridSize: number): number {
 	if (slot < 0) return 0
@@ -142,11 +142,11 @@ export function anchorFor(slot: number, size: GridSpace, width: number, gridSize
 }
 
 /**
- * Ô hợp lệ: cả hình chữ nhật (ô neo + kích thước) phải nằm trong lưới.
+ * Cell validity: the whole rectangle (anchor cell + size) has to sit inside the grid.
  *
- * Phải kiểm tra theo ô neo chứ không theo danh sách ô suy ra từ `cellsOf`: khối
- * `3×1` neo ở cột 3 trong lưới 4 cột sẽ sinh ra ô `[3,4,5]`, nhưng ô 4 và 5 thực
- * chất thuộc hàng dưới — kiểm tra theo danh sách sẽ tưởng là hợp lệ.
+ * This must be checked from the anchor cell and not from the cell list derived by `cellsOf`: a `3×1`
+ * block anchored in column 3 of a 4-column grid produces cells `[3,4,5]`, but cells 4 and 5 actually
+ * belong to the row below — checking the list would wrongly consider it valid.
  */
 function cellsInBounds(slot: number, size: GridSpace, width: number, gridSize: number): boolean {
 	if (slot < 0 || slot >= gridSize) return false
@@ -159,8 +159,8 @@ function cellsInBounds(slot: number, size: GridSpace, width: number, gridSize: n
 }
 
 /**
- * Vị từ lõi: một khối `size` đặt ở `slot` có vừa không, biết trước tập ô đã bị
- * chiếm (`taken`). Mọi thao tác (đặt món, hoán đổi, xoay) đều quy về đây.
+ * Core predicate: does a `size` block placed at `slot` fit, given the already occupied cells
+ * (`taken`)? Every action (placing an item, swapping, rotating) boils down to this.
  */
 export function fitsIn(
 	slot: number,
@@ -174,7 +174,7 @@ export function fitsIn(
 	return cells.every((cell) => !taken.has(cell))
 }
 
-/** Tập ô đang bị chiếm, bỏ qua các uid được miễn (món đang được di chuyển). */
+/** The set of occupied cells, ignoring the exempt uids (items currently being moved). */
 export function takenCells(
 	items: ItemInstance[],
 	width: number,
@@ -189,7 +189,7 @@ export function takenCells(
 	return taken
 }
 
-/** Đặt được không, bỏ qua chính những món đang được di chuyển. */
+/** Whether the placement is allowed, ignoring the items being moved themselves. */
 export function canPlace(
 	items: ItemInstance[],
 	exceptUids: Iterable<string>,
@@ -198,8 +198,8 @@ export function canPlace(
 	width: number,
 	gridSize: number,
 	/**
-	 * Số ô **dùng được** (mặc định bằng cả lưới). Ô vượt mức này là ô **khoá** — thú chưa
-	 * đủ cấp, không đặt được.
+	 * Number of **usable** cells (defaults to the whole grid). Cells past this limit are **locked**
+	 * — the pet level is not high enough yet, so they cannot be used.
 	 */
 	usableCells: number = gridSize,
 ): boolean {
@@ -213,21 +213,21 @@ export interface Placement {
 }
 
 /**
- * Tìm chỗ trống đầu tiên cho một món. Ưu tiên hướng gốc, chỉ xoay khi cần.
- * Trả null nếu không còn chỗ (món sẽ nằm ở khay chờ).
+ * Find the first free spot for an item. Prefers the original orientation and rotates only when
+ * needed. Returns null when nothing is left (the item stays in the waiting tray).
  */
 export function findFreePlacement(
 	items: ItemInstance[],
 	templateId: string,
 	width: number,
 	gridSize: number,
-	/** Số ô dùng được; ô khoá không được tính là chỗ trống. */
+	/** Number of usable cells; locked cells do not count as free space. */
 	usableCells: number = gridSize,
 ): Placement | null {
 	const base = getTemplate(templateId).space
 	for (const rotated of [false, true]) {
 		const size = footprintOf(base, rotated)
-		// Không thử xoay nếu xoay không đổi hình dạng.
+		// Do not try the rotated orientation when rotating changes nothing.
 		if (rotated && size.w === base.w && size.h === base.h) break
 		for (let slot = 0; slot < gridSize; slot += 1) {
 			if (canPlace(items, [], slot, size, width, gridSize, usableCells)) return { slot, rotated }
@@ -243,12 +243,12 @@ export interface MoveResult {
 	rotated: boolean
 	reason?: 'blocked' | 'same-slot' | 'out-of-bounds' | 'no-space'
 }/**
- * Xử lý kéo thả: thả vào chỗ trống thì đặt món (giữ nguyên ô neo), thả đè lên món
- * giống hệt thì nhập thành +1★, đè lên món khác thì hoán đổi vị trí.
+ * Drag-and-drop handling: dropping onto an empty spot places the item (keeping the anchor cell),
+ * dropping onto an identical item merges it into +1★, dropping onto a different item swaps positions.
  *
- * `slot` là **ô con trỏ** (không nhất thiết là ô neo hợp lệ). Hàm tự thử các ô neo hợp lệ
- * gần đó, gần nhất trước — nhờ vậy thả ở đâu quanh món cũng ăn, kể cả khi con trỏ đang
- * đè lên chính món đó.
+ * `slot` is the **cursor cell** (not necessarily a valid anchor cell). The function tries the nearby
+ * valid anchor cells itself, closest first — so dropping anywhere around the item works, even when
+ * the cursor sits on the item itself.
  */
 export function resolveDrop(
 	items: ItemInstance[],
@@ -258,7 +258,8 @@ export function resolveDrop(
 	gridSize: number,
 	rotated?: boolean,
 	/**
-	 * Số ô **dùng được** (mặc định cả lưới). Ô vượt mức này là ô **khoá** — thú chưa đủ cấp.
+	 * Number of **usable** cells (defaults to the whole grid). Cells past this limit are **locked**
+	 * — the pet level is not high enough yet.
 	 */
 	usableCells: number = gridSize,
 ): MoveResult {
@@ -271,7 +272,7 @@ export function resolveDrop(
 	const orientation = rotated ?? moving.rotated ?? false
 	const size = templateFootprint(moving.templateId, orientation)
 
-	// (1) Thả đè lên **món khác** → nhập sao (nếu hợp) hoặc hoán đổi.
+	// (1) Dropped onto **another item** → merge stars (when allowed) or swap.
 	const other = occupantAt(items, slot, width, moving.uid)
 	if (other) {
 		if (isMergeable(moving, other)) {
@@ -290,8 +291,8 @@ export function resolveDrop(
 			}
 		}
 
-		// Hoán đổi: món đang kéo về ô neo của món kia, và ngược lại. Cả hai rời chỗ cũ nên
-		// tập ô bị chiếm phải tính theo vị trí tương lai của cả hai.
+		// Swap: the dragged item takes the other item's anchor cell and vice versa. Both leave
+		// their old cells, so occupancy has to be computed from both future positions.
 		const targetSize = templateFootprint(other.templateId, other.rotated ?? false)
 		const movingFrom = moving.slot
 		const taken = takenCells(items, width, [moving.uid, other.uid])
@@ -313,14 +314,16 @@ export function resolveDrop(
 		}
 	}
 
-	// (2) Chỗ trống: dùng **đúng ô neo mà gợi ý đang vẽ**, chỉ kẹp theo biên lưới.
+	// (2) Empty spot: use **exactly the anchor cell the preview is drawing**, only clamped to the grid
+	// edge.
 	//
-	// ⚠️ ❌ **Không trượt sang ô khác khi khối vướng món**: gợi ý đang vẽ ở ô nào thì món phải
-	// nằm ở ô đó. Trượt đi làm món rơi lệch khỏi khung người chơi đang thấy — và tệ hơn, thao
-	// tác thả lại "ăn" ở một chỗ bị món khác chiếm, không đoán trước được. Vướng thì **từ chối**,
-	// gợi ý đã báo đỏ từ trước (xem `GridBoard.tinhGoiY`).
+	// ⚠️ ❌ **Never slide to another cell when the block collides with an item**: the item has to land
+	// in the cell the preview drew. Sliding makes it fall outside the outline the player sees — and
+	// worse, the drop then "works" in a spot occupied by another item, which cannot be predicted.
+	// When it collides, **reject**; the preview already showed red beforehand (see the hover
+	// preview helper in `GridBoard`).
 	//
-	// Bỏ qua chính món đang kéo khi kiểm tra va chạm — nó sắp rời khỏi chỗ cũ.
+	// The dragged item itself is skipped during the collision check — it is about to leave its old cell.
 	const taken = takenCells(items, width, [moving.uid])
 	const anchor = anchorFor(slot, size, width, usableCells)
 	if (!fitsIn(anchor, size, width, usableCells, taken)) {
@@ -337,13 +340,13 @@ export function resolveDrop(
 	}
 }
 
-/** Xoay một món tại chỗ. Trả `null` nếu hướng mới không vừa. */
+/** Rotate an item in place. Returns `null` when the new orientation does not fit. */
 export function rotateItem(
 	items: ItemInstance[],
 	uid: string,
 	width: number,
 	gridSize: number,
-	/** Số ô dùng được; hướng mới không được tràn vào ô khoá. */
+	/** Number of usable cells; the new orientation must not spill into a locked cell. */
 	usableCells: number = gridSize,
 ): ItemInstance[] | null {
 	const item = items.find((entry) => entry.uid === uid)
@@ -355,18 +358,18 @@ export function rotateItem(
 }
 
 /**
- * Xếp mọi món đang ở khay chờ vào kho: lần lượt từng món, ưu tiên hướng gốc và
- * chỉ xoay khi cần. Món nào không còn chỗ thì ở lại khay.
+ * Lay every item sitting in the waiting tray into the storage: one at a time, preferring the
+ * original orientation and rotating only when needed. An item with no room left stays in the tray.
  *
- * Trả về danh sách món đã có vị trí mới; store áp dụng bằng `resolveDrop` cho
- * từng món để giữ nguyên một đường thao tác duy nhất.
+ * Returns the list of items that got a new position; the store applies them through `resolveDrop`
+ * one by one so a single code path is preserved.
  */
 export function planAutoArrange(
 	items: ItemInstance[],
 	width: number,
 	gridSize: number,
 ): { uid: string; slot: number; rotated: boolean }[] {
-	// Ô đã bị chiếm bởi những món đang nằm trong kho; món ở khay chưa chiếm gì.
+	// Cells already taken by items sitting in the storage; tray items occupy nothing yet.
 	const taken = takenCells(
 		items.filter((item) => item.slot >= 0),
 		width,
@@ -389,14 +392,14 @@ export function planAutoArrange(
 			if (chosen) break
 		}
 		if (!chosen) continue
-		// Giữ chỗ ngay để món sau không đè lên món vừa xếp.
+		// Reserve the spot right away so a later item cannot land on it.
 		for (const cell of cellsOf(chosen.slot, footprintOf(base, chosen.rotated), width)) taken.add(cell)
 		moves.push({ uid: item.uid, slot: chosen.slot, rotated: chosen.rotated })
 	}
 	return moves
 }
 
-/** Bán lại nhận 50% số Paw Tally đã thực trả. */
+/** Selling refunds 50% of the Paw Tally actually paid. */
 export function sellValue(item: ItemInstance): number {
 	return Math.max(1, Math.floor(item.paid / 2))
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { templateFootprint } from '../game/bag'
 import { getTemplate } from '../game/items'
-import { khoShape, repairKhoSlots } from '../game/kho'
+import { storageShape, repairStorageSlots } from '../game/storage'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
 import { ItemIcon } from './ItemIcon'
@@ -11,11 +11,11 @@ import { ITEM_BORDER_BY_CLASS, cn } from './ui'
 export interface InventoryGridProps {
 	items: ItemInstance[]
 	held: HeldItem | null
-	/** Bấm một món → mở hộp thoại chi tiết. */
+	/** Clicking an item → opens the detail dialog. */
 	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean) => void
-	/** Ô neo đang vẽ gợi ý — chỗ đặt khi thả chuột dùng đúng ô này. */
+	/** Anchor cell the hint is drawn from — placement on pointer release uses exactly this cell. */
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
@@ -23,18 +23,21 @@ export interface InventoryGridProps {
 }
 
 /**
- * Lưới **Kho đồ** — một **lưới tự do** giống hệt lưới Trang bị, dùng **chung `GridBoard`** nên
- * ô và gợi ý chỗ đặt giống nhau.
+ * The **Inventory** grid — a **free grid** exactly like the loadout grid, sharing **`GridBoard`**
+ * so cells and placement hints look the same.
  *
- * ⚠️ Kho ❌ **không xếp hộ**: mỗi món nằm ở đúng `slot`/`rotated` người chơi đặt, nên thả ở
- * đâu thì món ở đó, và xoay hướng nào cũng được. Bản trước tự dồn món nối tiếp nhau rồi ghi đè
- * vị trí vừa thả, khiến thao tác kéo trong kho trông như "không kéo được".
+ * ⚠️ The inventory ❌ **does not pack items**: each item keeps the exact `slot`/`rotated` the
+ * player chose, so it lands where it was dropped and can face either way. An earlier version
+ * packed items one after another and overwrote the cell just dropped on, which made dragging
+ * inside the inventory look like "dragging does nothing".
  *
- * Khác biệt so với trang bị:
- * - **Không giới hạn** — lưới tự cao thêm khi có món nằm thấp hơn (xem `khoRows`), **không có ô khoá**.
- * - ❌ **Không hoán đổi** (`allowSwap={false}`): thả đè lên món **khác loại** là **từ chối** với viền
- *   đỏ, chứ không đẩy món đang nằm đó sang chỗ khác. Kho là lưới tự do nên luôn còn ô trống để đặt;
- *   muốn đổi chỗ thì kéo món kia ra trước. Thả lên món **giống hệt** vẫn **nhập sao** bình thường.
+ * Differences from the loadout:
+ * - **Unlimited** — the grid grows taller when an item sits lower (see `storageRows`), with **no
+ *   locked cells**.
+ * - ❌ **No swapping** (`allowSwap={false}`): dropping onto an item of a **different kind** is
+ *   **rejected** with a red outline instead of pushing the item already there elsewhere. The
+ *   inventory is a free grid, so there is always an empty cell to use; to swap places, drag the
+ *   other item away first. Dropping onto an **identical** item still **merges stars** as usual.
  */
 export function InventoryGrid({
 	items,
@@ -47,10 +50,11 @@ export function InventoryGrid({
 	onSell,
 	className,
 }: InventoryGridProps) {
-	// Món thiếu ô (bản lưu cũ dùng `slot: -1`) vẫn phải **hiện**: xếp tạm để không có món vô
-	// hình. Món có vị trí hợp lệ được giữ nguyên, nên bình thường danh sách này y hệt store.
-	const shown = useMemo(() => repairKhoSlots(items), [items])
-	const { width, rows, usable } = khoShape(shown)
+	// Items missing a cell (older saves used `slot: -1`) must still be **shown**: they are laid out
+	// temporarily so nothing becomes invisible. Items with a valid position are kept as-is, so
+	// normally this list matches the store exactly.
+	const shown = useMemo(() => repairStorageSlots(items), [items])
+	const { width, rows, usable } = storageShape(shown)
 	const placed = shown.filter((item) => item.slot >= 0 && item.slot < usable)
 
 	const renderItem = (item: ItemInstance, box: ItemBoxProps) => {

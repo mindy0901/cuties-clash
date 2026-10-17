@@ -1,4 +1,4 @@
-# Giữ ngữ cảnh build nhỏ và tránh copy nhầm thứ của máy lên image.
+# Keep the build context small and avoid copying local machine artefacts into the image.
 **/node_modules
 **/dist
 **/generated

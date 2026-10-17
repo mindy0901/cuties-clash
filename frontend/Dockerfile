@@ -1,37 +1,37 @@
 # syntax=docker/dockerfile:1
 #
-# Image FRONTEND (fr): chỉ chứa bản build của Vite, phục vụ bằng nginx.
+# FRONTEND image (fr): holds only the Vite build, served by nginx.
 #
-# Ngữ cảnh build là **thư mục gốc repo**: đây là pnpm workspace nên `pnpm-lock.yaml` và
-# `pnpm-workspace.yaml` nằm ở gốc, còn gói frontend nằm trong `frontend/`.
+# The build context is the **repo root**: this is a pnpm workspace, so `pnpm-lock.yaml` and
+# `pnpm-workspace.yaml` sit at the root, while the frontend package lives in `frontend/`.
 #
-# nginx làm hai việc:
-#   1. phục vụ dist/ (SPA: mọi đường dẫn không phải file đều trả index.html)
-#   2. chuyển tiếp /api/* sang container backend
-# Nhờ (2), trình duyệt chỉ nói chuyện với MỘT origin — cookie phiên hoạt động
-# như khi chạy một cổng, và không cần bật CORS.
+# nginx does two jobs:
+#   1. serve dist/ (SPA: every path that is not a file returns index.html)
+#   2. forward /api/* to the backend container
+# Thanks to (2), the browser only talks to ONE origin — the session cookie behaves
+# as it does on a single port, and CORS does not need to be enabled.
 
-# ── Tầng 1: dựng frontend ─────────────────────────────────────────────────────
+# ── Stage 1: build the frontend ───────────────────────────────────────────────
 FROM node:22-alpine AS build
 
 RUN corepack enable
 
 WORKDIR /app
 
-# Chỉ lấy manifest trước để tận dụng cache của Docker cho bước cài phụ thuộc.
+# Copy only the manifests first to reuse Docker's cache for the dependency install.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY frontend/package.json ./frontend/
-# `--filter frontend...` cài đúng gói này (và phụ thuộc của nó), bỏ qua backend.
+# `--filter frontend...` installs exactly this package (and its dependencies), skipping the backend.
 RUN pnpm install --frozen-lockfile --filter frontend...
 
-# `COPY frontend ./frontend` mang theo cả `public/` — Vite chép nguyên thư mục đó vào
-# `dist/`. Thiếu nó thì mọi ảnh icon (/icons/**) không có trong image và nginx trả
-# index.html thay vì ảnh (lỗi khó thấy vì HTTP vẫn 200).
+# `COPY frontend ./frontend` also brings `public/` along — Vite copies that whole directory into
+# `dist/`. Without it, every icon image (/icons/**) is missing from the image and nginx returns
+# index.html instead of the image (hard to notice because HTTP still returns 200).
 COPY frontend ./frontend
 
 RUN pnpm --filter frontend build
 
-# ── Tầng 2: nginx phục vụ tệp tĩnh + proxy API ────────────────────────────────
+# ── Stage 2: nginx serves static files + proxies the API ──────────────────────
 FROM nginx:1.29-alpine AS runtime
 
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf

@@ -1,63 +1,64 @@
-# Cân bằng 60 màn
+# Balancing 60 stages
 
-> Đừng chỉnh số theo cảm tính. Quy trình dưới đây đã dùng và cho kết quả lặp lại được.
+> Do not tune numbers by feel. The process below has been used and gives repeatable results.
 
-## 1. Mục tiêu
+## 1. Goals
 
-| Giai đoạn | Win-rate mong muốn |
+| Phase | Desired win rate |
 | --- | --- |
-| Đầu game | Cao — người chơi phải thấy mình mạnh lên |
-| Màn **23–47** | **~50–70%** — vùng căng thẳng chính |
-| Cuối game (đã lên 4★) | Dễ dần — phần thưởng cho việc build đúng |
+| Early game | High — the player must see themselves getting stronger |
+| Stages **23–47** | **~50–70%** — the main tension zone |
+| Late game (already 4★) | Gradually easier — a reward for building correctly |
 
-❌ Tránh cả hai cực: **0%** (bí, người chơi bỏ) và **100% đều đều** (nhàm, không còn lý do tối ưu
-trang bị).
+❌ Avoid both extremes: **0%** (stuck, players quit) and **a uniform 100%** (boring, no reason left to
+optimise the Trang bị).
 
-## 2. Quy trình
+## 2. Process
 
-1. Tạo **file probe tạm** `frontend/src/game/__tests__/_balance.probe.test.ts`, mô phỏng win-rate
-   qua **cả 60 màn** với build "người chơi điển hình": cấp thú + số món + bậc sao **tăng dần theo
-   màn**, chạy nhiều seed.
-2. Chạy và đọc bảng:
+1. Create a **temporary probe file** `frontend/src/game/__tests__/_balance.probe.test.ts` that simulates
+   the win rate across **all 60 stages** with a "typical player" build: pet level + item count + star
+   tier **rising with the stage**, run over many seeds.
+2. Run it and read the table:
 
    ```bash
    pnpm test --reporter=verbose src/game/__tests__/_balance.probe.test.ts
    ```
 
-3. Chỉnh `game/stages.ts` (`maxHp`, `attackDamage`, `enemyStar`, `enemyItems`) rồi chạy lại.
-4. Lặp tới khi khớp mục tiêu ở §1.
-5. ⚠️ **XOÁ file probe ngay khi xong** (`AGENTS.md` §6). File tên `_*.probe.test.ts` nằm trong danh
-   sách cảnh báo của repo.
+3. Adjust `game/stages.ts` (`maxHp`, `attackDamage`, `enemyStar`, `enemyItems`) and run again.
+4. Repeat until it matches the goals in §1.
+5. ⚠️ **DELETE the probe file as soon as you are done** (`AGENTS.md` §6). Files named
+   `_*.probe.test.ts` are in the repo's warning list.
 
-## 3. Tham số đang dùng
+## 3. Parameters currently in use
 
 ```
 maxHp        ≈ 400 + (index - 1) × 54      boss ×1.35
 attackDamage ≈   8 + (index - 1) × 0.95    boss ×1.12
-enemy sao     1★ khi index < 16 · 2★ < 31 · 3★ < 46 · 4★ từ 46
-enemyItems    ⌊(index + 3) / 7⌋            tối đa 6
+enemy stars   1★ when index < 16 · 2★ < 31 · 3★ < 46 · 4★ from 46
+enemyItems    ⌊(index + 3) / 7⌋            max 6
 ```
 
-Chi tiết blueprint đối thủ ở `game/stages.ts` (`getStage`, `makeRivalBlueprint`).
+Rival blueprint details live in `game/stages.ts` (`getStage`, `makeRivalBlueprint`).
 
-## 4. Đo hiệu năng mô phỏng (khi cần biết có nghẽn không)
+## 4. Measuring simulation performance (when you need to know whether it is a bottleneck)
 
-Số đo tham chiếu trên máy dev, quét 60 màn × 120 seed (build "người chơi điển hình"):
+Reference numbers from the dev machine, sweeping 60 stages × 120 seeds ("typical player" build):
 
-| Chỉ số | Giá trị |
+| Metric | Value |
 | --- | --- |
-| `simulateBattle` trung bình | **0.138 ms/trận** (~7 200 trận/giây) |
-| Dựng combatant | 0.001 ms/cặp |
-| Event/trận | trung bình 47 · cao nhất 93 |
-| Thời lượng trình diễn | 93 event × 60 ms ≈ 5,6 s |
+| `simulateBattle` average | **0.138 ms/battle** (~7,200 battles/second) |
+| Building a combatant | 0.001 ms/pair |
+| Events per battle | average 47 · highest 93 |
+| Playback duration | 93 events × 60 ms ≈ 5.6 s |
 
-⇒ **Mô phỏng không phải nút thắt.** Một trận tốn dưới 1% ngân sách khung hình 60 FPS, và chỉ chạy
-một lần mỗi lượt bấm. Đo render trong trình duyệt (playback ×8): p50 **3,6 ms**, p99 3,7 ms, **0
-long task**.
+⇒ **The simulation is not the bottleneck.** One battle costs under 1% of a 60 FPS frame budget, and it
+only runs once per click. Render measurements in the browser (playback ×8): p50 **3.6 ms**, p99 3.7 ms,
+**0 long tasks**.
 
-⚠️ Hệ quả: **đừng** viết lại `simulateBattle` bằng WASM/Rust hay "tối ưu" nó. Đổi ngôn ngữ chỉ tiết
-kiệm được phần nhỏ hơn cả sai số đo, nhưng phá hợp đồng tất định và làm build phức tạp hơn hẳn.
-Nếu cần tối ưu, chỗ đáng nhìn là **số lần re-render của React** khi playback.
+⚠️ Consequence: **do not** rewrite `simulateBattle` in WASM/Rust or "optimise" it. Changing languages
+saves less than the measurement error, yet it breaks the determinism contract and makes the build far
+more complicated. If you do need to optimise, the place worth looking at is the **number of React
+re-renders** during playback.
 
-Cách đo lại: probe tạm `_bench.probe.test.ts` dùng `performance.now()` quanh vòng lặp
-`simulateBattle`, rồi xoá ngay sau khi xong.
+How to measure again: a temporary probe `_bench.probe.test.ts` using `performance.now()` around the
+`simulateBattle` loop, then delete it as soon as you are done.

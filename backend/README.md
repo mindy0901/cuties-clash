@@ -1,70 +1,74 @@
 # Backend — Martial Cutie
 
-API **Fastify 5 + Prisma** cho Đấu Trường Thú Cưng. Backend **không chứa luật chơi**: nó chỉ
-xác thực danh tính (Google OAuth) và lưu/đọc `RunState` nguyên dạng JSON. Mọi tính toán trận
-đấu nằm ở `frontend/src/game/`.
+API **Fastify 5 + Prisma** for Martial Cutie (Đấu Trường Thú Cưng). The backend **contains
+no game rules**: it only authenticates identities (Google OAuth) and stores/reads the `RunState`
+as raw JSON. All battle computation lives in `frontend/src/game/`.
 
-## Chạy
+## Running
 
-Từ **gốc repo** (đây là pnpm workspace):
+From the **repo root** (this is a pnpm workspace):
 
 ```bash
-pnpm install          # cài cả hai gói
+pnpm install          # installs both packages
 docker compose up -d db
 pnpm db:migrate       # prisma migrate deploy
 pnpm dev:be           # http://localhost:8000 (tsx watch)
 ```
 
-Trong Docker: `docker compose up --build` (image `be`, cổng 8000).
+In Docker: `docker compose up --build` (image `be`, port 8000).
 
-## Lệnh
+## Commands
 
-| Lệnh | Việc |
+| Command | What it does |
 | --- | --- |
-| `pnpm dev:be` | Chạy dev, tự nạp lại khi sửa (`tsx watch`) |
-| `pnpm build:be` | `prisma generate` + `tsc --noEmit` (typecheck, không sinh `dist/`) |
+| `pnpm dev:be` | Run in dev, reloading on change (`tsx watch`) |
+| `pnpm build:be` | `prisma generate` + `tsc --noEmit` (typecheck, produces no `dist/`) |
 | `pnpm test:be` | Vitest |
 | `pnpm db:migrate` | `prisma migrate deploy` |
 
-## Cấu hình
+## Configuration
 
-Đọc theo thứ tự `../.env` → `backend/.env` → biến môi trường (biến môi trường thắng).
-Xem bảng đầy đủ ở [`.env.example`](../.env.example).
+Read in the order `../.env` → `backend/.env` → environment variables (environment variables
+win). See the full table in [`.env.example`](../.env.example).
 
-- `DATABASE_URL` — chấp nhận cả `postgresql://` lẫn `postgresql+psycopg://` (hậu tố driver bị bỏ).
-- `JWT_SECRET` — **bắt buộc**, tối thiểu 32 ký tự. Sai thì app **không khởi động** (cố ý: khoá
-  yếu nghĩa là token giả mạo được).
-- `AUTO_CREATE_TABLES` — `true` (mặc định, tiện dev) thì lúc khởi động chạy baseline SQL
-  idempotent trong `prisma/migrations/0_init/`. Docker đặt `false` và dùng `prisma migrate deploy`.
+- `DATABASE_URL` — accepts both `postgresql://` and `postgresql+psycopg://` (the driver suffix is
+  stripped).
+- `JWT_SECRET` — **required**, at least 32 characters. Get it wrong and the app **does not
+  start** (deliberate: a weak key means tokens can be forged).
+- `AUTO_CREATE_TABLES` — `true` (the default, handy in dev) runs the idempotent baseline SQL in
+  `prisma/migrations/0_init/` at startup. Docker sets it to `false` and uses
+  `prisma migrate deploy` instead.
 
-## Migration
+## Migrations
 
-`schema.prisma` là nguồn sự thật. Baseline `0_init` được **viết lại thành idempotent**
-(`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`) để chạy được trên database đã có
-bảng từ thời Alembic — mọi câu lệnh ở đó là no-op, chỉ thêm bảng sổ sách `_prisma_migrations`.
+`schema.prisma` is the source of truth. The `0_init` baseline was **rewritten to be idempotent**
+(`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`) so it can run on a database that
+already has the tables from the Alembic era — every statement there is a no-op and it only adds
+the `_prisma_migrations` bookkeeping table.
 
-⚠️ Khi đổi schema, sinh migration mới rồi **kiểm tra mắt** xem nó có vô tình `DROP` gì của
-database đang chạy hay không.
+⚠️ When you change the schema, generate a new migration and then **eyeball** it to check it does
+not accidentally `DROP` anything from the running database.
 
-## Kiểm thử
+## Testing
 
-Test dùng **đúng `DATABASE_URL`** trong `.env` — nhưng **mỗi ca chạy trong `prisma.$transaction`
-và luôn rollback** (ném sentinel ở cuối rồi bắt ở ngoài). Nhờ vậy không có database phụ, không
-để lại dữ liệu, và không đụng vào bản lưu thật.
+Tests use the **same `DATABASE_URL`** as `.env` — but **every case runs inside
+`prisma.$transaction` and always rolls back** (a sentinel is thrown at the end and caught
+outside). That means no extra database, no leftover data, and the real saves are never touched.
 
-Điều kiện để việc đó hoạt động: **mọi truy cập DB phải đi qua `db` được tiêm vào**
-`buildApp({ db, config })`. ❌ Không import `PrismaClient` ở phạm vi module.
+What makes that work: **every database access must go through the injected `db`** in
+`buildApp({ db, config })`. ❌ Do not import `PrismaClient` at module scope.
 
-Gọi mạng ra Google bị chặn: `tests/setup.ts` cài `fetch` **ném lỗi**, test OAuth thay bằng stub.
+Network calls to Google are blocked: `tests/setup.ts` installs a `fetch` that **throws**, and the
+OAuth tests stub it instead.
 
-⚠️ Hệ quả cần biết: `users_id_seq` **không** rollback theo (sequence không có tính giao dịch),
-nên mỗi lần chạy test dãy id lại tăng thêm. Không ảnh hưởng dữ liệu.
+⚠️ A consequence worth knowing: `users_id_seq` does **not** roll back with it (sequences are not
+transactional), so the id sequence grows with every test run. It does not affect the data.
 
 ## Docker
 
-`docker-entrypoint.sh`: chờ DB → `prisma migrate deploy` → `tsx src/main.ts`.
+`docker-entrypoint.sh`: wait for the DB → `prisma migrate deploy` → `tsx src/main.ts`.
 
-⚠️ Chạy bằng **`tsx`** chứ không `node dist/main.js`: source import không có đuôi
-(`from './config'`) và Node ESM thuần bắt buộc phải có đuôi `.js`. Vì vậy `build` là bước
-**typecheck**, không sinh `dist/`. Image dùng `node:22-slim` (Debian) vì Prisma cần libssl khớp
-với binary engine — alpine/musl rất dễ vỡ.
+⚠️ It runs via **`tsx`**, not `node dist/main.js`: the source imports have no extension
+(`from './config'`) and plain Node ESM requires a `.js` extension. That is why `build` is a
+**typecheck** step that produces no `dist/`. The image uses `node:22-slim` (Debian) because
+Prisma needs an libssl that matches its binary engine — alpine/musl breaks very easily.

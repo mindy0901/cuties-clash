@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 /**
- * Đồng bộ bản lưu với máy chủ.
+ * Save synchronization with the server.
  *
- * Hai lỗi từng xảy ra ở đây, cả hai đều gây 400 liên tục:
- * - Gặp `revision_conflict` thì nạp bản máy chủ **đè lên** thay đổi mới → lại xung đột.
- * - Nạp bản máy chủ mà ghi revision **sau** khi ghi localStorage → lần đẩy ngay sau dùng
- *   revision cũ → xung đột.
+ * Two bugs happened here before, both causing repeated 400s:
+ * - On `revision_conflict`, loading the server save **on top** of the new change → conflicts again.
+ * - Loading the server save and recording the revision **after** writing localStorage → the push
+ *   right after uses a stale revision → conflict.
  *
- * Logic đồng bộ nằm ở `api/saveSync.ts` (thuần, không React) nên phần lớn test gọi thẳng
- * hàm. Riêng "không đẩy lặp" phải render `AuthSync` vì guard `pushedRef` nằm trong effect.
+ * The sync logic lives in `api/saveSync.ts` (pure, no React) so most tests call the functions
+ * directly. Only "no repeated pushes" has to render `AuthSync`, because the `pushedRef` guard lives
+ * inside an effect.
  */
 import { QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render } from '@testing-library/react'
@@ -24,7 +25,7 @@ vi.mock('../../api/client', async () => {
 	const actual = await vi.importActual<typeof import('../../api/client')>('../../api/client')
 	return {
 		...actual,
-		// `pushRun` kiểm tra `instanceof ApiError` nên phải giữ nguyên lớp thật.
+		// `pushRun` checks `instanceof ApiError`, so the real class must be kept.
 		api: {
 			session: (...args: unknown[]) => session(...args),
 			getSave: (...args: unknown[]) => getSave(...args),
@@ -46,7 +47,7 @@ function conflict() {
 	return new ApiError(400, 'revision_conflict', 'Bản lưu đã thay đổi ở nơi khác.')
 }
 
-/** Revision giả, ghi lại thứ tự các lần gọi để kiểm tra thứ tự. */
+/** Fake revision that records the order of calls so the sequence can be asserted. */
 function fakeRevision(value: number, log?: string[]) {
 	const box = { value }
 	return {
@@ -71,7 +72,7 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('pushRun', () => {
-	it('gửi kèm revision hiện có và cập nhật revision mới', async () => {
+	it('sends the current revision and stores the new one', async () => {
 		putSave.mockResolvedValue({ run: null, revision: 16, updated_at: null })
 		const { box, holder } = fakeRevision(15)
 
@@ -82,7 +83,7 @@ describe('pushRun', () => {
 		expect(box.value).toBe(16)
 	})
 
-	it('gặp xung đột thì lấy revision mới rồi thử lại MỘT lần với dữ liệu của mình', async () => {
+	it('on conflict, fetches the new revision and retries ONCE with its own data', async () => {
 		putSave.mockRejectedValueOnce(conflict()).mockResolvedValueOnce({ run: null, revision: 18, updated_at: null })
 		getSave.mockResolvedValue({ run: { stage: 99 }, revision: 17, updated_at: null })
 		const { box, holder } = fakeRevision(15)
@@ -91,13 +92,13 @@ describe('pushRun', () => {
 
 		expect(getSave).toHaveBeenCalledTimes(1)
 		expect(putSave).toHaveBeenCalledTimes(2)
-		// Lần gửi lại dùng revision vừa lấy, và vẫn là dữ liệu của mình (không bị ghi đè).
+		// The resend uses the revision just fetched and still our own data (not overwritten).
 		expect(putSave.mock.calls[1][0]).toEqual({ stage: 5 })
 		expect(putSave.mock.calls[1][1]).toBe(17)
 		expect(box.value).toBe(18)
 	})
 
-	it('xung đột mà thử lại vẫn lỗi thì ném ra ngoài, không thử vô tận', async () => {
+	it('throws when the retry after a conflict fails too, never retrying forever', async () => {
 		putSave.mockRejectedValue(conflict())
 		getSave.mockResolvedValue({ run: null, revision: 17, updated_at: null })
 
@@ -106,7 +107,7 @@ describe('pushRun', () => {
 		expect(putSave).toHaveBeenCalledTimes(2)
 	})
 
-	it('lỗi khác (không phải xung đột) thì không thử lại', async () => {
+	it('a different error (not a conflict) is not retried', async () => {
 		putSave.mockRejectedValue(new ApiError(500, 'boom', 'Máy chủ lỗi.'))
 
 		await expect(pushRun({ stage: 5 }, fakeRevision(15).holder)).rejects.toThrow()
@@ -117,7 +118,7 @@ describe('pushRun', () => {
 })
 
 describe('pullRun', () => {
-	it('ghi revision TRƯỚC khi ghi localStorage để lần đẩy sau không xung đột', async () => {
+	it('records the revision BEFORE writing localStorage so the next push does not conflict', async () => {
 		getSave.mockResolvedValue({ run: { currency: 123 }, revision: 42, updated_at: null })
 		const order: string[] = []
 		const { box, holder } = fakeRevision(0, order)
@@ -135,7 +136,7 @@ describe('pullRun', () => {
 		expect(order).toEqual(['revision', 'write', 'rehydrate'])
 	})
 
-	it('máy chủ chưa có bản lưu thì chỉ ghi revision, không ghi đè localStorage', async () => {
+	it('records only the revision when the server has no save yet, without overwriting localStorage', async () => {
 		getSave.mockResolvedValue({ run: null, revision: 7, updated_at: null })
 		const writeRun = vi.fn()
 
@@ -150,12 +151,12 @@ describe('pullRun', () => {
 	})
 })
 
-describe('không đẩy lặp', () => {
-	// Debounce là 1.5s nên dùng timer thật; `waitFor` không hợp với fake timers.
+describe('no repeated pushes', () => {
+	// The debounce is 1.5s so real timers are used; `waitFor` does not work with fake timers.
 	const afterDebounce = () => new Promise((done) => setTimeout(done, 1700))
 
 	it(
-		'chỉ đẩy khi nội dung tiến trình thật sự đổi',
+		'pushes only when the progress content really changed',
 		async () => {
 			putSave.mockResolvedValue({ run: null, revision: 16, updated_at: null })
 			session.mockResolvedValue({
@@ -164,7 +165,7 @@ describe('không đẩy lặp', () => {
 				available_providers: ['google'],
 				auto_login: false,
 			})
-			// Máy đã có tiến trình ⇒ `AuthSync` không nạp bản máy chủ, chỉ đẩy lên.
+			// The device already has progress ⇒ `AuthSync` does not load the server save, it only pushes.
 			window.localStorage.setItem(
 				'martial-cutie-save',
 				JSON.stringify({ state: { run: { stage: 1 } }, version: 2 }),
@@ -179,20 +180,20 @@ describe('không đẩy lặp', () => {
 			await afterDebounce()
 			expect(putSave).toHaveBeenCalledTimes(1)
 
-			// Đẩy xong mà không có gì đổi → không được gọi thêm.
+			// After the push, with nothing changed → no further calls.
 			await afterDebounce()
 			expect(putSave).toHaveBeenCalledTimes(1)
 
-			// Đổi tiến trình thật → đẩy đúng một lần nữa.
+			// A real progress change → exactly one more push.
 			useGameStore.setState((state) => ({ run: { ...state.run, currency: state.run.currency + 1 } }))
 			await afterDebounce()
 			expect(putSave).toHaveBeenCalledTimes(2)
 
-			// Rồi lại yên.
+			// Then quiet again.
 			await afterDebounce()
 			expect(putSave).toHaveBeenCalledTimes(2)
 		},
-		// Bốn lần chờ debounce 1.7s nên cần hơn timeout mặc định 5s.
+		// Four 1.7s debounce waits need more than the default 5s timeout.
 		20_000,
 	)
 })

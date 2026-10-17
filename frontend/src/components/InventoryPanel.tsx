@@ -5,28 +5,28 @@ import type { HeldItem } from './useHeldItem'
 import type { ItemInstance } from '../game/types'
 
 interface InventoryPanelProps {
-	/** Nhận phần tử gốc, để cha biết vùng thả "cất vào kho". */
+	/** Receives the root element so the parent knows the "store into the inventory" drop area. */
 	onRef?: (node: HTMLElement | null) => void
-	/** Món đang được **kéo**, nếu có. */
+	/** The item currently being **dragged**, if any. */
 	held: HeldItem | null
-	/** Bấm một món trong kho → mở hộp thoại chi tiết. */
+	/** Clicking an inventory item → opens the detail dialog. */
 	onItemClick: (item: ItemInstance) => void
-	/** Bắt đầu giữ một món (đầu thao tác kéo). */
+	/** Starts holding an item (beginning of the drag). */
 	onDragStart?: (item: ItemInstance) => void
-	/** Nhả chuột: `moved` cho biết vừa kéo đi hay chỉ bấm. */
+	/** Pointer release: `moved` tells whether it was dragged or merely clicked. */
 	onDragEnd?: (moved: boolean) => void
-	/** Ô neo đang vẽ gợi ý trong kho (chỗ đặt khi thả chuột). */
+	/** Anchor cell the hint is drawn from inside the inventory (placement on release). */
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 	onRotate?: (uid: string) => void
 	onSell?: (uid: string) => void
 }
 
 /**
- * **Kho đồ** — dự trữ, **không giới hạn**.
+ * **Inventory** — reserves, **unlimited**.
  *
- * Là **lưới tự do** giống hệt lưới Trang bị: món nằm ở đúng ô và đúng hướng người chơi đặt,
- * kho không xếp hộ. Lưới tự cao thêm khi có món nằm thấp hơn, nên chứa được bao nhiêu cũng
- * vừa; nhiều thì cuộn dọc.
+ * A **free grid** exactly like the loadout grid: items keep the exact cell and orientation the
+ * player chose, the inventory never packs them. The grid grows taller when an item sits lower, so
+ * it holds any amount and simply scrolls vertically when there is more.
  */
 export function InventoryPanel({
 	onRef,

@@ -1,10 +1,9 @@
 /**
- * Truy vấn & mutation cho API backend (TanStack Query).
+ * Queries and mutations for the backend API (TanStack Query).
  *
- * ⚠️ Phạm vi có chủ ý: TanStack Query chỉ lo **dữ liệu đến từ máy chủ** (phiên đăng nhập,
- * bản lưu). Trạng thái chơi vẫn nằm ở `gameStore` (zustand + localStorage) — đó là nguồn
- * sự thật của tiến trình, không phải cache của máy chủ. Trộn hai thứ vào nhau sẽ làm mất
- * khả năng chơi ẩn danh.
+ * ⚠️ The scope is deliberate: TanStack Query only handles **data coming from the server** (login
+ * session, save). Play state still lives in `gameStore` (zustand + localStorage) — that is the
+ * source of truth for progress, not a server cache. Mixing the two would break anonymous play.
  */
 import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
@@ -69,27 +68,27 @@ export function useResetContent() {
 
 export interface SessionState {
 	loading: boolean
-	/** ❌ Không gọi được máy chủ (backend chưa chạy / mất mạng) — khác hẳn "chưa cấu hình OAuth". */
+	/** ❌ The server cannot be reached (backend not running / offline) — quite different from "OAuth not configured". */
 	unavailable: boolean
 	user: ApiUser | null
-	/** Nhà cung cấp đã cấu hình đủ key ở backend. */
+	/** Providers that have complete keys configured in the backend. */
 	availableProviders: string[]
-	/** Backend yêu cầu tự chuyển hướng sang nhà cung cấp khi chưa đăng nhập. */
+	/** Backend asks the client to redirect to the provider when signed out. */
 	autoLogin: boolean
-	/** Gọi lại lời kiểm tra phiên. */
+	/** Retries the session check. */
 	retry: () => void
 }
 
 /**
- * Phiên đăng nhập đã chuẩn hoá cho UI. Máy chủ lỗi ⇒ coi như chơi ẩn danh.
+ * The login session, normalized for the UI. A failing server ⇒ treated as anonymous play.
  *
- * ⚠️ Phân biệt `unavailable` với "chưa cấu hình": cùng cho ra `availableProviders` rỗng nhưng
- * nguyên nhân khác nhau, và hướng dẫn cho người dùng cũng khác nhau.
+ * ⚠️ `unavailable` must be distinguished from "not configured": both leave
+ * `availableProviders` empty but the causes differ, and so does the guidance for the user.
  */
 export function useSessionState(): SessionState {
 	const { data, isPending, isError, refetch } = useSession()
-	// Giữ danh tính của `retry` ổn định: nếu đổi mỗi lần render thì effect của `AuthSync`
-	// sẽ chạy lại liên tục.
+	// Keep `retry`'s identity stable: if it changed on every render, the `AuthSync` effect
+	// would re-run endlessly.
 	const retry = useCallback(() => {
 		void refetch()
 	}, [refetch])
@@ -103,7 +102,7 @@ export function useSessionState(): SessionState {
 	}
 }
 
-/** Revision của bản lưu lấy từ cache của TanStack Query. */
+/** Save revision taken from the TanStack Query cache. */
 function revisionHolder(queryClient: QueryClient): RevisionHolder {
 	return {
 		get: () => queryClient.getQueryData<ApiSave>(saveKey)?.revision ?? 0,
@@ -116,17 +115,17 @@ function revisionHolder(queryClient: QueryClient): RevisionHolder {
 	}
 }
 
-/** Đẩy tiến trình hiện tại lên máy chủ. */
+/** Pushes the current progress to the server. */
 export function usePushRun() {
 	const queryClient = useQueryClient()
 	return useMutation({ mutationFn: (run: unknown) => pushRun(run, revisionHolder(queryClient)) })
 }
 
 /**
- * Nạp bản lưu từ máy chủ vào game, **ghi đè** tiến trình đang có.
+ * Loads the server save into the game, **overwriting** the progress on this device.
  *
- * Chỉ gọi khi máy này chưa có tiến trình nào (chơi tiếp trên máy mới). ❌ Không gọi trong
- * luồng đồng bộ thường — làm vậy sẽ nạp bản cũ đè lên thay đổi mới.
+ * Only called when this device has no progress yet (continuing on a new device). ❌ Do not call it
+ * in the normal sync flow — that would load an older save over newer changes.
  */
 export function usePullRemoteSave() {
 	const queryClient = useQueryClient()
@@ -148,7 +147,7 @@ export function useLogout() {
 	return useMutation({
 		mutationFn: () => api.logout(),
 		onSettled: () => {
-			// Máy chủ lỗi thì phía client vẫn phải quên phiên.
+			// Even if the server fails, the client still has to forget the session.
 			queryClient.setQueryData<ApiSession>(sessionKey, (old) =>
 				old ? { ...old, authenticated: false, user: null } : old,
 			)

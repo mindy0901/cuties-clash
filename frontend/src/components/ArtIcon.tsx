@@ -2,21 +2,21 @@ import { useState } from 'react'
 import { cn } from './ui'
 
 interface ArtIconProps {
-	/** Đường dẫn art trong `public/`. `null` = chưa có art, hiện emoji. */
+	/** Art path inside `public/`. `null` = no art yet, show the emoji. */
 	src: string | null
-	/** Hiện khi chưa có art, hoặc khi ảnh tải lỗi. */
+	/** Shown when there is no art yet, or when the image fails to load. */
 	emoji: string
-	/** Lớp cho emoji (điều khiển cỡ chữ). */
+	/** Class for the emoji (controls the font size). */
 	emojiClass?: string
 	className?: string
 	alt?: string
 }
 
 /**
- * Hiện art nếu có, không thì lùi về emoji.
+ * Shows the art when available, otherwise falls back to the emoji.
  *
- * Ảnh lỗi cũng lùi về emoji (`onError`) — để thiếu file art không bao giờ tạo ra ô
- * trống hay biểu tượng vỡ trong lưới.
+ * A broken image also falls back to the emoji (`onError`) — so a missing art file never leaves an
+ * empty cell or a broken-image icon in the grid.
  */
 export function ArtIcon({ src, emoji, emojiClass, className, alt = '' }: ArtIconProps) {
 	const [failed, setFailed] = useState(false)

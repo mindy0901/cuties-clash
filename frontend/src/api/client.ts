@@ -1,4 +1,4 @@
-/** Gọi API backend. Dev: Vite proxy `/api` → FastAPI. Production: cùng origin. */
+/** Calls the backend API. Dev: the Vite proxy sends `/api` → FastAPI. Production: same origin. */
 
 export interface ApiUser {
 	id: number
@@ -14,7 +14,7 @@ export interface ApiSession {
 	authenticated: boolean
 	user: ApiUser | null
 	available_providers: string[]
-	/** Backend yêu cầu tự chuyển hướng sang nhà cung cấp khi chưa đăng nhập. */
+	/** Backend asks the client to redirect to the provider when signed out. */
 	auto_login: boolean
 }
 
@@ -61,14 +61,14 @@ async function parseError(response: Response): Promise<ApiError> {
 		if (typeof body.message === 'string') message = body.message
 		else if (typeof body.detail === 'string') message = body.detail
 	} catch {
-		// Không phải JSON — giữ thông báo mặc định.
+		// Not JSON — keep the default message.
 	}
 	return new ApiError(response.status, code, message)
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(path, {
-		// Cookie phiên là httpOnly nên phải gửi kèm mọi lời gọi.
+		// The session cookie is httpOnly, so it has to be sent with every call.
 		credentials: 'include',
 		...init,
 		headers: { ...JSON_HEADERS, ...init?.headers },
@@ -109,6 +109,6 @@ export const api = {
 			method: 'DELETE',
 		}),
 
-	/** Đường dẫn bắt đầu đăng nhập — trình duyệt tự chuyển trang tới nhà cung cấp. */
+	/** Login start URL — the browser navigates itself to the provider. */
 	loginUrl: (provider: string) => `/api/auth/${encodeURIComponent(provider)}/login`,
 }

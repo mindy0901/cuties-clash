@@ -1,8 +1,9 @@
 /**
- * Chờ PostgreSQL sẵn sàng trước khi chạy migration.
+ * Wait for PostgreSQL to be ready before running the migrations.
  *
- * Dùng Prisma client thay vì thêm `pg_isready` để không phải cài thêm gì, và vì đây chính
- * là client mà app sẽ dùng — kiểm tra đúng thứ cần đúng.
+ * Uses the Prisma client instead of adding `pg_isready` so nothing extra has to be installed,
+ * and because this is the very client the app will use — check the right thing with the right
+ * tool.
  */
 import { PrismaClient } from '@prisma/client'
 
@@ -17,7 +18,7 @@ let lastError
 while (Date.now() < deadline) {
 	try {
 		await prisma.$queryRaw`SELECT 1`
-		console.log('→ Cơ sở dữ liệu đã sẵn sàng.')
+		console.log('→ The database is ready.')
 		await prisma.$disconnect()
 		process.exit(0)
 	} catch (error) {
@@ -27,5 +28,5 @@ while (Date.now() < deadline) {
 }
 
 await prisma.$disconnect()
-console.error(`!! Không kết nối được cơ sở dữ liệu sau ${TIMEOUT_MS / 1000} giây:`, lastError)
+console.error(`!! Could not connect to the database after ${TIMEOUT_MS / 1000} seconds:`, lastError)
 process.exit(1)

@@ -1,9 +1,9 @@
-import { repairKhoSlots } from './kho'
+import { repairStorageSlots } from './storage'
 import { petLevelStats } from './pets'
 import { getPet } from './pets'
 import type { ItemInstance, RunState } from './types'
 
-/** Bản lưu v1: chỉ có `items`, mọi món đều được coi là đang mang. */
+/** v1 save: only `items` existed, and every item counted as worn. */
 export interface PersistedV1 {
 	run?: Omit<RunState, 'equipped' | 'inventory'> & { items?: ItemInstance[] }
 }
@@ -13,12 +13,12 @@ export interface PersistedV2 {
 }
 
 /**
- * Chuyển bản lưu v1 (một danh sách `run.items`) sang v2 (`equipped` + `inventory`).
+ * Convert a v1 save (a flat `run.items` list) into v2 (`equipped` + `inventory`).
  *
- * Những món còn nằm trong lưới trang bị của cấp thú hiện tại thì giữ nguyên là đang
- * mang; phần vượt sức chứa (hoặc đang ở khay chờ với `slot < 0`) dồn vào kho.
+ * Items still inside the equip grid of the current pet level stay worn; anything past the capacity
+ * (or sitting in the waiting tray with `slot < 0`) moves into the storage.
  *
- * ⚠️ Hàm thuần, **không** được ném lỗi: người chơi cũ mất tiến trình nếu migrate hỏng.
+ * ⚠️ Pure function, must **never** throw: older players would lose progress if the migration broke.
  */
 export function migrateV1ToV2(persisted: PersistedV1): PersistedV2 | PersistedV1 {
 	const saved = persisted?.run
@@ -32,7 +32,7 @@ export function migrateV1ToV2(persisted: PersistedV1): PersistedV2 | PersistedV1
 	const inventory: ItemInstance[] = []
 	const occupied = new Set<number>()
 
-	// Giữ món theo đúng thứ tự cũ, chỉ nhận những món còn chỗ trong lưới.
+	// Keep items in their original order and accept only those that still fit the grid.
 	for (const item of all) {
 		if (item.slot < 0 || item.slot >= size) {
 			inventory.push({ ...item, slot: -1, rotated: false })
@@ -42,8 +42,8 @@ export function migrateV1ToV2(persisted: PersistedV1): PersistedV2 | PersistedV1
 		occupied.add(item.slot)
 	}
 
-	// `size` chỉ là số ô, không phải kiểm tra va chạm: bản lưu cũ vốn đã hợp lệ.
+	// `size` is only a cell count, not a collision check: the old save was already valid.
 	void occupied
-	// Kho là lưới tự do nên món vào kho phải có **ô thật** (❌ không còn `slot: -1`).
-	return { run: { ...rest, equipped, inventory: repairKhoSlots(inventory) } as RunState }
+	// The storage is a free grid, so items entering it must have a **real cell** (❌ no `slot: -1`).
+	return { run: { ...rest, equipped, inventory: repairStorageSlots(inventory) } as RunState }
 }

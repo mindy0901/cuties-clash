@@ -1,14 +1,15 @@
 /**
- * Truy cập localStorage của bản lưu game.
+ * localStorage access for the game save.
  *
- * Tách ra đây vì có hai nơi cần biết: `api/queries` (nạp bản máy chủ vào) và `AuthSync`
- * (kiểm tra máy này đã có tiến trình chưa). Khoá phải khớp `name` trong `gameStore`.
+ * Split out because two places need to know about it: `api/queries` (loading the server save) and
+ * `AuthSync` (checking whether this device already has progress). The key must match `name` in
+ * `gameStore`.
  */
 
-/** Khoá localStorage do zustand persist dùng cho tiến trình chơi. */
+/** localStorage key used by the zustand persist middleware for play progress. */
 export const GAME_SAVE_KEY = 'martial-cutie-save'
 
-/** Máy này đã có tiến trình chơi chưa (đọc thẳng localStorage). */
+/** Whether this device already has play progress (read straight from localStorage). */
 export function hasLocalRun(): boolean {
 	try {
 		const raw = window.localStorage.getItem(GAME_SAVE_KEY)
@@ -20,7 +21,7 @@ export function hasLocalRun(): boolean {
 	}
 }
 
-/** Ghi tiến trình của máy chủ vào localStorage để zustand persist nạp lại. */
+/** Writes the server's progress into localStorage so zustand persist picks it up. */
 export function writeLocalRun(run: unknown): void {
 	const raw = window.localStorage.getItem(GAME_SAVE_KEY)
 	let parsed: { state?: Record<string, unknown>; version?: number } = {}

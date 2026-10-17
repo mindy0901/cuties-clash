@@ -1,16 +1,16 @@
 /**
- * Render có ngữ cảnh router cho test.
+ * Router-aware rendering for tests.
  *
- * Vì sao cần: từ khi dùng TanStack Router, các component gọi `useNavigate()` nên **phải**
- * nằm trong một router — render lẻ sẽ ném lỗi.
+ * Why it is needed: since moving to TanStack Router, components call `useNavigate()` so they
+ * **must** live inside a router — rendering one on its own throws.
  *
- * Hai hàm, hai mục đích:
- * - `renderInRouter` — **đồng bộ**. Chỉ cần `useNavigate` chạy được, nên dùng thẳng
- *   `RouterContextProvider` (không qua `RouterProvider`) và render `ui` làm con.
- *   Nhờ vậy test lưới/kéo-thả không phải đổi sang `async`.
- * - `renderApp` — **`async`**. Dựng cả cây route thật để kiểm tra điều hướng.
- *   ⚠️ Phải `await`: `RouterProvider` render **rỗng ở lần render đầu** rồi mới khớp route
- *   sau khi `router.load()` xong — không `await` thì test chỉ thấy trang trắng.
+ * Two functions, two purposes:
+ * - `renderInRouter` — **synchronous**. Only needs `useNavigate` to work, so it uses
+ *   `RouterContextProvider` directly (not `RouterProvider`) and renders `ui` as a child.
+ *   That way the grid/drag-and-drop tests do not have to become `async`.
+ * - `renderApp` — **`async`**. Builds the whole real route tree to test navigation.
+ *   ⚠️ `await` is required: `RouterProvider` renders **empty on the first pass** and only matches
+ *   the route after `router.load()` resolves — without `await` the test only sees a blank page.
  */
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -27,19 +27,19 @@ import App from '../App'
 import { createQueryClient } from '../api/queryClient'
 import { routeTree } from '../routeTree.gen'
 
-// jsdom không cài `window.scrollTo`, còn TanStack Router gọi nó mỗi lần đổi route → jsdom in
-// cảnh báo "Not implemented" cho từng lần điều hướng. Stub ở đây vì module này luôn được nạp
-// trước khi render trong test có router; cuộn trang trong jsdom vốn không có ý nghĩa.
+// jsdom does not install `window.scrollTo`, while TanStack Router calls it on every route change →
+// jsdom prints a "Not implemented" warning for each navigation. Stubbed here because this module is
+// always loaded before rendering in tests that use a router; page scrolling is meaningless in jsdom.
 window.scrollTo = () => {}
 
 /**
- * Render cả `App` tại `path`. Phải `await`.
+ * Renders the whole `App` at `path`. Must be `await`ed.
  *
- * Dùng `createBrowserHistory` (không phải memory history) vì test điều hướng kiểm tra
- * thẳng `window.location.pathname`. Router đọc URL **lúc tạo**, nên đường dẫn phải được
- * đặt trước — hàm này tự làm việc đó.
+ * Uses `createBrowserHistory` (not memory history) because the navigation tests read
+ * `window.location.pathname` directly. The router reads the URL **when it is created**, so the
+ * path must be set first — this function does that itself.
  *
- * Mỗi lần gọi tạo router + query client mới để không rò trạng thái sang test sau.
+ * Each call creates a fresh router and query client so state does not leak into the next test.
  */
 export async function renderApp(path = '/'): Promise<RenderResult> {
 	window.history.replaceState({}, '', path)
@@ -48,14 +48,14 @@ export async function renderApp(path = '/'): Promise<RenderResult> {
 	return render(<App router={router} queryClient={createQueryClient()} />)
 }
 
-/** Render một component trong ngữ cảnh router — đồng bộ, chỉ để component có `useNavigate`. */
+/** Renders one component inside a router context — synchronous, only so it has `useNavigate`. */
 export function renderInRouter(ui: ReactNode): RenderResult {
 	const rootRoute = createRootRoute()
 	const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => null })
 	const router = createRouter({
 		routeTree: rootRoute.addChildren([indexRoute]),
 		history: createMemoryHistory({ initialEntries: ['/'] }),
-		// jsdom không có `window.scrollTo` — tắt để log test không đầy cảnh báo.
+		// jsdom has no `window.scrollTo` — disabled so test logs stay free of warnings.
 		scrollRestoration: false,
 	})
 	return render(

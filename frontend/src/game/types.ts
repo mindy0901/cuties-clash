@@ -73,16 +73,17 @@ export interface ItemTemplate {
 	name: string
 	cls: ItemClass
 	/**
-	 * Icon dự phòng (emoji). Luôn có để game không bao giờ hiện ô trống khi thiếu art.
-	 * Art thật (nếu có) nằm trong `public/icons/items` và được tìm theo `id` + `star`.
+	 * Fallback icon (emoji). Always present so the game never shows an empty cell when art is
+	 * missing. Real art (when available) lives in `public/icons/items` and is resolved from `id` +
+	 * `star`.
 	 */
 	icon: string
 	/**
-	 * Những mức sao **có art riêng** trong `public/icons/items/<id>-<star>.<ext>`.
-	 * Bỏ trống = chỉ dùng `icon` (emoji). Xem `docs/ASSETS.md` và `itemArtSrc()`.
+	 * Star ranks that **have their own art** in `public/icons/items/<id>-<star>.<ext>`.
+	 * Empty = only `icon` (emoji) is used. See `docs/ASSETS.md` and `itemArtSrc()`.
 	 */
 	stars?: Star[]
-	/** Đuôi file art. Mặc định `png`. */
+	/** Art file extension. Defaults to `png`. */
 	artExt?: 'png' | 'svg' | 'webp'
 	/** Shop pool tier: 1 = available from the start, 3 = late maps. */
 	tier: 1 | 2 | 3
@@ -118,20 +119,20 @@ export interface ItemInstance {
 export interface PetDef {
 	id: string
 	name: string
-	/** Icon dự phòng (emoji), dùng khi chưa có art. */
+	/** Fallback icon (emoji), used while art is missing. */
 	icon: string
 	blurb: string
-	/** Có art thú cưng trong `public/icons/pets/<id>.<artExt>`. */
+	/** Whether pet art exists in `public/icons/pets/<id>.<artExt>`. */
 	art?: boolean
 	artExt?: 'png' | 'svg' | 'webp'
-	/** Có art kỹ năng trong `public/icons/skills/<id>-skill.<skillArtExt>`. */
+	/** Whether skill art exists in `public/icons/skills/<id>-skill.<skillArtExt>`. */
 	skillArt?: boolean
 	skillArtExt?: 'png' | 'svg' | 'webp'
 	/**
-	 * Có art **đại diện** riêng trong `public/icons/pets/<id>-avatar.<avatarExt>`.
+	 * Whether a dedicated **avatar** art exists in `public/icons/pets/<id>-avatar.<avatarExt>`.
 	 *
-	 * Khung đấu sĩ (`AvatarCard`) ưu tiên ảnh này, chưa có thì lùi về `art` rồi emoji — nên thêm
-	 * ảnh đại diện chỉ cần đặt file + bật cờ, ❌ không phải sửa giao diện.
+	 * The fighter frame (`AvatarCard`) prefers this image and falls back to `art` and then the emoji
+	 * — so adding an avatar only means dropping a file and setting the flag, ❌ no UI change needed.
 	 */
 	avatar?: boolean
 	avatarExt?: 'png' | 'svg' | 'webp'
@@ -248,20 +249,21 @@ export interface RunState {
 	stage: number
 	clearedStage: number
 	/**
-	 * Đồ thú cưng **đang mang**: chỉ những món ở đây mới tham chiến (passive, hào khí,
-	 * vũ khí). Xếp theo lưới 4 cột, số hàng tăng theo cấp thú.
+	 * Gear the pet is **wearing**: only items listed here join the fight (passives, auras,
+	 * weapons). Laid out on a 4-column grid whose row count grows with the pet level.
 	 */
 	equipped: ItemInstance[]
 	/**
-	 * **Kho đồ**: mọi thứ chưa mang, **không giới hạn** sức chứa. Món ở đây không có hiệu lực
-	 * và không chiếm ô của trang bị. Kho là **lưới tự do** (8 cột): `slot`/`rotated` là vị trí và
-	 * hướng người chơi đặt, giữ nguyên cho tới khi người chơi thao tác.
+	 * **Storage**: everything not currently worn, with **unlimited** capacity. Items here have no
+	 * effect and do not occupy equip-grid cells. The storage is a **free grid** (8 columns):
+	 * `slot`/`rotated` are the position and orientation the player chose, kept until the player
+	 * changes them.
 	 */
 	inventory: ItemInstance[]
 	seed: number
 	shop: ShopOffer[]
 	rerolls: number
-	/** Số trận đã thắng / thua trong lượt chơi này, hiển thị ở phòng chuẩn bị. */
+	/** Battles won / lost in this run, shown in the preparation room. */
 	wins: number
 	losses: number
 }

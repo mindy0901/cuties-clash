@@ -9,10 +9,10 @@ import { ItemIcon } from './ItemIcon'
 import { btnClass, btnGoldClass, btnSmClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
 
 /**
- * Trang cửa hàng riêng (đường dẫn `/cua-hang`).
+ * The dedicated shop page (`/cua-hang`).
  *
- * Bố cục theo bản gốc: tiêu đề + số Paw Tally, danh sách món mua được, và nút quay
- * về phòng chuẩn bị. Mua xong vẫn ở lại đây để mua tiếp.
+ * Layout follows the original: title plus the Paw Tally count, the list of purchasable items, and
+ * a button back to the preparation room. After buying you stay here to keep shopping.
  */
 export function ShopScreen() {
 	const run = useGameStore((state) => state.run)

@@ -4,7 +4,7 @@ import { createItemInstance } from '../bag'
 import { getPet, petLevelStats } from '../pets'
 import type { RunState } from '../types'
 
-/** Bản lưu v1 tối thiểu, đủ trường để migrate chạy. */
+/** Minimal v1 save with enough fields for the migration to run. */
 function v1Run(items: ReturnType<typeof createItemInstance>[]): Parameters<typeof migrateV1ToV2>[0] {
 	return {
 		run: {
@@ -24,14 +24,14 @@ function v1Run(items: ReturnType<typeof createItemInstance>[]): Parameters<typeo
 	}
 }
 
-describe('migrate bản lưu v1 → v2', () => {
-	it('cấp 1 có lưới 4×3 = 12 ô', () => {
+describe('migrating a v1 save → v2', () => {
+	it('level 1 has a 4×3 = 12 cell grid', () => {
 		const { bagSize } = petLevelStats(getPet('fire-pup'), 1)
 		expect(bagSize).toBe(12)
 	})
 
-	it('giữ món còn chỗ là đang mang, dồn phần dư vào kho', () => {
-		// Cấp 1 chỉ có 12 ô; đặt 13 món 1 ô thì món cuối phải sang kho.
+	it('keeps items that still fit as worn and moves the surplus into the storage', () => {
+		// Level 1 only has 12 cells; with 13 single-cell items the last one has to reach the storage.
 		const items = Array.from({ length: 13 }, (_, slot) => createItemInstance('jade-fury', 1, `i${slot}`, slot))
 		const migrated = migrateV1ToV2(v1Run(items)) as { run: RunState }
 
@@ -41,7 +41,7 @@ describe('migrate bản lưu v1 → v2', () => {
 		expect(migrated.run.inventory[0].slot).toBe(0)
 	})
 
-	it('món ở khay chờ (slot -1) chuyển vào kho', () => {
+	it('moves items in the waiting tray (slot -1) into the storage', () => {
 		const items = [
 			createItemInstance('jade-fury', 1, 'worn', 0),
 			createItemInstance('great-axe', 1, 'tray'),
@@ -52,7 +52,7 @@ describe('migrate bản lưu v1 → v2', () => {
 		expect(migrated.run.inventory.map((item) => item.uid)).toEqual(['tray'])
 	})
 
-	it('giữ nguyên tiền, màn, thú cưng và lịch sử đấu', () => {
+	it('keeps the currency, stage, pet and battle record intact', () => {
 		const migrated = migrateV1ToV2(v1Run([createItemInstance('jade-fury', 1, 'a', 0)])) as { run: RunState }
 		expect(migrated.run.currency).toBe(20)
 		expect(migrated.run.stage).toBe(5)
@@ -60,17 +60,17 @@ describe('migrate bản lưu v1 → v2', () => {
 		expect(migrated.run.petId).toBe('fire-pup')
 		expect(migrated.run.wins).toBe(2)
 		expect(migrated.run.losses).toBe(1)
-		// Không còn trường `items` cũ.
+		// The old `items` field is gone.
 		expect('items' in migrated.run).toBe(false)
 	})
 
-	it('không mất món nào khi lưới nhỏ hơn số món', () => {
+	it('loses no item when the grid is smaller than the item count', () => {
 		const items = Array.from({ length: 20 }, (_, slot) => createItemInstance('jade-fury', 1, `i${slot}`, slot))
 		const migrated = migrateV1ToV2(v1Run(items)) as { run: RunState }
 		expect(migrated.run.equipped.length + migrated.run.inventory.length).toBe(20)
 	})
 
-	it('bản lưu rỗng hoặc thiếu run thì trả nguyên trạng, không ném lỗi', () => {
+	it('returns an empty or run-less save untouched and never throws', () => {
 		expect(() => migrateV1ToV2({})).not.toThrow()
 		expect(migrateV1ToV2({})).toEqual({})
 		const noItems = v1Run([])

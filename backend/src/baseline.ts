@@ -31,10 +31,10 @@ export function migrationSqlPaths(): string[] {
 }
 
 /**
- * Tách file SQL thành từng câu lệnh.
+ * Split an SQL file into individual statements.
  *
- * `$executeRawUnsafe` chỉ chạy được một câu lệnh mỗi lần, nên phải cắt ở dấu `;`
- * ngoài chuỗi, ngoài chú thích `--` và ngoài khối `$$ … $$`.
+ * `$executeRawUnsafe` only runs one statement at a time, so split on `;` outside of strings,
+ * outside `--` comments and outside `$$ … $$` blocks.
  */
 export function splitSqlStatements(sql: string): string[] {
 	const statements: string[] = []
@@ -69,7 +69,7 @@ export function splitSqlStatements(sql: string): string[] {
 
 		if (inSingleQuote) {
 			current += char
-			// Hai dấu nháy liền nhau là một dấu nháy được escape.
+			// Two adjacent quotes are one escaped quote.
 			if (char === "'" && next === "'") {
 				current += next
 				index += 2

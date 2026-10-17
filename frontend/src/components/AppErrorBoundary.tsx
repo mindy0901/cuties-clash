@@ -9,12 +9,12 @@ interface State {
 }
 
 /**
- * Lá chắn cuối cùng: nếu bất kỳ lỗi runtime nào xảy ra lúc render, hiện màn hình
- * khôi phục thay vì để trang trắng.
+ * The last line of defence: if any runtime error happens while rendering, show a recovery screen
+ * instead of leaving a blank page.
  *
- * Trang trắng là tình huống **không thể thoát** với người chơi: không có nút nào để
- * bấm, nên họ chỉ có thể xoá dữ liệu trình duyệt bằng tay. Màn hình này cho họ một
- * nút xoá bản lưu và tải lại.
+ * A blank page is a situation the player **cannot escape**: there is no button to press, so the
+ * only option is manually clearing browser data. This screen gives them a button that wipes the
+ * save and reloads.
  */
 export class AppErrorBoundary extends Component<Props, State> {
 	state: State = { error: null }
@@ -24,15 +24,15 @@ export class AppErrorBoundary extends Component<Props, State> {
 	}
 
 	componentDidCatch(error: Error, info: ErrorInfo) {
-		// Giữ lại trong console để còn gỡ lỗi.
-		console.error('[Martial Cutie] lỗi render:', error, info.componentStack)
+		// Keep it in the console for debugging.
+		console.error('[Martial Cutie] render error:', error, info.componentStack)
 	}
 
 	private reset = () => {
 		try {
 			window.localStorage.removeItem('martial-cutie-save')
 		} catch {
-			// Bỏ qua: localStorage có thể bị chặn.
+			// Ignore: localStorage may be blocked.
 		}
 		window.location.assign('/')
 	}

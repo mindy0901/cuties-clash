@@ -1,9 +1,9 @@
 /**
- * Kiểu truy cập database dùng chung.
+ * Shared database access type.
  *
- * `Prisma.TransactionClient` bao trùm cả `PrismaClient` thật lẫn client của một
- * transaction, nên `buildApp()` nhận được cả hai: chạy thật truyền client thường,
- * test truyền client transaction rồi rollback.
+ * `Prisma.TransactionClient` covers both the real `PrismaClient` and a transaction client,
+ * so `buildApp()` accepts either one: real runs pass the normal client, tests pass a
+ * transaction client and then roll back.
  */
 
 import type { Prisma } from '@prisma/client'

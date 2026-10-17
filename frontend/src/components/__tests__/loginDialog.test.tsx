@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /**
- * Hộp thoại đăng nhập phải nói **đúng nguyên nhân**.
+ * The login dialog must state the **right cause**.
  *
- * Lỗi đã gặp: khi không gọi được máy chủ, hộp thoại vẫn bảo người dùng điền
- * `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` — trong khi vấn đề là backend chưa chạy. Hai
- * tình huống cùng cho `available_providers` rỗng nhưng cách sửa khác hẳn nhau, nên phải
- * phân biệt và phải có nút **Thử lại** (query đặt `retry: false` nên lỗi bị "đóng băng",
- * không tự thử lại khi backend được bật lên).
+ * Bug that happened: when the server could not be reached, the dialog still told the user to fill
+ * in `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` — while the real problem was that the backend was not
+ * running. Both situations leave `available_providers` empty but the fix is completely different, so
+ * they have to be told apart, and there has to be a **Thử lại** button (the query sets
+ * `retry: false`, so the error is "frozen" and does not retry by itself once the backend is up).
  */
 import { QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -37,7 +37,7 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('LoginDialog', () => {
-	it('máy chủ không gọi được thì báo đúng, KHÔNG hướng dẫn điền key', async () => {
+	it('reports an unreachable server accurately and does NOT mention filling in keys', async () => {
 		session.mockRejectedValue(new Error('máy chủ không phản hồi'))
 		renderDialog()
 
@@ -45,7 +45,7 @@ describe('LoginDialog', () => {
 		expect(screen.queryByText(/GOOGLE_CLIENT_ID/)).toBeNull()
 	})
 
-	it('máy chủ trả lời nhưng chưa có key thì mới hướng dẫn điền .env', async () => {
+	it('only points at the .env file when the server answers but has no keys', async () => {
 		session.mockResolvedValue({
 			authenticated: false,
 			user: null,
@@ -58,7 +58,7 @@ describe('LoginDialog', () => {
 		expect(screen.queryByText(/Không kết nối được máy chủ/)).toBeNull()
 	})
 
-	it('máy chủ đã cấu hình thì hiện nút đăng nhập Google', async () => {
+	it('shows the Google login button when the server is configured', async () => {
 		session.mockResolvedValue({
 			authenticated: false,
 			user: null,
@@ -72,7 +72,7 @@ describe('LoginDialog', () => {
 		expect(screen.queryByText(/GOOGLE_CLIENT_ID/)).toBeNull()
 	})
 
-	it('nút Thử lại gọi lại máy chủ và hiện nút đăng nhập khi backend đã lên', async () => {
+	it('the Thử lại button queries the server again and shows login once the backend is up', async () => {
 		session.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({
 			authenticated: false,
 			user: null,

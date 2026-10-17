@@ -9,23 +9,23 @@ import type { HeldItem } from './useHeldItem'
 import type { ItemInstance } from '../game/types'
 
 interface PetLoadoutPanelProps {
-	/** Món đang được kéo, nếu có. */
+	/** The item currently being dragged, if any. */
 	held: HeldItem | null
-	/** Bấm một món → mở hộp thoại chi tiết. */
+	/** Clicking an item → opens the detail dialog. */
 	onItemClick: (item: ItemInstance) => void
-	/** Bắt đầu giữ một món (đầu thao tác kéo). */
+	/** Starts holding an item (beginning of the drag). */
 	onDragStart?: (item: ItemInstance) => void
-	/** Nhả chuột: `moved` cho biết vừa kéo đi hay chỉ bấm. */
+	/** Pointer release: `moved` tells whether it was dragged or merely clicked. */
 	onDragEnd?: (moved: boolean) => void
 	onHoverSlot?: (slot: number | null) => void
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
 }
 
 /**
- * **Trang bị** — những món thú cưng đang mang. Chỉ đồ ở đây mới tham chiến
- * (passive, hào khí, vũ khí) và chỉ chúng chiếm ô của lưới 4 cột.
+ * **Loadout** — the items the pet is carrying. Only items here take part in the fight
+ * (passives, auras, weapons) and only they occupy cells of the 4-column grid.
  *
- * Thao tác: **kéo-thả** để chuyển/đổi chỗ (xem `useHeldItem`), **bấm** để xem chi tiết.
+ * Interactions: **drag and drop** to move/swap (see `useHeldItem`), **click** to view details.
  */
 export function PetLoadoutPanel({
 	held,
@@ -60,7 +60,7 @@ export function PetLoadoutPanel({
 				</span>
 			</div>
 
-			{/* Lưới luôn hiện đủ 4×5; ô vượt cấp thú hiển thị mờ như bị khoá. */}
+			{/* The grid always shows the full 4×5; cells past the pet's level are dimmed as locked. */}
 			<LoadoutGrid
 				width={bag.width}
 				rows={GRID_MAX_ROWS}

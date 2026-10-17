@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { useSessionState } from '../api/queries'
 import { ProviderIcon } from './ProviderIcon'
 import { PROVIDER_LABELS, btnClass, btnSmClass, cn, dialogClass, overlayClass } from './ui'
-/** Hộp thoại đăng nhập: chuyển hướng sang Google. */
+/** Login dialog: redirects to Google. */
 export function LoginDialog({ onClose }: { onClose: () => void }) {
 	const { availableProviders, loading, unavailable, retry } = useSessionState()
 
@@ -34,8 +34,8 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
 				<div className="flex flex-col gap-2">
 					{loading ? <p className="m-0 text-[13px] text-muted">Đang kiểm tra máy chủ…</p> : null}
 
-					{/* ⚠️ Máy chủ không gọi được KHÁC với "chưa cấu hình key". Bảo người dùng điền
-					    GOOGLE_CLIENT_ID trong trường hợp này là chỉ sai chỗ cần sửa. */}
+					{/* ⚠️ "The server cannot be reached" is DIFFERENT from "no key configured". Telling
+					    the user to fill in GOOGLE_CLIENT_ID in this case points at the wrong place. */}
 					{!loading && unavailable ? (
 						<div className="rounded-[10px] border border-line bg-black/25 p-3">
 							<p className="m-0 text-[13px] text-muted">

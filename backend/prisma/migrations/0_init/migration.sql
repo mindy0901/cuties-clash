@@ -1,19 +1,21 @@
 -- Baseline schema: users, oauth_identities, game_saves.
 --
--- Được sinh bằng:
+-- Generated with:
 --   pnpm --filter backend exec prisma migrate diff \
 --     --from-empty --to-schema-datamodel prisma/schema.prisma --script
--- rồi sửa tay thành IDEMPOTENT.
+-- then edited by hand to be IDEMPOTENT.
 --
--- Vì sao idempotent: database đang chạy (dev và production đã triển khai) ĐÃ có ba
--- bảng này do Alembic tạo, với đúng tên bảng/cột/index/khoá ngoại như dưới đây.
--- `AUTO_CREATE_TABLES=true` chạy file này lúc khởi động, nên nếu nó không idempotent
--- thì lần khởi động thứ hai sẽ lỗi "relation already exists". Vì vậy:
---   * bảng  → CREATE TABLE IF NOT EXISTS
---   * index → CREATE INDEX IF NOT EXISTS  (Postgres coi unique constraint cũng là
---             một quan hệ cùng tên, nên `IF NOT EXISTS` nhận ra cả hai dạng)
---   * khoá ngoại → bọc trong khối DO … nếu tên constraint chưa tồn tại thì mới thêm
--- Không câu lệnh nào DROP/sửa dữ liệu, nên chạy trên database đang có dữ liệu là an toàn.
+-- Why idempotent: the running database (both dev and deployed production) ALREADY has these
+-- three tables, created by Alembic, with exactly the table/column/index/foreign-key names
+-- below. `AUTO_CREATE_TABLES=true` runs this file at startup, so if it were not idempotent the
+-- second boot would fail with "relation already exists". Therefore:
+--   * tables  → CREATE TABLE IF NOT EXISTS
+--   * indexes → CREATE INDEX IF NOT EXISTS  (Postgres treats a unique constraint as a relation
+--             with the same name, so `IF NOT EXISTS` recognises both forms)
+--   * foreign keys → wrapped in a DO … block that only adds the constraint when its name does
+--             not exist yet
+-- No statement drops anything or rewrites data, so running it against a database that already
+-- holds data is safe.
 
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";

@@ -59,8 +59,14 @@ export const stackClass = 'flex flex-col gap-2.5'
 
 export const gearRowClass = 'grid grid-cols-[repeat(auto-fill,minmax(58px,1fr))] gap-1.5'
 
+/**
+ * The little square button drawn over an item tile (rotate / sell) and next to a form label (✕).
+ *
+ * ⚠️ The font size sets the **icon** size too (`svg.lucide` is `1em`), so 12px here is what makes the
+ * glyph fit a 20px box — ❌ do not shrink it back to 11px.
+ */
 export const iconButtonClass =
-	'grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold'
+	'grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[12px] hover:border-gold'
 
 /** Border per item class. Must be full class names so Tailwind sees them at build time. */
 export const ITEM_BORDER_BY_CLASS: Record<string, string> = {

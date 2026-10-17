@@ -1,5 +1,6 @@
 import { useLogout, usePushRun, useSessionState } from '../api/queries'
 import { useUiStore } from '../store/uiStore'
+import { LogIn } from './icons'
 import { btnClass, btnGhostClass, btnSmClass, cn } from './ui'
 
 const SYNC_TEXT = {
@@ -37,7 +38,7 @@ export function AccountChip() {
 				onClick={openLogin}
 				title={unavailable ? 'Không kết nối được máy chủ đăng nhập' : undefined}
 			>
-				👤 Đăng nhập
+				<LogIn /> Đăng nhập
 			</button>
 		)
 	}

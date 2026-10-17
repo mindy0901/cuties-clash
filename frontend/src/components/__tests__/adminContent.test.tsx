@@ -270,7 +270,7 @@ describe('editing content', () => {
 		await screen.findByText('wooden-blade')
 
 		const save = screen.getByText(/Lưu/).closest('button')!
-		const reset = screen.getByText('↺ Đặt lại như cũ').closest('button')!
+		const reset = screen.getByText('Đặt lại như cũ').closest('button')!
 		// Nothing edited and nothing stored → nothing to save, nothing to reset.
 		expect(save.disabled).toBe(true)
 		expect(reset.disabled).toBe(true)
@@ -302,7 +302,7 @@ describe('editing content', () => {
 
 		// The form is untouched, but the row holds an override only this button can delete.
 		await waitFor(() =>
-			expect(screen.getByText('↺ Đặt lại như cũ').closest('button')!.disabled).toBe(false),
+			expect(screen.getByText('Đặt lại như cũ').closest('button')!.disabled).toBe(false),
 		)
 	})
 
@@ -423,7 +423,8 @@ describe('editing content', () => {
 		await screen.findByText('wooden-blade')
 		await waitFor(() => {
 			const entry = document.querySelector<HTMLElement>('[data-admin-entry="fire-spear"]')
-			expect(entry?.textContent, 'an overridden entry must be marked').toContain('●')
+			// The mark is an icon now, so it is found by its tooltip rather than by a glyph in the text.
+			expect(entry?.querySelector('[title^="Sửa bởi"]'), 'an overridden entry must be marked').toBeTruthy()
 		})
 	})
 })
@@ -501,7 +502,7 @@ describe('creating and deleting items', () => {
 		fireEvent.click(await screen.findByText(/Kiếm Sắt/))
 		expect(itemTemplateById('kiem-sat')?.cost).toBe(4)
 
-		fireEvent.click(await screen.findByRole('button', { name: '🗑 Xoá món' }))
+		fireEvent.click(await screen.findByRole('button', { name: 'Xoá món' }))
 		const dialog = await screen.findByRole('dialog', { name: /Xoá "Kiếm Sắt"/ })
 		fireEvent.click(dialog.querySelector('[data-confirm-accept]')!)
 
@@ -559,7 +560,7 @@ describe('importing a picture', () => {
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		const remove = await screen.findByText('🗑️ Xoá ảnh đã tải')
+		const remove = await screen.findByText('Xoá ảnh đã tải')
 		fireEvent.click(remove)
 
 		// Deleting loses the crop, so it asks first — and says what happens.
@@ -577,7 +578,7 @@ describe('importing a picture', () => {
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		fireEvent.click(await screen.findByText('🗑️ Xoá ảnh đã tải'))
+		fireEvent.click(await screen.findByText('Xoá ảnh đã tải'))
 
 		const dialog = await screen.findByRole('dialog', { name: /Xoá ảnh đã tải của/ })
 		fireEvent.click(dialog.querySelector('[data-confirm-cancel]')!)

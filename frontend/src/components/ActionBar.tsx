@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { FINAL_STAGE, getStage } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
+import { ClipboardList, Library, Map as MapIcon, ShoppingCart, Swords } from './icons'
 import { btnClass, cn } from './ui'
 
 /**
@@ -33,21 +34,21 @@ export function ActionBar() {
 				)}
 				onClick={() => void navigate({ to: '/shop' })}
 			>
-				🛒 Mua Vật Phẩm »
+				<ShoppingCart /> Mua Vật Phẩm »
 			</button>
 
 			<button type="button" className={cn(btnClass, 'flex-1 justify-center')} onClick={() => comingSoon('Nhiệm Vụ')}>
-				🦌 Nhiệm Vụ
+				<ClipboardList /> Nhiệm Vụ
 			</button>
 			<button
 				type="button"
 				className={cn(btnClass, 'flex-1 justify-center')}
 				onClick={() => comingSoon('Bộ Sưu Tập')}
 			>
-				📜 Bộ Sưu Tập
+				<Library /> Bộ Sưu Tập
 			</button>
 			<button type="button" className={cn(btnClass, 'flex-1 justify-center')} onClick={openMap}>
-				🗺️ Bản đồ
+				<MapIcon /> Bản đồ
 			</button>
 
 			<div className="flex min-w-[150px] flex-1 flex-col justify-center gap-1 rounded-[10px] border border-line bg-black/25 px-3 py-2">
@@ -72,7 +73,7 @@ export function ActionBar() {
 				onClick={() => startBattle('stage')}
 				title={canFight ? `Đánh màn ${stage.index}` : 'Hãy mang ít nhất 1 món lên trang bị trước'}
 			>
-				⚔️ Đấu Thú Cưng · Màn {stage.index}
+				<Swords /> Đấu Thú Cưng · Màn {stage.index}
 			</button>
 		</div>
 	)

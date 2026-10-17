@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
 import { sellValue, templateFootprint } from '../game/bag'
 import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starLabel, starPrice, swingMs } from '../game/items'
 import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ArtIcon } from './ArtIcon'
 import { itemArtSrc } from '../game/art'
+import { Cost } from './icons'
 import { ITEM_STAR_TEXT, btnClass, btnSmClass, cn, dialogClass, itemTileClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
 
 /**
@@ -86,9 +88,10 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					{damage !== undefined && swing ? (
 						<Row label="Sát thương mỗi giây" value={(damage / (swing / 1000)).toFixed(1)} />
 					) : null}
-					<Row label="Giá ở shop" value={`${starPrice(template.cost, item.star)} 🐾`} />
-					<Row label="Đã trả" value={`${item.paid} 🐾`} />
-					<Row label="Bán được" value={`${sellValue(item)} 🐾 (hoàn 50%)`} />
+					<Row label="Giá ở shop" value={<Cost amount={starPrice(template.cost, item.star)} />} />
+					<Row label="Đã trả" value={<Cost amount={item.paid} />} />
+					{/* The 50% rule belongs to the label, not to the number: the cell is too narrow for both. */}
+					<Row label="Bán được (hoàn 50%)" value={<Cost amount={sellValue(item)} />} />
 				</div>
 
 				{mods.length > 0 ? (
@@ -121,11 +124,11 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 	)
 }
 
-function Row({ label, value, tone }: { label: string; value: string; tone?: 'good' }) {
+function Row({ label, value, tone }: { label: string; value: ReactNode; tone?: 'good' }) {
 	return (
 		<div className={statClass}>
 			<span className="text-muted">{label}</span>
-			<span className={cn('font-semibold', tone === 'good' && 'text-jade')}>{value}</span>
+			<span className={cn('inline-flex items-center gap-1 font-semibold', tone === 'good' && 'text-jade')}>{value}</span>
 		</div>
 	)
 }

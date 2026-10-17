@@ -3,13 +3,14 @@ import { PETS, getPet, petLevelStats } from '../game/pets'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import { PetIcon } from './ItemIcon'
+import { Paw, Trophy } from './icons'
 import { btnClass, btnPrimaryClass, cn, dialogClass, overlayClass, statClass, statGridClass } from './ui'
 
 function Stat({ label, value }: { label: string; value: ReactNode }) {
 	return (
 		<div className={statClass}>
 			<span className="text-muted">{label}</span>
-			<span className="font-semibold">{value}</span>
+			<span className="inline-flex items-center gap-1 font-semibold">{value}</span>
 		</div>
 	)
 }
@@ -27,14 +28,21 @@ export function VictoryScreen() {
 		<div className={overlayClass}>
 			<div className={dialogClass} role="dialog" aria-label="Phá đảo">
 				<div className="flex items-center gap-3 text-[26px]">
-					<span>🏆</span>
+					<Trophy className="text-gold-soft" />
 					<h2 className="text-[22px] text-gold-soft">Phá đảo 60 màn!</h2>
 				</div>
 				<p className="m-0 text-sm text-muted">
 					{pet.name} cấp {level} đã chinh phục Tụ Khốt Châu, Hỏa La Quốc và Stormchant.
 				</p>
 				<div className={statGridClass}>
-					<Stat label="Paw Tally còn lại" value={`${run.currency} 🐾`} />
+					<Stat
+						label="Paw Tally còn lại"
+						value={
+							<>
+								{run.currency} <Paw />
+							</>
+						}
+					/>
 					<Stat label="Đồ đang mang" value={`${run.equipped.filter((item) => item.slot >= 0).length} món`} />
 					<Stat label="Kho dự trữ" value={`${run.inventory.length} món`} />
 					<Stat label="Ô trang bị" value={`${levelStats.bag.width}×${levelStats.bag.rows}`} />

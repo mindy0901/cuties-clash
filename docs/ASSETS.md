@@ -13,6 +13,9 @@ the licences, where files go, and the attribution obligations.
   `art`/`skillArt` in `pets.ts`). ❌ Do not guess file names.
 - ✅ **Always keep the emoji fallback** in `icon`; `ArtIcon` falls back to the emoji when an image
   fails — that way art can be added gradually and there is never an empty cell.
+- ⚠️ **Emoji are content, not UI icons.** Item / pet / stage / status glyphs stay emoji (they are the
+  picture fallback). Every **control** in the interface — buttons, menus, playback, money, dialogs —
+  uses a [Lucide](https://lucide.dev/guide/react/) icon through `components/icons.tsx`, ❌ not emoji.
 - ⚠️ **Check for a real alpha channel** before using an image (see the ORHstudio trap below): read the
   PNG bytes, `colorType` must be **6 = RGBA**. `game/__tests__/artAlpha.test.ts` guards this.
 - ⚠️ **CC BY** sources must have an **attribution** section reachable from the menu. CC0 does not

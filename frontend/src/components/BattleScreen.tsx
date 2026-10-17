@@ -8,6 +8,7 @@ import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import type { ItemBlueprint, ItemInstance, SideState, StatusKey } from '../game/types'
 import { AvatarCard, type AvatarSkill } from './AvatarCard'
+import { Pause, Play, Shield, SkipForward, Swords } from './icons'
 import { ItemIcon, PetIcon, SkillIcon } from './ItemIcon'
 import { LoadoutGrid } from './LoadoutGrid'
 import {
@@ -115,7 +116,7 @@ function HpPanel({ side, state }: { side: 'player' | 'enemy'; state: SideState }
 					className="flex items-center gap-1 rounded-full border border-line bg-black/35 px-2 py-0.5 text-[11.5px] tabular-nums"
 					title="Giáp"
 				>
-					🛡 {Math.round(state.shield)}
+					<Shield /> {Math.round(state.shield)}
 				</span>
 				{state.statuses.map((status) => (
 					<span
@@ -195,7 +196,7 @@ function ArenaDivider() {
 		<div className="relative flex w-9 shrink-0 flex-col items-center justify-center rounded-lg border border-line bg-linear-to-b from-[#22302c] via-[#16211f] to-[#22302c]">
 			<span className="absolute inset-y-2 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-jade/25" />
 			<span className="relative grid size-7 place-items-center rounded-full border border-gold/50 bg-ink-800 text-[12px] text-gold-soft">
-				⚔
+				<Swords />
 			</span>
 		</div>
 	)
@@ -320,7 +321,15 @@ export function BattleScreen() {
 							className={cn(btnClass, btnSmClass)}
 							onClick={() => setPaused((v) => !v)}
 						>
-							{paused ? '▶ Tiếp tục' : '⏸ Tạm dừng'}
+							{paused ? (
+								<>
+									<Play /> Tiếp tục
+								</>
+							) : (
+								<>
+									<Pause /> Tạm dừng
+								</>
+							)}
 						</button>
 						<button
 							type="button"
@@ -332,7 +341,7 @@ export function BattleScreen() {
 								setDone(true)
 							}}
 						>
-							⏭ Bỏ qua
+							<SkipForward /> Bỏ qua
 						</button>
 					</div>
 				</div>

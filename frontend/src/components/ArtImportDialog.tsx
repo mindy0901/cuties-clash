@@ -3,6 +3,7 @@ import Cropper, { type Area } from 'react-easy-crop'
 import type { Star } from '../game/types'
 import { ArtPreview } from './ArtPreview'
 import { artOutputSize, croppedPng } from './cropImage'
+import { ImagePlus } from './icons'
 import { btnClass, btnGoldClass, btnSmClass, cn, dialogClass, hintClass, overlayClass, rowClass } from './ui'
 
 /** Largest file accepted straight from the admin's disk (before cropping). */
@@ -177,7 +178,7 @@ export function ArtImportDialog({
 					</div>
 				) : (
 					<label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[12px] border border-dashed border-line bg-black/30 p-8 text-center">
-						<span className="text-[28px]">🖼️</span>
+						<ImagePlus className="size-7 text-muted" />
 						<span className="text-[13.5px]">Bấm để chọn ảnh (png, jpg, webp — tối đa 10 MB)</span>
 						<input
 							type="file"

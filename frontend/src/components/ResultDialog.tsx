@@ -1,13 +1,15 @@
+import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { getStage } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
+import { Handshake, Paw, Skull, Trophy } from './icons'
 import { btnClass, btnPrimaryClass, cn, dialogClass, overlayClass, statClass, statGridClass } from './ui'
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: ReactNode }) {
 	return (
 		<div className={statClass}>
 			<span className="text-muted">{label}</span>
-			<span className="font-semibold">{value}</span>
+			<span className="inline-flex items-center gap-1 font-semibold">{value}</span>
 		</div>
 	)
 }
@@ -28,7 +30,13 @@ export function ResultDialog() {
 		<div className={overlayClass}>
 			<div className={dialogClass} role="dialog" aria-label="Kết quả trận đấu">
 				<div className="flex items-center gap-3 text-[26px]">
-					<span>{won ? '🏆' : drawn ? '🤝' : '💀'}</span>
+					{won ? (
+						<Trophy className="text-gold-soft" />
+					) : drawn ? (
+						<Handshake className="text-gold-soft" />
+					) : (
+						<Skull className="text-danger-soft" />
+					)}
 					<h2 className={cn('text-[22px]', won ? 'text-gold-soft' : 'text-danger-soft')}>
 						{won ? 'Chiến thắng!' : drawn ? 'Hoà' : 'Thất bại'}
 					</h2>
@@ -40,8 +48,26 @@ export function ResultDialog() {
 				</p>
 
 				<div className={statGridClass}>
-					<Stat label="Thưởng" value={won ? `+${battle.reward} 🐾` : '—'} />
-					<Stat label="Paw Tally hiện có" value={`${run.currency} 🐾`} />
+					<Stat
+						label="Thưởng"
+						value={
+							won ? (
+								<>
+									+{battle.reward} <Paw />
+								</>
+							) : (
+								'—'
+							)
+						}
+					/>
+					<Stat
+						label="Paw Tally hiện có"
+						value={
+							<>
+								{run.currency} <Paw />
+							</>
+						}
+					/>
 					<Stat label="Màn đã qua" value={`${run.clearedStage}/60`} />
 				</div>
 

@@ -4,6 +4,7 @@ import { GRID_MAX_CELLS, GRID_MAX_ROWS, getPet, petLevelStats } from '../game/pe
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { estimatePower } from '../game/build'
 import { LoadoutGrid } from './LoadoutGrid'
+import { ArrowDown, ShoppingCart } from './icons'
 import { btnClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
 import type { HeldItem } from './useHeldItem'
 import type { ItemInstance } from '../game/types'
@@ -88,7 +89,7 @@ export function PetLoadoutPanel({
 					)}
 					onClick={() => void navigate({ to: '/shop' })}
 				>
-					🛒 Mua Vật Phẩm »
+				<ShoppingCart /> Mua Vật Phẩm »
 				</button>
 				<button
 					type="button"
@@ -99,7 +100,7 @@ export function PetLoadoutPanel({
 					}}
 					title="Bỏ toàn bộ đồ về kho"
 				>
-					↓ Tháo hết
+					<ArrowDown /> Tháo hết
 				</button>
 			</div>
 

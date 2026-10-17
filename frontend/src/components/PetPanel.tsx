@@ -3,6 +3,7 @@ import { STAT_LABELS, formatStat } from '../game/stats'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import type { StatKey } from '../game/types'
 import { PetIcon } from './ItemIcon'
+import { Paw } from './icons'
 import { PetTile } from './PetTile'
 import { btnBlockClass, btnClass, btnPrimaryClass, cn, panelClass, panelHeadClass, panelTitleClass, statClass, statGridClass, tagClass } from './ui'
 
@@ -90,7 +91,13 @@ export function PetPanel() {
 				disabled={level >= MAX_PET_LEVEL}
 				onClick={upgradePet}
 			>
-				{level >= MAX_PET_LEVEL ? 'Đã đạt cấp tối đa' : `Nâng cấp · ${upgradeCost} 🐾`}
+				{level >= MAX_PET_LEVEL ? (
+					'Đã đạt cấp tối đa'
+				) : (
+					<>
+						Nâng cấp · {upgradeCost} <Paw />
+					</>
+				)}
 			</button>
 			<p className="m-0 text-[13px] text-muted">
 				Mỗi cấp tăng 12% máu, sát thương kỹ năng và hồi Kiếm Thế. Nâng cấp lúc nào cũng được, không mất lượt.

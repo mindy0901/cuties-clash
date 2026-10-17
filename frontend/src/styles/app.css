@@ -120,6 +120,17 @@
 		margin: 0;
 		font-weight: 650;
 	}
+
+	/*
+	 * Lucide icons scale with the text beside them, exactly like the emoji they replaced: a button
+	 * does not have to size its own icon, and a bigger text size brings a bigger icon with it. Any
+	 * `size-*` utility still wins, so a standalone icon can be forced larger.
+	 */
+	svg.lucide {
+		width: 1em;
+		height: 1em;
+		flex-shrink: 0;
+	}
 }
 
 /* Diagonal stripe background shared by locked cells and the waiting tray. */

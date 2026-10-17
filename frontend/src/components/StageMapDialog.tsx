@@ -2,7 +2,12 @@ import { MAPS, STAGES } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
 import { btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass } from './ui'
 
-/** The 60-stage journey across the event's 3 maps (20 stages per map). */
+/**
+ * The 60-stage journey across the event's 3 maps (20 stages per map).
+ *
+ * ⚠️ The reward in a cell's `title` is spelled "Paw Tally", not drawn with an icon: a `title` is a
+ * plain string, and aria/tooltip text cannot hold a component.
+ */
 export function StageMapDialog({ onClose }: { onClose: () => void }) {
 	const run = useGameStore((state) => state.run)
 
@@ -48,7 +53,7 @@ export function StageMapDialog({ onClose }: { onClose: () => void }) {
 												locked && 'opacity-50',
 												stage.index % 10 === 0 && 'border-[3px] border-double',
 											)}
-											title={`${stage.name} · ${stage.reward} 🐾`}
+											title={`${stage.name} · thưởng ${stage.reward} Paw Tally`}
 										>
 											<span className="font-bold text-paper">{stage.index}</span>
 											<span>{stage.enemy.icon}</span>

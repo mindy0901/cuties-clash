@@ -50,8 +50,9 @@ describe('ItemDetailDialog', () => {
 		expect(screen.getByText('Tốc độ đánh')).toBeTruthy()
 		expect(screen.getByText('0.76 đòn/giây')).toBeTruthy()
 		expect(screen.getByText('1.3s')).toBeTruthy()
-		// Paid 8 → resells for 4.
-		expect(screen.getByText(/4 🐾 \(hoàn 50%\)/)).toBeTruthy()
+		// Paid 8 → resells for 4. The paw glyph is an icon now, so the number and the note are separate.
+		const resale = screen.getByText('Bán được (hoàn 50%)').closest('div')
+		expect(resale?.textContent).toContain('4')
 		// An item has no description field any more — the numbers say everything.
 		expect(screen.queryByText(/Đâm 17 sát thương/)).toBeNull()
 	})
@@ -105,6 +106,6 @@ describe('the real flow inside the app', () => {
 		expect(await screen.findByText('Chi tiết món')).toBeTruthy()
 		// These two rows only exist in the dialog (an inventory cell has neither).
 		expect(screen.getByText('Trong kho')).toBeTruthy()
-		expect(screen.getByText('Bán được')).toBeTruthy()
+		expect(screen.getByText('Bán được (hoàn 50%)')).toBeTruthy()
 	})
 })

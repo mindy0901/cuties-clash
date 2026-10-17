@@ -9,6 +9,7 @@ import { useUiStore } from '../store/uiStore'
 import { ArtPreview } from './ArtPreview'
 import { ArtImportDialog } from './ArtImportDialog'
 import { ConfirmDialog } from './ConfirmDialog'
+import { CircleDot, ImagePlus, Plus, Recycle, RotateCcw, Save, Trash2, X } from './icons'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -65,7 +66,7 @@ interface FieldDef {
 	/**
 	 * Optional field: not every item has it (armour has no `speed`, a weapon has no `interval`
 	 * for a self-triggering effect). The form hides it until the template declares it or the editor
-	 * clicks "＋ thêm", so a blank row never implies that the item *has* an empty value.
+	 * clicks "Thêm trường", so a blank row never implies that the item *has* an empty value.
 	 */
 	optional?: boolean
 	/** Value every star box is seeded with when the editor adds an optional field. */
@@ -823,7 +824,7 @@ function AdminContentEditor() {
 									setMessage(null)
 								}}
 							>
-								＋ Tạo mới
+								<Plus /> Tạo mới
 							</button>
 						) : null}
 					</div>
@@ -882,10 +883,10 @@ function AdminContentEditor() {
 									</span>
 									{overridden.has(id) ? (
 										<span
-											className="shrink-0 text-[11px] text-gold-soft"
+											className="shrink-0 text-gold-soft"
 											title={`Sửa bởi ${overridden.get(id) ?? '—'}`}
 										>
-											●
+											<CircleDot />
 										</span>
 									) : null}
 								</button>
@@ -937,7 +938,7 @@ function AdminContentEditor() {
 					*/}
 					{isRemovedItem ? (
 						<p className={hintClass}>
-							Món này đang bị xoá nên không sửa ảnh được — bấm <strong>♻ Hiện lại</strong> trước.
+							Món này đang bị xoá nên không sửa ảnh được — bấm <strong>Hiện lại</strong> trước.
 						</p>
 					) : (
 						<div className="flex flex-col gap-2 rounded-[10px] border border-line bg-black/25 p-2.5">
@@ -954,7 +955,7 @@ function AdminContentEditor() {
 										onClick={() => setImportOpen(true)}
 										disabled={uploadArt.isPending || deleteArt.isPending}
 									>
-										🖼️ Tải ảnh lên
+										<ImagePlus /> Tải ảnh lên
 									</button>
 									{artRow ? (
 										<button
@@ -964,7 +965,7 @@ function AdminContentEditor() {
 											onClick={() => setRemoveArtOpen(true)}
 											disabled={uploadArt.isPending || deleteArt.isPending}
 										>
-											🗑️ Xoá ảnh đã tải
+											<Trash2 /> Xoá ảnh đã tải
 										</button>
 									) : null}
 								</div>
@@ -1017,11 +1018,11 @@ function AdminContentEditor() {
 													<button
 														type="button"
 														data-admin-remove-group="attack"
-														className="rounded border border-line px-1 text-[11px] leading-4 hover:border-danger-soft hover:text-danger-soft"
+														className="rounded border border-line px-1 text-[12px] leading-5 hover:border-danger-soft hover:text-danger-soft"
 														title="Bỏ đòn đánh cơ bản (món này không đánh nữa)"
 														onClick={() => setGroup(attackFields, () => [])}
 													>
-														✕
+														<X />
 													</button>
 												</span>
 
@@ -1085,11 +1086,11 @@ function AdminContentEditor() {
 											<button
 												type="button"
 												data-admin-remove-field={field.key}
-												className="rounded border border-line px-1 text-[11px] leading-4 hover:border-danger-soft hover:text-danger-soft"
+												className="rounded border border-line px-1 text-[12px] leading-5 hover:border-danger-soft hover:text-danger-soft"
 												title={`Bỏ trường ${field.label}`}
 												onClick={() => clearOptionalField(field.key)}
 											>
-												✕
+												<X />
 											</button>
 										) : null}
 									</span>
@@ -1118,7 +1119,7 @@ function AdminContentEditor() {
 									className={cn(btnClass, btnSmClass, 'self-start')}
 									title="Thêm một trường tuỳ chọn cho món này"
 								>
-									＋ Thêm trường
+									<Plus /> Thêm trường
 								</button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="start">
@@ -1157,7 +1158,7 @@ function AdminContentEditor() {
 							disabled={busy || !dirty}
 							onClick={onSave}
 						>
-							💾 Lưu
+							<Save /> Lưu
 						</button>
 						<button
 							type="button"
@@ -1166,7 +1167,7 @@ function AdminContentEditor() {
 							onClick={onReset}
 							title="Xoá phần ghi đè của mục này, quay về giá trị trong mã nguồn"
 						>
-							↺ Đặt lại như cũ
+							<RotateCcw /> Đặt lại như cũ
 						</button>
 						{kind === 'item' ? (
 							isRemovedItem ? (
@@ -1178,7 +1179,7 @@ function AdminContentEditor() {
 									onClick={restoreItem}
 									title="Đưa món trở lại shop và kho"
 								>
-									♻ Hiện lại
+									<Recycle /> Hiện lại
 								</button>
 							) : (
 								<button
@@ -1189,7 +1190,7 @@ function AdminContentEditor() {
 									onClick={() => setDeleteOpen(true)}
 									title="Xoá món khỏi game"
 								>
-									🗑 Xoá món
+									<Trash2 /> Xoá món
 								</button>
 							)
 						) : null}

@@ -14,6 +14,7 @@ import { FINAL_STAGE, MAPS, getStage } from '../game/stages'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import type { ItemInstance } from '../game/types'
+import { Paw } from './icons'
 import { cn, panelClass } from './ui'
 
 function StatRow({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'jade' }) {
@@ -321,7 +322,7 @@ export function PrepScreen() {
 							<div className="min-w-0">
 								<div className="font-semibold">{stage.enemy.name}</div>
 								<div className="text-[12px] text-muted">
-									Màn {stage.index} · {stage.enemy.items.length} món · thưởng {stage.reward} 🐾
+									Màn {stage.index} · {stage.enemy.items.length} món · thưởng {stage.reward} <Paw />
 								</div>
 							</div>
 						</div>

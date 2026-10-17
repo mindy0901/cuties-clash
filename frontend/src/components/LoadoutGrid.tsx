@@ -2,9 +2,10 @@ import { templateFootprint } from '../game/bag'
 import { getTemplate } from '../game/items'
 import type { ItemInstance } from '../game/types'
 import { GridBoard, type ItemBoxProps } from './GridBoard'
+import { RotateCcw, X } from './icons'
 import { ItemIcon } from './ItemIcon'
 import type { HeldItem } from './useHeldItem'
-import { ITEM_STAR_TEXT, cn, itemTileClass } from './ui'
+import { ITEM_STAR_TEXT, cn, iconButtonClass, itemTileClass } from './ui'
 
 /** Number of columns of the loadout board in the preparation room. */
 export const LOADOUT_WIDTH = 4
@@ -95,28 +96,28 @@ export function LoadoutGrid({
 								<button
 									type="button"
 									data-no-drop
-									className="grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold"
+									className={iconButtonClass}
 									title="Xoay 90°"
 									onClick={(event) => {
 										event.stopPropagation()
 										onRotate(item.uid)
 									}}
 								>
-									⟳
+									<RotateCcw />
 								</button>
 							) : null}
 							{onSell ? (
 								<button
 									type="button"
 									data-no-drop
-									className="grid size-5 place-items-center rounded-md border border-line bg-black/65 text-[11px] hover:border-gold"
+									className={iconButtonClass}
 									title="Bán món này (hoàn 50%)"
 									onClick={(event) => {
 										event.stopPropagation()
 										onSell(item.uid)
 									}}
 								>
-									✕
+									<X />
 								</button>
 							) : null}
 						</span>

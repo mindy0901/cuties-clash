@@ -6,6 +6,7 @@ import { MAX_PET_LEVEL, getPet } from '../game/pets'
 import { getStage } from '../game/stages'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { ItemIcon } from './ItemIcon'
+import { Dices, Paw } from './icons'
 import { ITEM_STAR_TEXT, btnClass, btnGoldClass, btnSmClass, cn, itemTileClass, panelClass, panelHeadClass, panelTitleClass } from './ui'
 
 /**
@@ -40,8 +41,8 @@ export function ShopScreen() {
 						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2.5">
-						<span className="rounded-full border border-gold/45 bg-ink-700 px-4 py-1.5 font-bold text-gold-soft tabular-nums">
-							{run.currency} 🐾
+						<span className="inline-flex items-center gap-1.5 rounded-full border border-gold/45 bg-ink-700 px-4 py-1.5 font-bold text-gold-soft tabular-nums">
+							{run.currency} <Paw />
 						</span>
 						<button type="button" className={cn(btnClass, btnSmClass)} onClick={() => void navigate({ to: '/' })}>
 							« Quay về
@@ -57,7 +58,7 @@ export function ShopScreen() {
 						onClick={reroll}
 						title={`Đổi danh sách đồ với ${REROLL_COST} Paw Tally`}
 					>
-						🎲 Đổi danh sách · {REROLL_COST} 🐾
+						<Dices /> Đổi danh sách · {REROLL_COST} <Paw />
 					</button>
 					<span className="text-[12.5px] text-muted">
 						Lần đổi: {run.rerolls} · còn {remaining}/{SHOP_SIZE} món
@@ -120,7 +121,13 @@ export function ShopScreen() {
 								onClick={() => buyOffer(index)}
 								title={offer.sold ? 'Đã mua' : affordable ? 'Mua món này' : 'Không đủ Paw Tally'}
 							>
-								{offer.sold ? 'Đã mua' : `Mua · ${offer.cost} 🐾`}
+								{offer.sold ? (
+									'Đã mua'
+								) : (
+									<>
+										Mua · {offer.cost} <Paw />
+									</>
+								)}
 							</button>
 						</article>
 					)

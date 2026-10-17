@@ -27,7 +27,8 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 	const size = templateFootprint(item.templateId, item.rotated)
 	const passive = template.passive?.(item.star)
 	const mods = passive ? STAT_KEYS.filter((key) => passive[key] !== undefined) : []
-	const damage = template.damage?.(item.star)
+	// 0 damage means the item has **no** attack (a weapon turned passive by the admin): no rows.
+	const damage = template.damage?.(item.star) || undefined
 	// Every item has a speed: the template's own, or the standard 0.625 attacks per second.
 	const speed = template.speed?.(item.star) ?? (damage !== undefined ? DEFAULT_SPEED : undefined)
 	const swing = speed !== undefined ? swingMs(speed) : undefined

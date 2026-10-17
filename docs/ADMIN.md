@@ -38,7 +38,7 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 | Field | Control |
 | --- | --- |
 | `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for `interval`, a JSON textarea for `passive`/`aura` |
-| `damage` + `speed` | one **Đòn đánh cơ bản** block: the DPM line, the damage boxes and the speed boxes together. An item without a basic attack shows only the **＋ Đòn đánh cơ bản** chip, so the two fields are added and removed as one |
+| `damage` + `speed` | one **Đòn đánh cơ bản** block: the DPM line, the damage boxes and the speed boxes together. **Any** item can add it (＋ chip) or drop it (✕) — dropping a weapon's attack stores `damage: 0` at every rank, so the item stops swinging and reads as a passive piece |
 | `interval` on an item that lacks it | hidden, replaced by a **＋ Nhịp hiệu lực** chip. Clicking it adds the five boxes seeded with `9000`; a **✕** takes an added field away again. A value that comes from `items.ts` cannot be removed here |
 | `art` flags, emoji | ❌ not in the form: they only declare **which file on disk** to use (`icon` is the emoji fallback for a missing picture). The picture itself is uploaded from this page, so the flags stay in `items.ts`/`pets.ts` |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
@@ -47,6 +47,10 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 ⚠️ Why the chips: armour has no basic attack and a plain weapon has no `interval` for a
 self-triggering effect. Five **empty** boxes looked like "this item has an empty value" and invited
 edits that meant nothing — an absent field now simply is not there.
+
+The form is seeded from the values **currently in effect** (`getTemplate()` = code + override), while
+the payload is compared against the **code only** — so what you see is what players get, and a saved
+override is never silently dropped by a later edit of another field.
 
 Per-star fields are edited as **5 values (1★ → 5★)**. In code these are functions
 (`damage: (star) => …`); the client rebuilds them from the array, so the JSON stored in the database

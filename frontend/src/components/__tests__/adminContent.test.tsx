@@ -256,6 +256,25 @@ describe('editing content', () => {
 		)
 	})
 
+	it('lets any item lose its basic attack, even a weapon that declares one', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(document.querySelector('[data-admin-remove-group="attack"]')!)
+		// The block collapses back to the chip, so the item reads as "no attack".
+		expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0)
+		expect(document.querySelector('[data-admin-add-group="attack"]')).toBeTruthy()
+
+		const save = screen.getByText(/Lưu/).closest('button')!
+		expect(save.disabled).toBe(false)
+		fireEvent.click(save)
+
+		await waitFor(() => expect(puts).toHaveLength(1))
+		// 0 damage at every rank = the weapon stops swinging; speed keeps its code value (inert).
+		expect(puts[0]!.body).toEqual({ damage: [0, 0, 0, 0, 0] })
+	})
+
 	it('sends the whole per-star array when a single star rank changes', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAdminContent, useDeleteArt, useResetContent, useSaveContent, useSessionState, useUploadArt } from '../api/queries'
-import { DEFAULT_SPEED, ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, starLabel } from '../game/items'
+import { DEFAULT_SPEED, ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, getTemplate, starLabel } from '../game/items'
 import { PETS, getPet } from '../game/pets'
 import type { ItemTemplate, PetDef, Quality, Star } from '../game/types'
 import { useGameStore } from '../store/gameStore'
@@ -164,9 +164,18 @@ const FIELDS: Record<Kind, FieldDef[]> = { item: ITEM_FIELDS, pet: PET_FIELDS }
 /** Form state: every field holds **one string per control**; scalar fields hold a single entry. */
 type Draft = Record<string, string[]>
 
-/** Default values of a field, as the strings its controls display. */
-function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
-	const base: ItemTemplate | PetDef = kind === 'item' ? ITEM_BY_ID[id]! : getPet(id)
+/**
+ * Values a field shows in the form.
+ *
+ * `merged` picks the baseline: `true` (default) reads the item **as it currently plays**
+ * (code + any stored override) — that is what the editor must see, not the raw code; `false`
+ * reads the code only, which is what the payload is compared against.
+ */
+function defaultValues(kind: Kind, id: string, field: FieldDef, merged = true): string[] {
+	const base: ItemTemplate | PetDef | undefined =
+		kind === 'item'
+			? ITEM_BY_ID[id] && (merged ? getTemplate(id) : ITEM_BY_ID[id])
+			: (merged ? getPet(id) : PETS.find((pet) => pet.id === id))
 	if (!base) return ['']
 
 	switch (field.kind) {
@@ -198,6 +207,13 @@ function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
 function defaultDraft(kind: Kind, id: string): Draft {
 	const draft: Draft = {}
 	for (const field of FIELDS[kind]) draft[field.key] = defaultValues(kind, id, field)
+	return draft
+}
+
+/** The same draft, but taken from the **code only** — the baseline the payload is measured against. */
+function codeDraft(kind: Kind, id: string): Draft {
+	const draft: Draft = {}
+	for (const field of FIELDS[kind]) draft[field.key] = defaultValues(kind, id, field, false)
 	return draft
 }
 
@@ -246,12 +262,21 @@ function buildPayload(
 ): { payload: Record<string, unknown>; errors: string[] } {
 	const payload: Record<string, unknown> = {}
 	const errors: string[] = []
-	const defaults = defaultDraft(kind, id)
+	const defaults = codeDraft(kind, id)
 
 	for (const field of FIELDS[kind]) {
 		const values = draft[field.key] ?? []
-		// An optional field the editor never filled is simply absent from the row.
-		if (field.optional && values.every((value) => value.trim() === '')) continue
+		const absent = values.every((value) => value.trim() === '')
+		if (absent) {
+			// An optional field the item declares **in code** but the editor removed: send zeros so the
+			// removal is real (damage 0 = the item no longer swings). A field whose minimum is above 0
+			// (speed) cannot be zeroed, so it keeps its code value — harmless once damage is 0.
+			const code = defaults[field.key] ?? []
+			if (field.optional && field.min === 0 && code.some((value) => value.trim() !== '')) {
+				payload[field.key] = STARS.map(() => 0)
+			}
+			continue
+		}
 		if (JSON.stringify(values) === JSON.stringify(defaults[field.key] ?? [])) continue
 
 		try {
@@ -399,8 +424,11 @@ function AdminContentEditor() {
 	/** Human name of the edited entity — used by the picture dialogs. */
 	const entityName = kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name
 
-	/** Code defaults of the edited entity: an optional field with no value here can be removed again. */
-	const defaults = useMemo(() => defaultDraft(kind, activeId), [kind, activeId])
+	/** Values the form **started from** (code + any stored override) — the baseline for "đã sửa". */
+	const loaded = useMemo(() => defaultDraft(kind, activeId), [kind, activeId])
+
+	/** Values straight from the code — the baseline for what the payload has to send. */
+	const codeDefaults = useMemo(() => codeDraft(kind, activeId), [kind, activeId])
 
 	/** Attach an optional field (`speed`, `interval`…) to the item being edited. */
 	const addOptionalField = (field: FieldDef) =>
@@ -412,15 +440,13 @@ function AdminContentEditor() {
 	/** Fields that belong to the basic-attack block (`damage` + `speed`). */
 	const attackFields = useMemo(() => FIELDS[kind].filter((field) => field.group === 'attack'), [kind])
 
-	/** An item has a basic attack as soon as one of its boxes holds a value. */
+	/**
+	 * An item has a basic attack while one of its boxes holds a **positive** number — an attack that
+	 * was removed is stored as damage 0, and must read as "none" rather than as five zero boxes.
+	 */
 	const attackPresent = attackFields.some((field) =>
-		(draft[field.key] ?? []).some((value) => value.trim() !== ''),
+		(draft[field.key] ?? []).some((value) => Number(value) > 0),
 	)
-
-	/** Only an attack the editor added can be taken away; one that comes from code stays. */
-	const attackRemovable =
-		attackFields.length > 0 &&
-		attackFields.every((field) => (defaults[field.key] ?? []).every((value) => !value.trim()))
 
 	const setGroup = (fields: FieldDef[], values: (field: FieldDef) => string[]) =>
 		setDraft((current) => {
@@ -446,10 +472,10 @@ function AdminContentEditor() {
 		const speed = draft.speed ?? []
 		return STARS.map((_, index) => {
 			const hit = positiveNumber(damage[index])
-			const rate = positiveNumber(speed[index] ?? defaults.speed?.[index] ?? String(DEFAULT_SPEED))
+			const rate = positiveNumber(speed[index] ?? loaded.speed?.[index] ?? String(DEFAULT_SPEED))
 			return hit !== null && rate !== null ? Math.round(hit * rate * 60) : null
 		})
-	}, [kind, draft, defaults])
+	}, [kind, draft, loaded])
 
 	/** Entities that currently have an override, mapped to the last editor's email. */
 	const overridden = useMemo(() => {
@@ -481,12 +507,13 @@ function AdminContentEditor() {
 		setMessage(null)
 	}
 
-	const dirty = useMemo(() => {
-		const base = defaultDraft(kind, activeId)
-		return Object.keys(base).some(
-			(key) => JSON.stringify(draft[key] ?? []) !== JSON.stringify(base[key] ?? []),
-		)
-	}, [draft, kind, activeId])
+	const dirty = useMemo(
+		() =>
+			Object.keys(loaded).some(
+				(key) => JSON.stringify(draft[key] ?? []) !== JSON.stringify(loaded[key] ?? []),
+			),
+		[draft, loaded],
+	)
 
 	/**
 	 * Whether the entity has a stored override — i.e. whether "Đặt lại như cũ" has anything to delete.
@@ -688,7 +715,7 @@ function AdminContentEditor() {
 							const values = draft[field.key] ?? []
 							const present = !field.optional || values.some((value) => value.trim() !== '')
 							// Only a field the editor added can be taken away again; a value from code stays.
-							const removable = field.optional && (defaults[field.key] ?? []).every((value) => !value.trim())
+							const removable = field.optional && (codeDefaults[field.key] ?? []).every((value) => !value.trim())
 
 							if (field.group) {
 								// Both attacks share one block: they are drawn on the first field of the group.
@@ -703,17 +730,16 @@ function AdminContentEditor() {
 												<span className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
 													<span className="font-semibold">Đòn đánh cơ bản</span>
 													<span className="text-muted opacity-70">· sát thương mỗi đòn và số đòn mỗi giây</span>
-													{attackRemovable ? (
-														<button
-															type="button"
-															data-admin-remove-group="attack"
-															className="rounded border border-line px-1 text-[11px] leading-4 hover:border-danger-soft hover:text-danger-soft"
-															title="Bỏ đòn đánh cơ bản"
-															onClick={() => setGroup(attackFields, () => [])}
-														>
-															✕
-														</button>
-													) : null}
+													{/* Any item can lose its attack — a weapon turned into a passive piece. */}
+													<button
+														type="button"
+														data-admin-remove-group="attack"
+														className="rounded border border-line px-1 text-[11px] leading-4 hover:border-danger-soft hover:text-danger-soft"
+														title="Bỏ đòn đánh cơ bản (món này không đánh nữa)"
+														onClick={() => setGroup(attackFields, () => [])}
+													>
+														✕
+													</button>
 												</span>
 
 												{dpm.some((value) => value !== null) ? (
@@ -764,7 +790,13 @@ function AdminContentEditor() {
 												className={cn(btnClass, btnSmClass, 'self-start')}
 												title="Sát thương mỗi đòn, số đòn mỗi giây và DPM theo từng sao"
 												onClick={() =>
-													setGroup(attackFields, (entry) => STARS.map(() => entry.addDefault ?? ''))
+													setGroup(attackFields, (entry) => {
+														// Re-adding restores the code numbers when the item had them.
+														const code = codeDefaults[entry.key] ?? []
+														return code.some((value) => value.trim() !== '')
+															? code
+															: STARS.map(() => entry.addDefault ?? '')
+													})
 												}
 											>
 												＋ Đòn đánh cơ bản

@@ -1,4 +1,5 @@
 import type { PetDef } from './types'
+import { mergePet, petOverride } from './content'
 
 export const GRID_WIDTH = 4
 export const MAX_BAG_ROWS = 5
@@ -92,7 +93,12 @@ export const MAX_PET_LEVEL = 5
 export function getPet(petId: string): PetDef {
 	const pet = PET_BY_ID[petId]
 	if (!pet) throw new Error(`Unknown pet: ${petId}`)
-	return pet
+	return mergePet(pet, petOverride(petId))
+}
+
+/** Every pet **with the admin overlay applied** — for places that need the whole set (unlocks). */
+export function petList(): PetDef[] {
+	return PETS.map((pet) => getPet(pet.id))
 }
 
 export function petLevelStats(pet: PetDef, level: number) {

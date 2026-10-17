@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { AuthSync } from '../components/AuthSync'
 import { BattleScreen } from '../components/BattleScreen'
+import { ContentSync } from '../components/ContentSync'
 import { ItemDetailDialog } from '../components/ItemDetailDialog'
 import { LoginDialog } from '../components/LoginDialog'
 import { PrepScreen } from '../components/PrepScreen'
@@ -26,6 +27,7 @@ function RootLayout() {
 	const closeMap = useUiStore((state) => state.closeMap)
 	const closeLogin = useUiStore((state) => state.closeLogin)
 	const closeItem = useUiStore((state) => state.closeItem)
+	const contentVersion = useUiStore((state) => state.contentVersion)
 
 	// Trong trận thì luôn hiện màn đấu, bất kể đang ở đường dẫn nào.
 	const inBattle = phase === 'battle' || phase === 'result'
@@ -33,8 +35,16 @@ function RootLayout() {
 	return (
 		<div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col gap-3.5 px-[18px] pt-3.5 pb-10">
 			<AuthSync />
+			<ContentSync />
 			<TopBar />
-			{inBattle ? <BattleScreen /> : <Outlet />}
+			{/*
+			 * `key` follows `contentVersion`: when the content overlay changes (first load, or an
+			 * admin just saved) this subtree remounts so new names and prices appear right away. It
+			 * only changes when content really changed, so normal play is unaffected.
+			 */}
+			<div className="contents" key={contentVersion}>
+				{inBattle ? <BattleScreen /> : <Outlet />}
+			</div>
 			{phase === 'result' ? <ResultDialog /> : null}
 			{phase === 'victory' ? <VictoryScreen /> : null}
 			{mapOpen ? <StageMapDialog onClose={closeMap} /> : null}

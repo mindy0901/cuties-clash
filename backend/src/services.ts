@@ -1,6 +1,7 @@
 /** Nghiệp vụ: liên kết tài khoản OAuth và đọc/ghi tiến trình chơi. */
 
 import type { User } from '@prisma/client'
+import { isAdminEmail, type Config } from './config'
 import type { Db } from './db'
 import { badRequest } from './errors'
 import type { OAuthProfile } from './oauth'
@@ -19,6 +20,8 @@ export interface UserOut {
 	avatar_url: string | null
 	/** Nhà cung cấp đã liên kết với tài khoản này, ví dụ `["google"]`. */
 	providers: string[]
+	/** Email có trong `ADMIN_EMAILS` → hiện được trang quản trị nội dung. */
+	is_admin: boolean
 }
 
 export interface SaveOut {
@@ -36,13 +39,14 @@ export async function providerKeys(db: Db, userId: number): Promise<string[]> {
 	return rows.map((row) => row.provider)
 }
 
-export async function toUserOut(db: Db, user: User): Promise<UserOut> {
+export async function toUserOut(db: Db, user: User, config: Config): Promise<UserOut> {
 	return {
 		id: user.id,
 		display_name: user.displayName,
 		email: user.email,
 		avatar_url: user.avatarUrl,
 		providers: await providerKeys(db, user.id),
+		is_admin: isAdminEmail(config, user.email),
 	}
 }
 

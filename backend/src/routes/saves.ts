@@ -14,7 +14,7 @@ export interface SaveRouteOptions {
 export const saveRoutes: FastifyPluginAsync<SaveRouteOptions> = async (app, options) => {
 	const { config, db } = options
 
-	app.get('/api/me', async (request) => toUserOut(db, await currentUser(config, db, request)))
+	app.get('/api/me', async (request) => toUserOut(db, await currentUser(config, db, request), config))
 
 	/** Bản lưu đang có trên máy chủ; `run = null` nghĩa là chưa từng đồng bộ. */
 	app.get('/api/me/save', async (request) => {

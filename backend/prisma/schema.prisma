@@ -60,3 +60,21 @@ model GameSave {
   @@index([userId, updatedAt], map: "ix_game_saves_user_updated")
   @@map("game_saves")
 }
+
+// Content edited from the admin page: **whitelisted fields only**, stored as JSON.
+//
+// This table does NOT hold whole templates — the originals stay in code (`game/items.ts`,
+// `game/pets.ts`) and the client layers the override on top. Deleting a row returns the
+// entity to its default, and adding a field to code needs no migration.
+model ContentOverride {
+  // `item:<templateId>` or `pet:<petId>`.
+  id        String   @id @db.VarChar(120)
+  kind      String   @db.VarChar(16)
+  payload   String   @db.Text
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
+  // Email of the last editor, so we know who changed the content.
+  updatedBy String?  @map("updated_by") @db.VarChar(320)
+
+  @@index([kind], map: "ix_content_overrides_kind")
+  @@map("content_overrides")
+}

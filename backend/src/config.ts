@@ -34,6 +34,14 @@ export interface Config {
 
 	readonly corsOrigins: readonly string[]
 
+	/**
+	 * Emails allowed into the content admin page (`ADMIN_EMAILS`, comma separated).
+	 *
+	 * Empty means **nobody** gets in — the admin page turns itself off, which is safer than
+	 * opening it to every account.
+	 */
+	readonly adminEmails: readonly string[]
+
 	readonly jwtSecret: string
 	readonly jwtAlgorithm: HmacAlgorithm
 	readonly sessionDays: number
@@ -179,6 +187,12 @@ function readString(env: EnvLike, key: string, fallback: string): string {
 	return raw === undefined || raw === '' ? fallback : raw
 }
 
+/** Whether an email may use the content admin page (case-insensitive). */
+export function isAdminEmail(config: Config, email: string | null | undefined): boolean {
+	if (!email) return false
+	return config.adminEmails.includes(email.trim().toLowerCase())
+}
+
 function readOptionalString(env: EnvLike, key: string): string | undefined {
 	const raw = env[key]
 	return raw === undefined || raw.trim() === '' ? undefined : raw.trim()
@@ -217,6 +231,8 @@ export function buildConfig(env: EnvLike): Config {
 		autoCreateTables: readBoolean(env, 'AUTO_CREATE_TABLES', true),
 
 		corsOrigins: readOrigins(env, 'CORS_ORIGINS', DEFAULT_CORS_ORIGINS),
+
+		adminEmails: readOrigins(env, 'ADMIN_EMAILS', []).map((email) => email.trim().toLowerCase()),
 
 		jwtSecret,
 		jwtAlgorithm: parseHmacAlgorithm(readString(env, 'JWT_ALGORITHM', 'HS256')),

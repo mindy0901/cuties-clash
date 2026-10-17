@@ -44,7 +44,7 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (app, opti
 		}
 		return {
 			authenticated: true,
-			user: await toUserOut(db, user),
+			user: await toUserOut(db, user, config),
 			available_providers: available,
 			auto_login: autoLogin,
 		}

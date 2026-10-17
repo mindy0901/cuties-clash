@@ -1,20 +1,34 @@
 /**
- * `AUTO_CREATE_TABLES=true` → tạo bảng còn thiếu lúc khởi động.
+ * `AUTO_CREATE_TABLES=true` → create missing tables at startup.
  *
- * Dùng đúng file migration `0_init` (đã viết lại thành idempotent: `CREATE TABLE IF
- * NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`), nhờ vậy database dev đã có bảng từ
- * Alembic vẫn chạy nguyên vẹn — mọi câu lệnh đều là no-op.
+ * Runs the migration files themselves, all written idempotent (`CREATE TABLE IF NOT EXISTS`,
+ * `CREATE INDEX IF NOT EXISTS`), so a database that already has the tables from Alembic is left
+ * untouched — every statement is a no-op.
  *
- * Không dùng `prisma migrate deploy` ở đây: như thế sẽ ghi vào `_prisma_migrations`
- * và coi database của người dùng là do Prisma quản lý.
+ * ⚠️ Runs **every** migration in directory-name order, not just `0_init`: a new table (for
+ * example `content_overrides`) has to appear in dev environments without anyone remembering to
+ * run `prisma migrate deploy`.
+ *
+ * `prisma migrate deploy` is deliberately not used here: it would write to `_prisma_migrations`
+ * and claim the user's database as Prisma-managed.
  */
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BACKEND_DIR, type Config } from './config'
 import type { Db } from './db'
 
-export const BASELINE_SQL_PATH = join(BACKEND_DIR, 'prisma', 'migrations', '0_init', 'migration.sql')
+export const MIGRATIONS_DIR = join(BACKEND_DIR, 'prisma', 'migrations')
+
+export const BASELINE_SQL_PATH = join(MIGRATIONS_DIR, '0_init', 'migration.sql')
+
+/** Every migration file, ordered by directory name (`0_init` → `1_…` → …). */
+export function migrationSqlPaths(): string[] {
+	return readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => join(MIGRATIONS_DIR, entry.name, 'migration.sql'))
+		.sort()
+}
 
 /**
  * Tách file SQL thành từng câu lệnh.
@@ -102,14 +116,15 @@ export function splitSqlStatements(sql: string): string[] {
 	return statements.map((statement) => statement.trim()).filter((statement) => statement.length > 0)
 }
 
-function readBaselineSql(): string {
-	return readFileSync(BASELINE_SQL_PATH, 'utf8')
-}
-
-/** Chạy baseline idempotent. `db` nhận cả `PrismaClient` lẫn client transaction. */
+/**
+ * Run every idempotent migration in order. `db` accepts both a `PrismaClient` and a
+ * transaction client.
+ */
 export async function ensureTables(db: Db, config: Config): Promise<void> {
 	if (!config.autoCreateTables) return
-	for (const statement of splitSqlStatements(readBaselineSql())) {
-		await db.$executeRawUnsafe(statement)
+	for (const path of migrationSqlPaths()) {
+		for (const statement of splitSqlStatements(readFileSync(path, 'utf8'))) {
+			await db.$executeRawUnsafe(statement)
+		}
 	}
 }

@@ -1,4 +1,5 @@
 import type { ItemTemplate, ItemClass, Star } from './types'
+import { itemOverride, mergeItem } from './content'
 
 /** Star-indexed values: `pick(star, [1★, 2★, 3★, 4★])`. */
 export function pick(star: Star, values: readonly [number, number, number, number]): number {
@@ -446,8 +447,22 @@ export const ITEM_BY_ID: Record<string, ItemTemplate> = Object.fromEntries(
 	ITEM_TEMPLATES.map((template) => [template.id, template]),
 )
 
+/** Template **with the admin overlay applied** (if any). */
 export function getTemplate(templateId: string): ItemTemplate {
 	const template = ITEM_BY_ID[templateId]
 	if (!template) throw new Error(`Unknown item template: ${templateId}`)
-	return template
+	return mergeItem(template, itemOverride(templateId))
+}
+
+/**
+ * Items whose `tier` is at most `tier`, **with the admin overlay applied**.
+ *
+ * ⚠️ Roll pools (shop, enemy gear, PvP rival gear) must go through this instead of filtering
+ * `ITEM_TEMPLATES` directly: changing `tier` on the admin page has to **actually take effect**,
+ * otherwise the editor sees battles keep using the old items and has no idea why.
+ */
+export function itemTemplatesUpToTier(tier: number): ItemTemplate[] {
+	return ITEM_TEMPLATES.map((template) => getTemplate(template.id)).filter(
+		(template) => template.tier <= tier,
+	)
 }

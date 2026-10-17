@@ -15,9 +15,56 @@ import { writeLocalRun } from '../store/persistedSave'
 
 export const sessionKey = ['session'] as const
 export const saveKey = ['save'] as const
+export const contentKey = ['content'] as const
+export const adminContentKey = ['admin-content'] as const
 
 export function useSession() {
 	return useQuery({ queryKey: sessionKey, queryFn: () => api.session() })
+}
+
+/**
+ * Game content overlay.
+ *
+ * ⚠️ A network failure is **not** an incident: the game runs on the templates in code, so this
+ * query does not retry and never surfaces an error to the player — it just means no admin edits.
+ */
+export function useContent() {
+	return useQuery({ queryKey: contentKey, queryFn: () => api.content(), retry: false })
+}
+
+/** Overridden rows (with author) — only called for admin accounts. */
+export function useAdminContent(enabled: boolean) {
+	return useQuery({
+		queryKey: adminContentKey,
+		queryFn: () => api.adminContent(),
+		enabled,
+		retry: false,
+	})
+}
+
+/** Save one entity and reload the overlay for the whole game. */
+export function useSaveContent() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (input: { kind: 'item' | 'pet'; id: string; payload: Record<string, unknown> }) =>
+			api.putContent(input.kind, input.id, input.payload),
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: adminContentKey })
+			await queryClient.invalidateQueries({ queryKey: contentKey })
+		},
+	})
+}
+
+/** Deleting the override of one entity returns it to the default. */
+export function useResetContent() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (input: { kind: 'item' | 'pet'; id: string }) => api.deleteContent(input.kind, input.id),
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: adminContentKey })
+			await queryClient.invalidateQueries({ queryKey: contentKey })
+		},
+	})
 }
 
 export interface SessionState {

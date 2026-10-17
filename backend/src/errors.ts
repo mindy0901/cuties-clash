@@ -20,6 +20,10 @@ export function unauthorized(message = 'Bạn cần đăng nhập để dùng ch
 	return new ApiError(401, 'unauthorized', message)
 }
 
+export function forbidden(message = 'Tài khoản này không có quyền quản trị.'): ApiError {
+	return new ApiError(403, 'forbidden', message)
+}
+
 export function notConfigured(provider: string): ApiError {
 	return new ApiError(
 		503,

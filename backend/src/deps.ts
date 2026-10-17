@@ -2,9 +2,9 @@
 
 import type { FastifyRequest } from 'fastify'
 import type { User } from '@prisma/client'
-import type { Config } from './config'
+import { isAdminEmail, type Config } from './config'
 import type { Db } from './db'
-import { unauthorized } from './errors'
+import { forbidden, unauthorized } from './errors'
 import { readSessionToken } from './security'
 
 export function sessionCookie(request: FastifyRequest, config: Config): string | undefined {
@@ -36,5 +36,17 @@ export async function currentUser(config: Config, db: Db, request: FastifyReques
 	if (!token) throw unauthorized()
 	const user = await resolveSession(config, db, token)
 	if (!user) throw unauthorized('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.')
+	return user
+}
+
+/**
+ * Require a session **and** membership of `ADMIN_EMAILS`.
+ *
+ * ⚠️ An empty list means **nobody** gets in: safe by default, so forgetting to configure it can
+ * never open the door to every account.
+ */
+export async function requireAdmin(config: Config, db: Db, request: FastifyRequest): Promise<User> {
+	const user = await currentUser(config, db, request)
+	if (!isAdminEmail(config, user.email)) throw forbidden()
 	return user
 }

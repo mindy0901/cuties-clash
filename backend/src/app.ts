@@ -16,6 +16,7 @@ import type { Db } from './db'
 import { ApiError } from './errors'
 import { availableProviders } from './oauth'
 import { authRoutes } from './routes/auth'
+import { contentRoutes } from './routes/content'
 import { saveRoutes } from './routes/saves'
 
 export interface BuildAppOptions {
@@ -99,6 +100,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
 	await app.register(authRoutes, { config, db })
 	await app.register(saveRoutes, { config, db })
+	await app.register(contentRoutes, { config, db })
 
 	app.get('/api/health', async () => ({
 		status: 'ok',

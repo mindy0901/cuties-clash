@@ -1,3 +1,5 @@
+import { useNavigate } from '@tanstack/react-router'
+import { useSessionState } from '../api/queries'
 import { MAPS } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
@@ -17,6 +19,8 @@ export function TopBar() {
 	const run = useGameStore((state) => state.run)
 	const newRun = useGameStore((state) => state.newRun)
 	const openMap = useUiStore((state) => state.openMap)
+	const { user } = useSessionState()
+	const navigate = useNavigate()
 	const mapIndex = Math.min(MAPS.length - 1, Math.floor((run.stage - 1) / 20))
 	const map = MAPS[mapIndex]
 
@@ -41,6 +45,16 @@ export function TopBar() {
 			<button type="button" className={cn(btnClass, btnSmClass)} onClick={openMap}>
 				🗺️ Bản đồ
 			</button>
+			{/* Admin link only appears for accounts listed in `ADMIN_EMAILS`. */}
+			{user?.is_admin ? (
+				<button
+					type="button"
+					className={cn(btnClass, btnSmClass, btnGhostClass)}
+					onClick={() => void navigate({ to: '/quan-tri' })}
+				>
+					⚙ Quản trị
+				</button>
+			) : null}
 			<button
 				type="button"
 				className={cn(btnClass, btnSmClass, btnGhostClass)}

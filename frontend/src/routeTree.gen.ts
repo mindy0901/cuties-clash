@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CuaHangRouteImport } from './routes/cua-hang'
+import { Route as QuanTriRouteImport } from './routes/quan-tri'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const CuaHangRoute = CuaHangRouteImport.update({
   path: '/cua-hang',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuanTriRoute = QuanTriRouteImport.update({
+  id: '/quan-tri',
+  path: '/quan-tri',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cua-hang': typeof CuaHangRoute
+  '/quan-tri': typeof QuanTriRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cua-hang': typeof CuaHangRoute
+  '/quan-tri': typeof QuanTriRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/cua-hang': typeof CuaHangRoute
+  '/quan-tri': typeof QuanTriRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cua-hang'
+  fullPaths: '/' | '/cua-hang' | '/quan-tri'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cua-hang'
-  id: '__root__' | '/' | '/cua-hang'
+  to: '/' | '/cua-hang' | '/quan-tri'
+  id: '__root__' | '/' | '/cua-hang' | '/quan-tri'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CuaHangRoute: typeof CuaHangRoute
+  QuanTriRoute: typeof QuanTriRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CuaHangRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/quan-tri': {
+      id: '/quan-tri'
+      path: '/quan-tri'
+      fullPath: '/quan-tri'
+      preLoaderRoute: typeof QuanTriRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CuaHangRoute: CuaHangRoute,
+  QuanTriRoute: QuanTriRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,4 +1,4 @@
-import { ITEM_TEMPLATES, starPrice } from './items'
+import { itemTemplatesUpToTier, starPrice } from './items'
 import { createRng } from './rng'
 import { stageTier } from './stages'
 import type { ShopOffer, Star } from './types'
@@ -17,7 +17,7 @@ function starChances(stageIndex: number): number[] {
 
 export function rollShop(stageIndex: number, seed: number): ShopOffer[] {
 	const tier = stageTier(stageIndex)
-	const pool = ITEM_TEMPLATES.filter((template) => template.tier <= tier)
+	const pool = itemTemplatesUpToTier(tier)
 	const rng = createRng(seed >>> 0)
 	const chances = starChances(stageIndex)
 	const offers: ShopOffer[] = []

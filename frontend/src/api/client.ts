@@ -6,6 +6,8 @@ export interface ApiUser {
 	email: string | null
 	avatar_url: string | null
 	providers: string[]
+	/** Email listed in `ADMIN_EMAILS` → the content admin page is available. */
+	is_admin: boolean
 }
 
 export interface ApiSession {
@@ -20,6 +22,20 @@ export interface ApiSave {
 	run: Record<string, unknown> | null
 	revision: number
 	updated_at: string | null
+}
+
+/** Content overlay: `{ items: { id: payload }, pets: { id: payload } }`. */
+export interface ApiContent {
+	items: Record<string, Record<string, unknown>>
+	pets: Record<string, Record<string, unknown>>
+}
+
+export interface ApiContentOverride {
+	kind: 'item' | 'pet'
+	entityId: string
+	payload: Record<string, unknown>
+	updatedAt: string
+	updatedBy: string | null
 }
 
 export class ApiError extends Error {
@@ -73,6 +89,24 @@ export const api = {
 		request<ApiSave>('/api/me/save', {
 			method: 'PUT',
 			body: JSON.stringify({ run, revision }),
+		}),
+
+	/** Game content overlay — public, anonymous players included. */
+	content: () => request<ApiContent>('/api/content'),
+
+	/** Overridden rows (with author) — admin accounts only. */
+	adminContent: () => request<{ overrides: ApiContentOverride[] }>('/api/admin/content'),
+
+	putContent: (kind: 'item' | 'pet', id: string, payload: Record<string, unknown>) =>
+		request<{ override: ApiContentOverride }>(
+			`/api/admin/content/${kind}/${encodeURIComponent(id)}`,
+			{ method: 'PUT', body: JSON.stringify(payload) },
+		),
+
+	/** Deleting an override returns the entity to its code default. */
+	deleteContent: (kind: 'item' | 'pet', id: string) =>
+		request<{ ok: boolean }>(`/api/admin/content/${kind}/${encodeURIComponent(id)}`, {
+			method: 'DELETE',
 		}),
 
 	/** Đường dẫn bắt đầu đăng nhập — trình duyệt tự chuyển trang tới nhà cung cấp. */

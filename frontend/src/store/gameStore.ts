@@ -16,7 +16,7 @@ import {
 	sellItem,
 	unequipToInventory,
 } from '../game/loadout'
-import { PETS, getPet, petUpgradeCost } from '../game/pets'
+import { PETS, getPet, petList, petUpgradeCost } from '../game/pets'
 import { migrateV1ToV2, type PersistedV1 } from '../game/migrate'
 import { sanitizeRun } from '../game/sanitize'
 import { FINAL_STAGE, getStage, makeRivalBlueprint } from '../game/stages'
@@ -346,7 +346,7 @@ export const useGameStore = create<GameStore>()(
 					}
 
 					const clearedStage = Math.max(run.clearedStage, run.stage)
-					const unlocked = PETS.filter((pet) => pet.unlockStage > 0 && clearedStage >= pet.unlockStage).map(
+					const unlocked = petList().filter((pet) => pet.unlockStage > 0 && clearedStage >= pet.unlockStage).map(
 						(pet) => pet.id,
 					)
 					const newlyUnlocked = unlocked.filter((id) => !run.unlockedPets.includes(id))

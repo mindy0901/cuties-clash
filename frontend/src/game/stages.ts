@@ -1,5 +1,5 @@
 import { createRng } from './rng'
-import { ITEM_TEMPLATES } from './items'
+import { itemTemplatesUpToTier } from './items'
 import type { EnemyBlueprint, ItemBlueprint, MapDef, Star, StageDef } from './types'
 
 export const MAPS: MapDef[] = [
@@ -119,7 +119,7 @@ export function stageTier(index: number): 1 | 2 | 3 {
 
 export function availableTemplates(index: number) {
 	const tier = stageTier(index)
-	return ITEM_TEMPLATES.filter((template) => template.tier <= tier)
+	return itemTemplatesUpToTier(tier)
 }
 
 /**
@@ -129,7 +129,7 @@ export function availableTemplates(index: number) {
 export function makeRivalBlueprint(power: number, stageIndex: number, seed: number): EnemyBlueprint {
 	const rng = createRng(seed)
 	const tier = stageTier(stageIndex)
-	const pool = ITEM_TEMPLATES.filter((template) => template.tier <= tier)
+	const pool = itemTemplatesUpToTier(tier)
 	const count = 3 + rng.int(4)
 	const items: ItemBlueprint[] = []
 	const starCap = (tier === 3 ? 4 : tier === 2 ? 3 : 2) as Star

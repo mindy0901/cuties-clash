@@ -75,6 +75,8 @@ describe('phiên đăng nhập', () => {
 				email: 'nguoidung@example.com',
 				avatar_url: 'https://example.com/a.png',
 				providers: ['google'],
+				// Nobody is an admin by default: `ADMIN_EMAILS` is empty in the test environment.
+				is_admin: false,
 			})
 		}))
 

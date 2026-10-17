@@ -34,6 +34,8 @@ x-backend-env: &backend-env
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
   AUTO_LOGIN: ${AUTO_LOGIN:-false}
+  # Email allowed into the content admin page (/quan-tri). Empty = nobody gets in.
+  ADMIN_EMAILS: ${ADMIN_EMAILS:-}
 
 services:
   # ── Cơ sở dữ liệu ─────────────────────────────────────────────────────────
@@ -95,7 +97,10 @@ services:
     environment:
       <<: *backend-env
       ENVIRONMENT: development
-      # Đổi đuôi entrypoint sang `tsx watch`: sửa file trong backend/ là API tự khởi động lại.
+      # Dev creates missing tables at startup (same as `.env.example`), so a new migration
+      # shows up immediately without anyone remembering to run `prisma migrate deploy`.
+      AUTO_CREATE_TABLES: 'true'
+      # Swap the entrypoint tail for `tsx watch`: editing a file under backend/ restarts the API.
       DEV_WATCH: 'true'
     volumes:
       # Chỉ mount các thư mục SOURCE. ❌ Không mount cả `./backend` rồi che `node_modules`

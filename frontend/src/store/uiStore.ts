@@ -14,6 +14,14 @@ interface UiStore {
 	/** `uid` of the item whose **detail dialog** is open; `null` means closed. */
 	itemUid: string | null
 	/**
+	 * Whether the **restart confirmation** is open.
+	 *
+	 * Restarting wipes the run, and the button that starts it lives in two different places (the top
+	 * bar and the victory screen), so the state lives here — one dialog instance, one confirmation
+	 * message, no way for the two to drift apart.
+	 */
+	restartOpen: boolean
+	/**
 	 * Bumped every time the **content overlay** changes (loaded, or an admin just saved).
 	 *
 	 * ⚠️ WHY THIS EXISTS: `getTemplate`/`getPet` read a module variable in `game/content.ts`, and
@@ -27,6 +35,8 @@ interface UiStore {
 	closeLogin: () => void
 	openItem: (uid: string) => void
 	closeItem: () => void
+	openRestart: () => void
+	closeRestart: () => void
 	bumpContent: () => void
 }
 
@@ -34,6 +44,7 @@ export const useUiStore = create<UiStore>()((set) => ({
 	mapOpen: false,
 	loginOpen: false,
 	itemUid: null,
+	restartOpen: false,
 	contentVersion: 0,
 	openMap: () => set({ mapOpen: true }),
 	closeMap: () => set({ mapOpen: false }),
@@ -41,5 +52,7 @@ export const useUiStore = create<UiStore>()((set) => ({
 	closeLogin: () => set({ loginOpen: false }),
 	openItem: (uid) => set({ itemUid: uid }),
 	closeItem: () => set({ itemUid: null }),
+	openRestart: () => set({ restartOpen: true }),
+	closeRestart: () => set({ restartOpen: false }),
 	bumpContent: () => set((state) => ({ contentVersion: state.contentVersion + 1 })),
 }))

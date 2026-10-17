@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { AuthSync } from '../components/AuthSync'
 import { BattleScreen } from '../components/BattleScreen'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ContentSync } from '../components/ContentSync'
 import { ItemDetailDialog } from '../components/ItemDetailDialog'
 import { LoginDialog } from '../components/LoginDialog'
@@ -24,10 +25,13 @@ function RootLayout() {
 	const mapOpen = useUiStore((state) => state.mapOpen)
 	const loginOpen = useUiStore((state) => state.loginOpen)
 	const itemUid = useUiStore((state) => state.itemUid)
+	const restartOpen = useUiStore((state) => state.restartOpen)
 	const closeMap = useUiStore((state) => state.closeMap)
 	const closeLogin = useUiStore((state) => state.closeLogin)
 	const closeItem = useUiStore((state) => state.closeItem)
+	const closeRestart = useUiStore((state) => state.closeRestart)
 	const contentVersion = useUiStore((state) => state.contentVersion)
+	const newRun = useGameStore((state) => state.newRun)
 
 	// During a battle the battle screen is always shown, whichever URL is open.
 	const inBattle = phase === 'battle' || phase === 'result'
@@ -50,6 +54,23 @@ function RootLayout() {
 			{mapOpen ? <StageMapDialog onClose={closeMap} /> : null}
 			{loginOpen ? <LoginDialog onClose={closeLogin} /> : null}
 			{itemUid ? <ItemDetailDialog uid={itemUid} onClose={closeItem} /> : null}
+			{/*
+			 * One instance for both restart buttons (top bar and victory screen) — see `uiStore`.
+			 * The message spells out what disappears: a vague "are you sure?" is what makes players
+			 * click through without reading.
+			 */}
+			{restartOpen ? (
+				<ConfirmDialog
+					title="Chơi lại từ đầu?"
+					message="Toàn bộ tiến trình hiện tại sẽ bị xoá: đồ đang mang, kho dự trữ, Paw Tally, số màn đã qua và thú đã mở khoá."
+					confirmLabel="Xoá và chơi lại"
+					onConfirm={() => {
+						closeRestart()
+						newRun()
+					}}
+					onCancel={closeRestart}
+				/>
+			) : null}
 			<Toasts />
 		</div>
 	)

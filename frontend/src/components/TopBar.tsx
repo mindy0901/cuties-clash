@@ -17,8 +17,9 @@ function StatChip({ label, value }: { label: string; value: string }) {
 
 export function TopBar() {
 	const run = useGameStore((state) => state.run)
-	const newRun = useGameStore((state) => state.newRun)
 	const openMap = useUiStore((state) => state.openMap)
+	// Restarting wipes the whole run, so the button asks first — the dialog lives in the root layout.
+	const openRestart = useUiStore((state) => state.openRestart)
 	const { user } = useSessionState()
 	const navigate = useNavigate()
 	const mapIndex = Math.min(MAPS.length - 1, Math.floor((run.stage - 1) / 20))
@@ -58,9 +59,7 @@ export function TopBar() {
 			<button
 				type="button"
 				className={cn(btnClass, btnSmClass, btnGhostClass)}
-				onClick={() => {
-					if (window.confirm('Chơi lại từ đầu? Toàn bộ tiến trình hiện tại sẽ bị xoá.')) newRun()
-				}}
+				onClick={openRestart}
 			>
 				Chơi lại
 			</button>

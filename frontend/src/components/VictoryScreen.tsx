@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { PETS, getPet, petLevelStats } from '../game/pets'
 import { useGameStore } from '../store/gameStore'
+import { useUiStore } from '../store/uiStore'
 import { PetIcon } from './ItemIcon'
 import { btnClass, btnPrimaryClass, cn, dialogClass, overlayClass, statClass, statGridClass } from './ui'
 
@@ -16,7 +17,8 @@ function Stat({ label, value }: { label: string; value: ReactNode }) {
 /** Screen shown after clearing stage 60. */
 export function VictoryScreen() {
 	const run = useGameStore((state) => state.run)
-	const newRun = useGameStore((state) => state.newRun)
+	// Restarting wipes the finished run too, so it asks first (dialog lives in the root layout).
+	const openRestart = useUiStore((state) => state.openRestart)
 	const pet = getPet(run.petId)
 	const level = run.pets[run.petId] ?? 1
 	const levelStats = petLevelStats(pet, level)
@@ -50,7 +52,7 @@ export function VictoryScreen() {
 					/>
 				</div>
 				<div className="flex flex-wrap items-center justify-end gap-2.5">
-					<button type="button" className={cn(btnClass, btnPrimaryClass)} onClick={newRun}>
+					<button type="button" className={cn(btnClass, btnPrimaryClass)} onClick={openRestart}>
 						Chơi lại từ đầu
 					</button>
 				</div>

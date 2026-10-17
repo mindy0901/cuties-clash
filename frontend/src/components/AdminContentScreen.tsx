@@ -61,6 +61,11 @@ interface FieldDef {
 	optional?: boolean
 	/** Value every star box is seeded with when the editor adds an optional field. */
 	addDefault?: string
+	/**
+	 * Fields sharing a group are drawn as **one block**: an item either has a basic attack
+	 * (`damage` + `speed`) or it does not, so the two are added and removed together.
+	 */
+	group?: 'attack'
 }
 
 const CLASS_OPTIONS = [
@@ -97,12 +102,13 @@ const ITEM_FIELDS: FieldDef[] = [
 	{ key: 'space', label: 'Kích thước ô', kind: 'size', hint: 'w 1–4, h 1–5' },
 	{
 		key: 'damage',
-		label: 'Sát thương',
+		label: 'Sát thương mỗi đòn',
 		kind: 'perStarNumber',
 		min: 0,
 		max: 100_000,
 		optional: true,
 		addDefault: '10',
+		group: 'attack',
 	},
 	{
 		key: 'speed',
@@ -112,6 +118,7 @@ const ITEM_FIELDS: FieldDef[] = [
 		max: 20,
 		optional: true,
 		addDefault: String(DEFAULT_SPEED),
+		group: 'attack',
 		hint: 'số đòn mỗi giây · mặc định 0.625 (1 đòn / 1.6s)',
 	},
 	{
@@ -402,6 +409,26 @@ function AdminContentEditor() {
 			[field.key]: STARS.map(() => field.addDefault ?? ''),
 		}))
 
+	/** Fields that belong to the basic-attack block (`damage` + `speed`). */
+	const attackFields = useMemo(() => FIELDS[kind].filter((field) => field.group === 'attack'), [kind])
+
+	/** An item has a basic attack as soon as one of its boxes holds a value. */
+	const attackPresent = attackFields.some((field) =>
+		(draft[field.key] ?? []).some((value) => value.trim() !== ''),
+	)
+
+	/** Only an attack the editor added can be taken away; one that comes from code stays. */
+	const attackRemovable =
+		attackFields.length > 0 &&
+		attackFields.every((field) => (defaults[field.key] ?? []).every((value) => !value.trim()))
+
+	const setGroup = (fields: FieldDef[], values: (field: FieldDef) => string[]) =>
+		setDraft((current) => {
+			const next = { ...current }
+			for (const field of fields) next[field.key] = values(field)
+			return next
+		})
+
 	/** Drop an optional field the editor added — the code value (or nothing) applies again. */
 	const clearOptionalField = (key: string) =>
 		setDraft((current) => ({ ...current, [key]: [] }))
@@ -655,6 +682,90 @@ function AdminContentEditor() {
 							// Only a field the editor added can be taken away again; a value from code stays.
 							const removable = field.optional && (defaults[field.key] ?? []).every((value) => !value.trim())
 
+							if (field.group) {
+								// Both attacks share one block: they are drawn on the first field of the group.
+								if (field.key !== 'damage') return null
+								return (
+									<div
+										key="basic-attack"
+										className="flex flex-col gap-1.5 rounded-[10px] border border-line bg-black/20 p-2.5 md:col-span-2"
+									>
+										{attackPresent ? (
+											<>
+												<span className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+													<span className="font-semibold">Đòn đánh cơ bản</span>
+													<span className="text-muted opacity-70">· sát thương mỗi đòn và số đòn mỗi giây</span>
+													{attackRemovable ? (
+														<button
+															type="button"
+															data-admin-remove-group="attack"
+															className="rounded border border-line px-1 text-[11px] leading-4 hover:border-danger-soft hover:text-danger-soft"
+															title="Bỏ đòn đánh cơ bản"
+															onClick={() => setGroup(attackFields, () => [])}
+														>
+															✕
+														</button>
+													) : null}
+												</span>
+
+												{dpm.some((value) => value !== null) ? (
+													<span
+														data-admin-dpm
+														className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12.5px]"
+													>
+														<span className="font-semibold text-muted">DPM</span>
+														{/* Each rank is drawn in its own star colour, the same palette as the stars. */}
+														{dpm.map((value, index) => (
+															<span
+																key={index}
+																className={cn(
+																	'font-semibold tabular-nums',
+																	ITEM_STAR_TEXT[(index + 1) as Star],
+																)}
+															>
+																{index + 1}★ {value === null ? '—' : value.toLocaleString('vi-VN')}
+															</span>
+														))}
+													</span>
+												) : null}
+
+												{attackFields.map((sub) => (
+													<div key={sub.key} className="flex flex-col gap-1 text-[12.5px]">
+														<span className="text-muted">
+															{sub.label}
+															{sub.hint ? <span className="ml-1 opacity-70">· {sub.hint}</span> : null}
+														</span>
+														<FieldInput
+															field={sub}
+															values={draft[sub.key] ?? []}
+															onChange={(index, value) =>
+																setDraft((current) => {
+																	const next = [...(current[sub.key] ?? [])]
+																	next[index] = value
+																	return { ...current, [sub.key]: next }
+																})
+															}
+														/>
+													</div>
+												))}
+											</>
+										) : (
+											<button
+												type="button"
+												data-admin-add-group="attack"
+												className={cn(btnClass, btnSmClass, 'self-start')}
+												title="Sát thương mỗi đòn, số đòn mỗi giây và DPM theo từng sao"
+												onClick={() =>
+													setGroup(attackFields, (entry) => STARS.map(() => entry.addDefault ?? ''))
+												}
+											>
+												＋ Đòn đánh cơ bản
+											</button>
+										)}
+									</div>
+								)
+							}
+
 							if (!present) {
 								return (
 									<div key={field.key} className="flex flex-col gap-1 text-[12.5px]">
@@ -676,26 +787,6 @@ function AdminContentEditor() {
 									key={field.key}
 									className={cn('flex flex-col gap-1 text-[12.5px]', isPerStar(field) && 'md:col-span-2')}
 								>
-									{field.key === 'damage' && dpm.some((value) => value !== null) ? (
-										<span
-											data-admin-dpm
-											className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12.5px]"
-										>
-											<span className="font-semibold text-muted">DPM</span>
-											{/* Each rank is drawn in its own star colour, the same palette as the stars. */}
-											{dpm.map((value, index) => (
-												<span
-													key={index}
-													className={cn(
-														'font-semibold tabular-nums',
-														ITEM_STAR_TEXT[(index + 1) as Star],
-													)}
-												>
-													{index + 1}★ {value === null ? '—' : value.toLocaleString('vi-VN')}
-												</span>
-											))}
-										</span>
-									) : null}
 									<span className="flex items-center gap-1.5 text-muted">
 										{field.label}
 										{field.hint ? <span className="opacity-70">· {field.hint}</span> : null}

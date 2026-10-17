@@ -159,22 +159,30 @@ describe('editing content', () => {
 		await screen.findByText('wooden-blade')
 
 		// A weapon swings but has nothing that self-triggers: no interval boxes, only the add chip.
+		expect(document.querySelector('[data-admin-add-group="attack"]')).toBeNull()
 		expect(document.querySelectorAll('[data-admin-field="interval"]')).toHaveLength(0)
 		expect(document.querySelector('[data-admin-add-field="interval"]')).toBeTruthy()
 
-		// Armour does not attack at all: no damage and no speed boxes either.
+		// Armour does not attack at all: no damage and no speed boxes, just the attack chip.
 		fireEvent.click(document.querySelector('[data-admin-entry="hide-vest"]')!)
 		await waitFor(() => expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0))
 		expect(document.querySelectorAll('[data-admin-field="speed"]')).toHaveLength(0)
 
-		// Adding speed seeds the standard rate at every rank; the ✕ takes it away again.
-		fireEvent.click(document.querySelector('[data-admin-add-field="speed"]')!)
-		const speed = [...document.querySelectorAll<HTMLInputElement>('[data-admin-field="speed"]')]
-		expect(speed.map((input) => input.value)).toEqual(['0.625', '0.625', '0.625', '0.625', '0.625'])
+		// Adding the basic attack seeds damage and the standard rate at every rank; ✕ takes it away.
+		fireEvent.click(document.querySelector('[data-admin-add-group="attack"]')!)
+		const valuesOf = (key: string) =>
+			[...document.querySelectorAll<HTMLInputElement>(`[data-admin-field="${key}"]`)].map(
+				(input) => input.value,
+			)
+		expect(valuesOf('damage')).toEqual(['10', '10', '10', '10', '10'])
+		expect(valuesOf('speed')).toEqual(['0.625', '0.625', '0.625', '0.625', '0.625'])
+		// With damage and speed both filled in, the block also shows the DPM line.
+		expect(document.querySelector('[data-admin-dpm]')).toBeTruthy()
 
-		fireEvent.click(document.querySelector('[data-admin-remove-field="speed"]')!)
+		fireEvent.click(document.querySelector('[data-admin-remove-group="attack"]')!)
+		expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0)
 		expect(document.querySelectorAll('[data-admin-field="speed"]')).toHaveLength(0)
-		expect(document.querySelector('[data-admin-add-field="speed"]')).toBeTruthy()
+		expect(document.querySelector('[data-admin-add-group="attack"]')).toBeTruthy()
 	})
 
 	it('shows DPM above the damage boxes and follows every edit', async () => {

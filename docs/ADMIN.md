@@ -37,13 +37,14 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 
 | Field | Control |
 | --- | --- |
-| `damage`, `speed`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
-| `damage`, `speed`, `interval` on an item that lacks them | hidden, replaced by a **＋ chip** (＋ Sát thương · ＋ Speed · ＋ Nhịp hiệu lực). Clicking it adds the five boxes seeded with a sane value — `0.625` for `speed`, `9000` for `interval` — and a **✕** takes an added field away again. A value that comes from `items.ts` cannot be removed here |
+| `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for `interval`, a JSON textarea for `passive`/`aura` |
+| `damage` + `speed` | one **Đòn đánh cơ bản** block: the DPM line, the damage boxes and the speed boxes together. An item without a basic attack shows only the **＋ Đòn đánh cơ bản** chip, so the two fields are added and removed as one |
+| `interval` on an item that lacks it | hidden, replaced by a **＋ Nhịp hiệu lực** chip. Clicking it adds the five boxes seeded with `9000`; a **✕** takes an added field away again. A value that comes from `items.ts` cannot be removed here |
 | `art` flags, emoji | ❌ not in the form: they only declare **which file on disk** to use (`icon` is the emoji fallback for a missing picture). The picture itself is uploaded from this page, so the flags stay in `items.ts`/`pets.ts` |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |
 
-⚠️ Why the chips: armour has no `speed` and no `damage`, and a plain weapon has no `interval` for a
+⚠️ Why the chips: armour has no basic attack and a plain weapon has no `interval` for a
 self-triggering effect. Five **empty** boxes looked like "this item has an empty value" and invited
 edits that meant nothing — an absent field now simply is not there.
 

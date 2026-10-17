@@ -35,6 +35,8 @@ export interface ContentOverrides {
 const EMPTY: ContentOverrides = { items: {}, pets: {}, art: {} }
 
 let overrides: ContentOverrides = EMPTY
+/** Bumped on every apply, so derived data (the item catalogue) knows when it is stale. */
+let version = 0
 
 /** Keep only paths the game can actually load — a broken URL would show a broken icon. */
 function cleanArt(value: unknown): Record<string, string> {
@@ -53,6 +55,33 @@ export function applyContentOverrides(next: Partial<ContentOverrides> | null | u
 		pets: isRecord(next?.pets) ? (next.pets as Record<string, ContentOverride>) : {},
 		art: cleanArt(next?.art),
 	}
+	version += 1
+}
+
+/** Number of times the overlay has been applied — see `itemCatalogue()`. */
+export function overridesVersion(): number {
+	return version
+}
+
+/**
+ * Write **one** row into the overlay right after the admin saved it, so the page already shows the
+ * new item instead of waiting for the refetch. `payload = null` drops the row.
+ *
+ * ⚠️ The payload is stored **as is**: saving replaces the whole field set on the server, so merging
+ * would keep a field the editor has just removed.
+ */
+export function putLocalOverride(
+	kind: 'item' | 'pet',
+	id: string,
+	payload: ContentOverride | null,
+): void {
+	const items = { ...overrides.items }
+	const pets = { ...overrides.pets }
+	const rows = kind === 'item' ? items : pets
+	if (payload) rows[id] = payload
+	else delete rows[id]
+	overrides = { items, pets, art: overrides.art }
+	version += 1
 }
 
 /** Overlay currently applied — the admin page uses it to mark overridden entities. */

@@ -1,5 +1,5 @@
 import type { ItemTemplate, ItemClass, Quality, Star } from './types'
-import { itemOverride, mergeItem } from './content'
+import { currentContentOverrides, mergeItem, overridesVersion } from './content'
 
 /** Star-indexed values: `pick(star, [1★, 2★, 3★, 4★, 5★])`. */
 export function pick(star: Star, values: readonly [number, number, number, number, number]): number {
@@ -513,11 +513,69 @@ export const ITEM_BY_ID: Record<string, ItemTemplate> = Object.fromEntries(
 	ITEM_TEMPLATES.map((template) => [template.id, template]),
 )
 
-/** Template **with the admin overlay applied** (if any). */
+/** What a brand-new item starts from — the admin payload fills the rest in. */
+function blankTemplate(id: string): ItemTemplate {
+	return {
+		id,
+		name: id,
+		icon: '❔',
+		cls: 'focus',
+		tier: 1,
+		quality: 1,
+		cost: 1,
+		space: { w: 1, h: 1 },
+	}
+}
+
+let catalogue: ItemTemplate[] = ITEM_TEMPLATES
+let catalogueById: Record<string, ItemTemplate> = ITEM_BY_ID
+let catalogueVersion = -1
+
+/**
+ * The **live** item list: the code templates with their overrides, **plus** items created on the
+ * admin page, **minus** items the admin deleted (`removed: true` in the override).
+ *
+ * ⚠️ Everything that lists or rolls items must read this instead of `ITEM_TEMPLATES`: a created item
+ * has to reach the shop, and a deleted one must stop dropping — while `ITEM_TEMPLATES` stays the
+ * untouched code catalogue that tests and docs talk about.
+ */
+export function itemCatalogue(): ItemTemplate[] {
+	if (catalogueVersion === overridesVersion()) return catalogue
+	catalogueVersion = overridesVersion()
+
+	const overrides = currentContentOverrides().items
+	const removed = new Set(Object.keys(overrides).filter((id) => overrides[id]?.removed === true))
+	const items = ITEM_TEMPLATES.filter((template) => !removed.has(template.id)).map((template) =>
+		mergeItem(template, overrides[template.id]),
+	)
+	for (const [id, payload] of Object.entries(overrides)) {
+		if (ITEM_BY_ID[id] || removed.has(id)) continue
+		items.push(mergeItem(blankTemplate(id), payload))
+	}
+
+	catalogue = items
+	catalogueById = Object.fromEntries(items.map((template) => [template.id, template]))
+	return catalogue
+}
+
+/** One item by id, or `undefined` when it does not exist (or the admin deleted it). */
+export function itemTemplateById(templateId: string): ItemTemplate | undefined {
+	itemCatalogue()
+	return catalogueById[templateId]
+}
+
+/**
+ * Template **with the admin overlay applied** (if any).
+ *
+ * ⚠️ Falls back to the **code** template when the admin deleted the item: a bag or shop entry that
+ * still holds a deleted id has to keep drawing (its numbers no longer reach a fight — `build.ts` and
+ * `sanitize.ts` filter on `itemTemplateById`), otherwise the first render after the delete would be a
+ * blank page. Only an id that exists nowhere throws.
+ */
 export function getTemplate(templateId: string): ItemTemplate {
-	const template = ITEM_BY_ID[templateId]
+	const template = itemTemplateById(templateId) ?? ITEM_BY_ID[templateId]
 	if (!template) throw new Error(`Unknown item template: ${templateId}`)
-	return mergeItem(template, itemOverride(templateId))
+	return template
 }
 
 /**
@@ -528,7 +586,5 @@ export function getTemplate(templateId: string): ItemTemplate {
  * otherwise the editor sees battles keep using the old items and has no idea why.
  */
 export function itemTemplatesUpToTier(tier: number): ItemTemplate[] {
-	return ITEM_TEMPLATES.map((template) => getTemplate(template.id)).filter(
-		(template) => template.tier <= tier,
-	)
+	return itemCatalogue().filter((template) => template.tier <= tier)
 }

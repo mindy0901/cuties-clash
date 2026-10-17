@@ -153,6 +153,30 @@ bad crop is caught without uploading anything.
 go wrong (a picture that clashes with the quality tint, stars lost against a bright picture, an item
 that does not fit its footprint).
 
+## Creating and deleting items
+
+The list on the left is the **live** item catalogue (`itemCatalogue()` in `game/items.ts`), not the
+code templates: what the page shows here is exactly what the shop can roll.
+
+- **＋ Tạo mới** — type a code (`a-z`, `0-9`, `-`), and the item is created from the smallest possible
+  row: name = the code, `cls` = `focus`, `tier` 1, `quality` 1, `cost` 1, `space` 1×1. Everything else
+  (picture, damage/speed, passive, aura) is added from the **＋ Thêm trường** menu or by filling the
+  boxes. A code that already exists in the code or in the overlay is refused. The new row is applied to
+  the overlay **straight away**, so the item appears in the list and can be edited without a reload.
+- **🗑 Xoá món** — asks first, and what happens depends on where the item lives:
+  - a **created** item exists only as an override row → the row is `DELETE`d and the item is gone;
+  - a **code** item cannot be deleted here → the row is saved with `removed: true` on top of its
+    other fields. The item leaves the catalogue (no shop rolls, no bag, no enemy gear) while the code
+    template stays untouched in `game/items.ts`.
+- **♻ Hiện lại** — only on a deleted code item: the flag is dropped (a `DELETE` when it carried
+  nothing but the flag), and the item is back with every field it had.
+
+⚠️ A deleted code item stays selectable, but its picture panel is hidden — there is no tile to
+preview it in and no point uploading art for something nobody can roll. Restore it first.
+
+⚠️ Deleting while playing: a `removed` item disappears from `run.equipped` / `run.inventory` on the
+next load — `sanitizeRun` drops unknown template ids, so an old save cannot crash on a deleted item.
+
 ## How it is stored (fields)
 
 - `GET /api/content` — public overlay for the game client: `{ items: {id: payload}, pets: {…} }`.
@@ -162,6 +186,10 @@ that does not fit its footprint).
 
 Table: `content_overrides` (id `item:<templateId>` / `pet:<petId>`, JSON payload). Deleting a row
 never deletes content, it only removes the override.
+
+⚠️ An id that is **not** in the code is a created item: its row is the whole item, so deleting the
+row deletes the item. That is why the page sends `removed: true` for a code item instead — the code
+template has to stay for "Hiện lại" to have something to restore.
 
 ⚠️ The server **validates the shape** of everything it stores (whitelisted keys, types, ranges):
 these numbers run inside `simulateBattle` for every player, so a value of the wrong type would
@@ -179,8 +207,10 @@ stores the field as a single array and a partial one would lose the other ranks.
 ## Where the overlay is applied
 
 - `game/content.ts` — `applyContentOverrides`, `mergeItem`, `mergePet` (defensive: a broken row is
-  skipped, never thrown — throwing during render is a blank page).
-- `getTemplate` / `getPet` return the merged entity; `itemTemplatesUpToTier` and `petList` are the
+  skipped, never thrown — throwing during render is a blank page), `putLocalOverride` (apply one row
+  the editor just saved, so the page does not wait for the refetch).
+- `itemCatalogue()` is the **live** item list: code templates minus `removed` ones, plus created ones.
+  `getTemplate` / `getPet` return the merged entity; `itemTemplatesUpToTier` and `petList` are the
   override-aware lists used by shop rolls, stage enemies and PvP rivals.
 - `ContentSync` fetches on boot; `main.tsx` applies the cached copy **before the first render** so
   the first frame already shows the edited names and prices.

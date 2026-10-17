@@ -159,6 +159,8 @@ const ITEM_FIELDS: Record<string, FieldCheck> = {
 	space: asSpace,
 	/** One art per item: `public/icons/items/<id>.png` — art files are never per star rank. */
 	art: asBoolean,
+	/** The item was deleted on the admin page: it leaves the catalogue and the shop. */
+	removed: asBoolean,
 	damage: (field, value) =>
 		asPerStar(field, value, (index, raw) => asNumber(`${field}[${index}★]`, raw, 0, 100_000)),
 	speed: (field, value) =>

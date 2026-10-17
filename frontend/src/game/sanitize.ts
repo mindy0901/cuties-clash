@@ -1,5 +1,5 @@
 import { REROLL_COST, rollShop } from './economy'
-import { ITEM_BY_ID, MAX_STAR } from './items'
+import { itemTemplateById, MAX_STAR } from './items'
 import { repairStorageSlots } from './storage'
 import { PETS, getPet, petLevelStats } from './pets'
 import { FINAL_STAGE } from './stages'
@@ -74,7 +74,7 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 }
 
 function isKnownTemplate(templateId: unknown): templateId is string {
-	return typeof templateId === 'string' && Boolean(ITEM_BY_ID[templateId])
+	return typeof templateId === 'string' && Boolean(itemTemplateById(templateId))
 }
 
 /**

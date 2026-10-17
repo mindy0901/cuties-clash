@@ -10,6 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminContentScreen } from '../AdminContentScreen'
 import { renderInRouter } from '../../test/router'
 import { useUiStore } from '../../store/uiStore'
+import { applyContentOverrides } from '../../game/content'
+import { itemCatalogue, itemTemplateById } from '../../game/items'
 
 /** Session of an admin account. */
 const ADMIN_SESSION = {
@@ -61,6 +63,14 @@ function stubApi(options: Stub = {}) {
 	const puts: { url: string; body: unknown }[] = []
 	const deletes: string[] = []
 	const uploads: string[] = []
+	/** Kept in sync with PUT/DELETE so a created or deleted item shows up again on the next read. */
+	const overrides = [...(options.overrides ?? [])] as {
+		kind: string
+		entityId: string
+		payload: Record<string, unknown>
+		updatedAt: string
+		updatedBy: string | null
+	}[]
 	const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = String(input)
 		if (url.includes('/api/auth/session')) {
@@ -74,18 +84,39 @@ function stubApi(options: Stub = {}) {
 			deletes.push(url)
 			return json({ ok: true })
 		}
-		if (url.includes('/api/admin/content') && init?.method === 'PUT') {
-			puts.push({ url, body: JSON.parse(String(init.body)) })
-			return json({ override: null })
+		if (url.includes('/api/admin/content/')) {
+			const [, kind, rawId] = url.match(/\/api\/admin\/content\/(item|pet)\/(.+)$/) ?? []
+			const entityId = decodeURIComponent(rawId ?? '')
+			if (init?.method === 'PUT') {
+				const payload = JSON.parse(String(init.body)) as Record<string, unknown>
+				puts.push({ url, body: payload })
+				const existing = overrides.find((entry) => entry.kind === kind && entry.entityId === entityId)
+				if (existing) existing.payload = payload
+				else
+					overrides.push({
+						kind: kind ?? 'item',
+						entityId,
+						payload,
+						updatedAt: '2026-01-01T00:00:00.000Z',
+						updatedBy: 'quantri@example.com',
+					})
+				return json({ override: null })
+			}
+			if (init?.method === 'DELETE') {
+				deletes.push(url)
+				const index = overrides.findIndex((entry) => entry.kind === kind && entry.entityId === entityId)
+				if (index >= 0) overrides.splice(index, 1)
+				return json({ ok: true })
+			}
 		}
 		if (url.includes('/api/admin/content')) {
-			return json({ overrides: options.overrides ?? [], art: options.art ?? [] })
+			return json({ overrides, art: options.art ?? [] })
 		}
 		if (url.includes('/api/content')) return json({ items: {}, pets: {}, art: {} })
 		return json({}, 404)
 	})
 	vi.stubGlobal('fetch', fetchMock)
-	return { puts, deletes, uploads }
+	return { puts, deletes, uploads, overrides }
 }
 
 function json(body: unknown, status = 200) {
@@ -101,6 +132,8 @@ beforeEach(() => {
 	// The admin selection lives in `uiStore` (it has to survive the page remount after a save), so a
 	// test that switches to pets would otherwise leak into the next one — the store is module state.
 	useUiStore.setState({ adminKind: 'item', adminId: '' })
+	// The item catalogue (list + editor) reads the overlay, which is module state as well.
+	applyContentOverrides(null)
 })
 
 afterEach(() => {
@@ -392,6 +425,92 @@ describe('editing content', () => {
 			const entry = document.querySelector<HTMLElement>('[data-admin-entry="fire-spear"]')
 			expect(entry?.textContent, 'an overridden entry must be marked').toContain('●')
 		})
+	})
+})
+
+describe('creating and deleting items', () => {
+	it('creates an item from a code and selects it', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(document.querySelector('[data-admin-create-open]')!)
+		fireEvent.change(document.querySelector('[data-admin-create-id]')!, { target: { value: 'kiem-sat' } })
+		fireEvent.click(document.querySelector('[data-admin-create-submit]')!)
+
+		await waitFor(() => expect(puts).toHaveLength(1))
+		expect(puts[0]!.url).toContain('/api/admin/content/item/kiem-sat')
+		// Only the fields an item cannot work without; everything else stays an optional field.
+		expect(puts[0]!.body).toEqual({
+			name: 'kiem-sat',
+			cls: 'focus',
+			tier: 1,
+			quality: 1,
+			cost: 1,
+			space: { w: 1, h: 1 },
+		})
+		// The new item is selected and listed, so the editor can start filling it in.
+		await waitFor(() => expect(document.querySelector('[data-admin-entry="kiem-sat"]')).toBeTruthy())
+		expect(useUiStore.getState().adminId).toBe('kiem-sat')
+	})
+
+	it('refuses a code that already exists', async () => {
+		const { puts } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(document.querySelector('[data-admin-create-open]')!)
+		fireEvent.change(document.querySelector('[data-admin-create-id]')!, { target: { value: 'wooden-blade' } })
+		fireEvent.click(document.querySelector('[data-admin-create-submit]')!)
+
+		expect((await screen.findByText(/đã tồn tại/)).textContent).toContain('wooden-blade')
+		expect(puts).toHaveLength(0)
+	})
+
+	it('hides a code item with `removed` instead of deleting the row', async () => {
+		const { puts, deletes } = stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(document.querySelector('[data-admin-entry="wooden-blade"]')!)
+		fireEvent.click(document.querySelector('[data-admin-delete]')!)
+		const dialog = await screen.findByRole('dialog', { name: /Xoá "Đao Gỗ"/ })
+		fireEvent.click(dialog.querySelector('[data-confirm-accept]')!)
+
+		await waitFor(() => expect(puts).toHaveLength(1))
+		expect(puts[0]!.url).toContain('/api/admin/content/item/wooden-blade')
+		// The code template cannot be deleted, so it is flagged — and stays restorable.
+		expect(puts[0]!.body).toEqual({ removed: true })
+		expect(deletes).toHaveLength(0)
+		// Out of the catalogue (so the shop stops rolling it) but still listed as deleted.
+		expect(document.querySelector('[data-admin-removed]')).toBeTruthy()
+
+		// Bringing it back has nothing stored besides the flag, so the row itself is dropped.
+		fireEvent.click(document.querySelector('[data-admin-restore]')!)
+		await waitFor(() => expect(deletes).toHaveLength(1))
+		expect(deletes[0]).toContain('/api/admin/content/item/wooden-blade')
+		expect(document.querySelector('[data-admin-removed]')).toBeNull()
+	})
+
+	it('deletes a created item outright', async () => {
+		const { deletes } = stubApi()
+		// A created item exists only as an overlay row — that is what the shop and the editor read.
+		applyContentOverrides({ items: { 'kiem-sat': { name: 'Kiếm Sắt', cls: 'melee', cost: 4 } } })
+		renderInRouter(<AdminContentScreen />)
+
+		fireEvent.click(await screen.findByText(/Kiếm Sắt/))
+		expect(itemTemplateById('kiem-sat')?.cost).toBe(4)
+
+		fireEvent.click(await screen.findByRole('button', { name: '🗑 Xoá món' }))
+		const dialog = await screen.findByRole('dialog', { name: /Xoá "Kiếm Sắt"/ })
+		fireEvent.click(dialog.querySelector('[data-confirm-accept]')!)
+
+		await waitFor(() => expect(deletes).toHaveLength(1))
+		expect(deletes[0]).toContain('/api/admin/content/item/kiem-sat')
+		// Gone from the catalogue and the list, and the selection moved to a surviving item.
+		await waitFor(() => expect(itemTemplateById('kiem-sat')).toBeUndefined())
+		expect(document.querySelector('[data-admin-entry="kiem-sat"]')).toBeNull()
+		expect(useUiStore.getState().adminId).toBe(itemCatalogue()[0]!.id)
 	})
 })
 

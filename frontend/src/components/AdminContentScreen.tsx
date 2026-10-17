@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAdminContent, useDeleteArt, useResetContent, useSaveContent, useSessionState, useUploadArt } from '../api/queries'
-import { DEFAULT_SPEED, ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, getTemplate, starLabel } from '../game/items'
+import { currentContentOverrides, putLocalOverride } from '../game/content'
+import { DEFAULT_SPEED, ITEM_BY_ID, QUALITY_LABELS, QUALITY_VALUES, STARS, itemCatalogue, itemTemplateById, starLabel } from '../game/items'
 import { PETS, getPet } from '../game/pets'
 import type { ItemTemplate, PetDef, Quality, Star } from '../game/types'
 import { useGameStore } from '../store/gameStore'
@@ -182,8 +183,12 @@ type Draft = Record<string, string[]>
 function defaultValues(kind: Kind, id: string, field: FieldDef, merged = true): string[] {
 	const base: ItemTemplate | PetDef | undefined =
 		kind === 'item'
-			? ITEM_BY_ID[id] && (merged ? getTemplate(id) : ITEM_BY_ID[id])
-			: (merged ? getPet(id) : PETS.find((pet) => pet.id === id))
+			? merged
+				? (itemTemplateById(id) ?? ITEM_BY_ID[id])
+				: ITEM_BY_ID[id]
+			: merged
+				? getPet(id)
+				: PETS.find((pet) => pet.id === id)
 	if (!base) return ['']
 
 	switch (field.kind) {
@@ -396,7 +401,7 @@ function AdminContentEditor() {
 		defaultDraft(
 			useUiStore.getState().adminKind,
 			useUiStore.getState().adminId ||
-				(useUiStore.getState().adminKind === 'item' ? ITEM_TEMPLATES[0]?.id : PETS[0]?.id) ||
+				(useUiStore.getState().adminKind === 'item' ? itemCatalogue()[0]?.id : PETS[0]?.id) ||
 				'',
 		),
 	)
@@ -409,16 +414,45 @@ function AdminContentEditor() {
 	const deleteArt = useDeleteArt()
 	const pushToast = useGameStore((state) => state.pushToast)
 	const bumpContent = useUiStore((state) => state.bumpContent)
+	const contentVersion = useUiStore((state) => state.contentVersion)
 	const [importOpen, setImportOpen] = useState(false)
 	/** Deleting a picture cannot be undone (it has to be cropped again), so it asks first. */
 	const [removeArtOpen, setRemoveArtOpen] = useState(false)
+	const [createOpen, setCreateOpen] = useState(false)
+	/** Code of the item being created (a slug the admin types). */
+	const [newId, setNewId] = useState('')
+	/** Deleting an item is asked first — it leaves the shop and everyone's bag. */
+	const [deleteOpen, setDeleteOpen] = useState(false)
 	/** Star rank the picture is previewed at — the art is the same, the stars only change colour. */
 	const [previewStar, setPreviewStar] = useState<Star>(1)
 
-	const ids = useMemo(
-		() => (kind === 'item' ? ITEM_TEMPLATES.map((template) => template.id) : PETS.map((pet) => pet.id)),
-		[kind],
-	)
+	/**
+	 * Ids in the list — the **live** catalogue for items, the code pets otherwise.
+	 *
+	 * ⚠️ `contentVersion` is a real input even though the code never reads it: the overlay lives in a
+	 * module variable (`game/content.ts`), so a new version is the **only** signal that the catalogue
+	 * changed. Dropping it from the dependencies leaves a created item out of the list.
+	 */
+	const ids = useMemo(() => {
+		void contentVersion
+		if (kind !== 'item') return PETS.map((pet) => pet.id)
+		return itemCatalogue().map((template) => template.id)
+	}, [kind, contentVersion])
+
+	/**
+	 * Items deleted on this page: still listed so they can be brought back, marked "đã xoá".
+	 *
+	 * ⚠️ Read from the **overlay**, not from the admin payload: the catalogue and this list must
+	 * come from the same place, otherwise deleting an item leaves it visible for one render.
+	 */
+	const removedIds = useMemo(() => {
+		void contentVersion
+		if (kind !== 'item') return []
+		const rows = currentContentOverrides().items
+		return Object.keys(rows)
+			.filter((id) => rows[id]?.removed === true && Boolean(ITEM_BY_ID[id]))
+			.sort()
+	}, [kind, contentVersion])
 
 	/**
 	 * Entity actually being edited.
@@ -427,10 +461,15 @@ function AdminContentEditor() {
 	 * `selected` pointing at an id of the other kind for one render, and `getPet('wooden-blade')`
 	 * throws — which is a blank page, not a wrong label.
 	 */
-	const activeId = ids.includes(selected) ? selected : (ids[0] ?? '')
+	const activeId = ids.includes(selected)
+		? selected
+		: removedIds.includes(selected)
+			? selected
+			: (ids[0] ?? '')
 
 	/** Human name of the edited entity — used by the picture dialogs. */
-	const entityName = kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name
+	const entityName =
+		kind === 'item' ? (itemTemplateById(activeId)?.name ?? ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name
 
 	/** Values the form **started from** (code + any stored override) — the baseline for "đã sửa". */
 	const loaded = useMemo(() => defaultDraft(kind, activeId), [kind, activeId])
@@ -537,7 +576,7 @@ function AdminContentEditor() {
 
 	/** Switch kind: the id has to move to the other list **in the same event**, never later. */
 	const selectKind = (value: Kind) => {
-		const first = value === 'item' ? ITEM_TEMPLATES[0]?.id : PETS[0]?.id
+		const first = value === 'item' ? itemCatalogue()[0]?.id : PETS[0]?.id
 		const nextId = first ?? ''
 		setAdminSelection(value, nextId)
 		setDraft(defaultDraft(value, nextId))
@@ -583,6 +622,7 @@ function AdminContentEditor() {
 				{ kind, id: activeId },
 				{
 					onSuccess: () => {
+						putLocalOverride(kind, activeId, null)
 						bumpContent()
 						pushToast(`Đã trả "${activeId}" về mặc định`, 'good')
 						setMessage({ text: 'Đã trả về mặc định.', bad: false })
@@ -597,6 +637,7 @@ function AdminContentEditor() {
 			{ kind, id: activeId, payload },
 			{
 				onSuccess: () => {
+					putLocalOverride(kind, activeId, payload)
 					bumpContent()
 					pushToast(`Đã lưu ${kind === 'item' ? 'vật phẩm' : 'thú cưng'} "${activeId}"`, 'good')
 					setMessage({ text: 'Đã lưu. Người chơi thấy ở lần tải trang kế tiếp.', bad: false })
@@ -612,6 +653,7 @@ function AdminContentEditor() {
 			{
 				onSuccess: () => {
 					setDraft(defaultDraft(kind, activeId))
+					putLocalOverride(kind, activeId, null)
 					bumpContent()
 					pushToast(`Đã trả "${activeId}" về mặc định`, 'good')
 					setMessage({ text: 'Đã trả về mặc định.', bad: false })
@@ -622,6 +664,119 @@ function AdminContentEditor() {
 	}
 
 	const busy = saveContent.isPending || resetContent.isPending
+
+	/** Whether the edited item is one this page **created** (no template in the code). */
+	const isCreatedItem = kind === 'item' && Boolean(itemTemplateById(activeId)) && !ITEM_BY_ID[activeId]
+	/** Whether the edited item is currently deleted (it is only listed so it can come back). */
+	const isRemovedItem = kind === 'item' && removedIds.includes(activeId)
+	/** Row stored for this entity — needed to hide/restore it without losing fields. */
+	const storedPayload = useMemo(
+		() => {
+			void contentVersion
+			return currentContentOverrides()[kind === 'item' ? 'items' : 'pets'][activeId] ?? {}
+		},
+		[kind, activeId, contentVersion],
+	)
+
+	const createItem = () => {
+		const id = newId.trim().toLowerCase()
+		if (!/^[a-z0-9][a-z0-9-]{1,48}$/.test(id)) {
+			setMessage({ text: 'Mã món: 2–49 ký tự, chỉ a-z, 0-9 và dấu gạch.', bad: true })
+			return
+		}
+		if (ITEM_BY_ID[id] || itemTemplateById(id)) {
+			setMessage({ text: `Mã "${id}" đã tồn tại.`, bad: true })
+			return
+		}
+		// Only the fields an item cannot work without; everything else is an optional field.
+		const payload = { name: id, cls: 'focus', tier: 1, quality: 1, cost: 1, space: { w: 1, h: 1 } }
+		saveContent.mutate(
+			{ kind: 'item', id, payload },
+			{
+				onSuccess: () => {
+					// Put the row in the overlay first: the catalogue is what the editor and the shop read,
+					// and it has to contain the new item now — not after the refetch lands.
+					putLocalOverride('item', id, payload)
+					setAdminSelection('item', id)
+					setDraft(defaultDraft('item', id))
+					bumpContent()
+					pushToast(`Đã tạo "${id}" — sửa các ô bên phải rồi bấm Lưu`, 'good')
+					setCreateOpen(false)
+					setNewId('')
+					setMessage({ text: 'Đã tạo món mới.', bad: false })
+				},
+				onError: (error) => setMessage({ text: error.message, bad: true }),
+			},
+		)
+	}
+
+	const removeItem = () => {
+		if (kind !== 'item') return
+		// A created item is only the override row, so deleting it is a plain DELETE.
+		if (isCreatedItem) {
+			resetContent.mutate(
+				{ kind: 'item', id: activeId },
+				{
+					onSuccess: () => {
+						putLocalOverride('item', activeId, null)
+						// The selection has to move off the deleted item **in the same event**.
+						const nextId = itemCatalogue()[0]?.id ?? ''
+						setAdminSelection('item', nextId)
+						setDraft(defaultDraft('item', nextId))
+						bumpContent()
+						pushToast(`Đã xoá "${activeId}"`, 'good')
+						setMessage({ text: 'Đã xoá món.', bad: false })
+					},
+					onError: (error) => setMessage({ text: error.message, bad: true }),
+				},
+			)
+			return
+		}
+		// A code item cannot be deleted from here: it is hidden with `removed`, keeping the rest of the row.
+		const hidden = { ...storedPayload, removed: true }
+		saveContent.mutate(
+			{ kind: 'item', id: activeId, payload: hidden },
+			{
+				onSuccess: () => {
+					putLocalOverride('item', activeId, hidden)
+					bumpContent()
+					pushToast(`Đã xoá "${activeId}" khỏi game`, 'good')
+					setMessage({ text: 'Đã xoá món — bấm "Hiện lại" để dùng tiếp.', bad: false })
+				},
+				onError: (error) => setMessage({ text: error.message, bad: true }),
+			},
+		)
+	}
+
+	const restoreItem = () => {
+		if (kind !== 'item') return
+		const { removed: _removed, ...rest } = storedPayload
+		if (Object.keys(rest).length > 0) {
+			saveContent.mutate(
+				{ kind: 'item', id: activeId, payload: rest },
+				{
+					onSuccess: () => {
+						putLocalOverride('item', activeId, rest)
+						bumpContent()
+						pushToast(`Đã hiện lại "${activeId}"`, 'good')
+					},
+					onError: (error) => setMessage({ text: error.message, bad: true }),
+				},
+			)
+			return
+		}
+		resetContent.mutate(
+			{ kind: 'item', id: activeId },
+			{
+				onSuccess: () => {
+					putLocalOverride('item', activeId, null)
+					bumpContent()
+					pushToast(`Đã hiện lại "${activeId}"`, 'good')
+				},
+				onError: (error) => setMessage({ text: error.message, bad: true }),
+			},
+		)
+	}
 
 	return (
 		<div className="flex flex-col gap-3.5">
@@ -653,10 +808,62 @@ function AdminContentEditor() {
 
 			<div className="grid items-start gap-3 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
 				<section className={cn(panelClass, 'gap-1.5')}>
-					<h3 className="m-0 text-[13px] text-muted">{ids.length} mục</h3>
+					<div className={rowBetweenClass}>
+						<h3 className="m-0 text-[13px] text-muted">
+							{ids.length + removedIds.length} mục
+						</h3>
+						{kind === 'item' ? (
+							<button
+								type="button"
+								data-admin-create-open
+								className={cn(btnClass, btnSmClass)}
+								title="Tạo một món mới (chỉ nằm trong dữ liệu, không sửa mã nguồn)"
+								onClick={() => {
+									setCreateOpen((open) => !open)
+									setMessage(null)
+								}}
+							>
+								＋ Tạo mới
+							</button>
+						) : null}
+					</div>
+
+					{createOpen ? (
+						<div className="flex flex-col gap-1.5 rounded-lg border border-line bg-black/25 p-2">
+							<label className="flex flex-col gap-1 text-[11.5px] text-muted">
+								Mã món (a-z, 0-9, dấu gạch)
+								<input
+									data-admin-create-id
+									className={inputClass}
+									value={newId}
+									placeholder="kiem-sat"
+									onChange={(event) => setNewId(event.target.value)}
+								/>
+							</label>
+							<div className="flex gap-1.5">
+								<button
+									type="button"
+									data-admin-create-submit
+									className={cn(btnClass, btnSmClass, btnGoldClass, 'flex-1 justify-center')}
+									disabled={saveContent.isPending}
+									onClick={createItem}
+								>
+									Tạo
+								</button>
+								<button
+									type="button"
+									className={cn(btnClass, btnSmClass, 'justify-center')}
+									onClick={() => setCreateOpen(false)}
+								>
+									Huỷ
+								</button>
+							</div>
+						</div>
+					) : null}
+
 					<div className="flex max-h-[520px] flex-col gap-1 overflow-y-auto pr-1">
 						{ids.map((id) => {
-							const template = kind === 'item' ? ITEM_BY_ID[id]! : getPet(id)
+							const template = kind === 'item' ? (itemTemplateById(id) ?? ITEM_BY_ID[id]) : getPet(id)
 							return (
 								<button
 									type="button"
@@ -671,7 +878,7 @@ function AdminContentEditor() {
 									onClick={() => selectEntity(id)}
 								>
 									<span className="truncate">
-										{template.icon} {template.name}
+										{template?.icon} {template?.name}
 									</span>
 									{overridden.has(id) ? (
 										<span
@@ -684,14 +891,37 @@ function AdminContentEditor() {
 								</button>
 							)
 						})}
+						{/* Deleted items stay listed: without them there would be no way back. */}
+						{removedIds.map((id) => {
+							const template = ITEM_BY_ID[id]
+							return (
+								<button
+									type="button"
+									key={id}
+									data-admin-entry={id}
+									data-admin-removed
+									className={cn(
+										btnClass,
+										btnSmClass,
+										'justify-between text-left opacity-60',
+										id === activeId && 'border-gold bg-ink-600',
+									)}
+									onClick={() => selectEntity(id)}
+								>
+									<span className="truncate line-through">
+										{template?.icon} {template?.name}
+									</span>
+									<span className="shrink-0 text-[11px] text-danger-soft">đã xoá</span>
+								</button>
+							)
+						})}
 					</div>
 				</section>
 
 				<section className={cn(panelClass, 'gap-2.5')}>
 					<div className={rowBetweenClass}>
 						<h3 className="m-0 text-[15px] font-semibold">
-							{kind === 'item' ? ITEM_BY_ID[activeId]?.name : getPet(activeId).name}{' '}
-							<span className="text-[12px] font-normal text-muted">{activeId}</span>
+							{entityName} <span className="text-[12px] font-normal text-muted">{activeId}</span>
 						</h3>
 						{overridden.has(activeId) ? (
 							<span className="rounded-md border border-gold/45 px-1.5 py-px text-[11px] text-gold-soft">
@@ -700,8 +930,17 @@ function AdminContentEditor() {
 						) : null}
 					</div>
 
-					{/* Picture: one per entity, previewed **in the real grid tile** so it can be judged in context. */}
-					<div className="flex flex-col gap-2 rounded-[10px] border border-line bg-black/25 p-2.5">
+					{/*
+						Picture: one per entity, previewed **in the real grid tile** so it can be judged in context.
+						A deleted item is out of the catalogue, so there is no tile to draw it in (and no point
+						uploading art for something nobody can roll) — restore it first.
+					*/}
+					{isRemovedItem ? (
+						<p className={hintClass}>
+							Món này đang bị xoá nên không sửa ảnh được — bấm <strong>♻ Hiện lại</strong> trước.
+						</p>
+					) : (
+						<div className="flex flex-col gap-2 rounded-[10px] border border-line bg-black/25 p-2.5">
 						<div className="flex flex-wrap items-start gap-3">
 							<div data-admin-art-preview className="shrink-0">
 								<ArtPreview kind={kind} id={activeId} star={previewStar} />
@@ -752,6 +991,7 @@ function AdminContentEditor() {
 							</div>
 						</div>
 					</div>
+					)}
 
 					<div className="grid gap-2 md:grid-cols-2">
 						{FIELDS[kind].map((field) => {
@@ -928,6 +1168,31 @@ function AdminContentEditor() {
 						>
 							↺ Đặt lại như cũ
 						</button>
+						{kind === 'item' ? (
+							isRemovedItem ? (
+								<button
+									type="button"
+									data-admin-restore
+									className={cn(btnClass, btnGoldClass, 'justify-center')}
+									disabled={busy}
+									onClick={restoreItem}
+									title="Đưa món trở lại shop và kho"
+								>
+									♻ Hiện lại
+								</button>
+							) : (
+								<button
+									type="button"
+									data-admin-delete
+									className={cn(btnClass, 'justify-center border-danger/60 text-danger-soft')}
+									disabled={busy}
+									onClick={() => setDeleteOpen(true)}
+									title="Xoá món khỏi game"
+								>
+									🗑 Xoá món
+								</button>
+							)
+						) : null}
 					</div>
 				</section>
 			</div>
@@ -979,11 +1244,27 @@ function AdminContentEditor() {
 					}}
 				/>
 			) : null}
+
+			{/* Deleting is asked first: the item leaves the shop and every bag it sits in. */}
+			{deleteOpen ? (
+				<ConfirmDialog
+					title={`Xoá "${entityName}"?`}
+					message={
+						isCreatedItem
+							? 'Món này chỉ tồn tại trong dữ liệu admin nên sẽ bị xoá hẳn. Không thể hoàn tác.'
+							: 'Món sẽ biến khỏi shop và kho của mọi người chơi (món đang mang cũng bị bỏ ra). Vẫn hiện lại được ở danh sách bên trái.'
+					}
+					confirmLabel="Xoá món"
+					onCancel={() => setDeleteOpen(false)}
+					onConfirm={() => {
+						setDeleteOpen(false)
+						removeItem()
+					}}
+				/>
+			) : null}
 		</div>
 	)
 }
-
-/** Whether a field edits a value per star rank and therefore needs a full-width row of controls. */
 function isPerStar(field: FieldDef): boolean {
 	return field.kind === 'perStarNumber' || field.kind === 'perStarJson'
 }

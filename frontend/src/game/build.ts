@@ -1,4 +1,4 @@
-import { DEFAULT_SPEED, getTemplate, isWeaponClass, swingMs } from './items'
+import { DEFAULT_SPEED, getTemplate, isWeaponClass, itemTemplateById, swingMs } from './items'
 import { adjacentUids, cellsOf, occupancy, templateFootprint } from './bag'
 import { GRID_WIDTH, MAX_BAG_ROWS, getPet, petLevelStats } from './pets'
 import { addMods, emptyStats, powerScore } from './stats'
@@ -95,7 +95,11 @@ export function buildCombatant(input: BuildInput): Combatant {
 	})
 	addMods(stats, input.baseMods)
 
-	const placed = input.items.filter((entry) => entry.slot >= 0 && entry.slot < input.gridSize)
+	const placed = input.items.filter(
+		// A template the admin deleted is skipped instead of throwing: an old save or a stage enemy
+		// still referencing it must not take the whole battle down.
+		(entry) => entry.slot >= 0 && entry.slot < input.gridSize && Boolean(itemTemplateById(entry.templateId)),
+	)
 	// Cell → item map so adjacency is evaluated per cell rather than from a single anchor cell.
 	// The uid is built just like `combatItemUid` so the original entry can be looked up back.
 	const uidOf = (entry: { templateId: string; slot: number }) => combatItemUid(entry.templateId, entry.slot)

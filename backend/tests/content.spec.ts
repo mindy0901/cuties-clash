@@ -161,6 +161,64 @@ describe('content API', () => {
 			{ config: adminConfig },
 		))
 
+	it('creates an item that is not in the code and publishes it', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				const cookies = sessionCookies(sessionToken)
+				// Exactly what the admin page sends for a brand-new item.
+				const created = await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/test-created-item',
+					payload: { name: 'Kiếm Thử', cls: 'melee', tier: 1, quality: 1, cost: 1, space: { w: 1, h: 1 } },
+					cookies,
+				})
+				expect(created.statusCode).toBe(200)
+
+				const published = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(published.items['test-created-item']).toEqual({
+					name: 'Kiếm Thử',
+					cls: 'melee',
+					tier: 1,
+					quality: 1,
+					cost: 1,
+					space: { w: 1, h: 1 },
+				})
+
+				// A created item is only its row, so deleting the row removes the item again.
+				await app.inject({ method: 'DELETE', url: '/api/admin/content/item/test-created-item', cookies })
+				const after = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(after.items['test-created-item']).toBeUndefined()
+			},
+			{ config: adminConfig },
+		))
+
+	it('hides an item with `removed` while keeping its other fields', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				const cookies = sessionCookies(sessionToken)
+				await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade',
+					payload: { name: 'Wooden Blade Mk3', cost: 6 },
+					cookies,
+				})
+				// The page re-sends the stored row with the flag on top, so the item can come back intact.
+				const hidden = await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade',
+					payload: { name: 'Wooden Blade Mk3', cost: 6, removed: true },
+					cookies,
+				})
+				expect(hidden.statusCode).toBe(200)
+
+				const published = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(published.items['wooden-blade']).toEqual({ name: 'Wooden Blade Mk3', cost: 6, removed: true })
+			},
+			{ config: adminConfig },
+		))
+
 	it('deletes an override back to the default', () =>
 		withApp(
 			async ({ app, db }) => {

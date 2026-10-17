@@ -53,9 +53,15 @@ export const QUALITY_LABELS: Record<Quality, string> = {
 
 export const QUALITY_VALUES: readonly Quality[] = [1, 2, 3, 4, 5]
 
-/** Two copies merge into one star rank; price follows the star rank. */
+/**
+ * Price of one item at `star`: the **number of 1★ copies** it is worth, `2^(star-1)`.
+ *
+ * Merging means a 3★ needs four copies and a 5★ sixteen, so a straight `cost × star` would have made
+ * a high star far cheaper than the copies it is made of (3★ of a 3 🐾 item costs 12 🐾 to build,
+ * not 9).
+ */
 export function starPrice(baseCost: number, star: Star): number {
-	return baseCost * star
+	return baseCost * 2 ** (star - 1)
 }
 
 /**

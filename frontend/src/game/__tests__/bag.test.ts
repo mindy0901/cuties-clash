@@ -304,7 +304,8 @@ describe('adjacency per cell', () => {
 
 describe('selling', () => {
 	it('refunds 50% of the paid price', () => {
-		expect(sellValue(createItemInstance('great-axe', 3, 'a'))).toBe(12)
+		// A 3★ Phủ Nặng (cost 8) is worth four copies = 32 🐾, so it sells for 16.
+		expect(sellValue(createItemInstance('great-axe', 3, 'a'))).toBe(16)
 		expect(sellValue(createItemInstance('hide-vest', 1, 'b'))).toBe(1)
 	})
 })

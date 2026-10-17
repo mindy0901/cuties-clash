@@ -112,7 +112,7 @@ export interface ItemTemplate {
 	 * derived from `tier`/`cls`; ❌ does not depend on the item's star rank.
 	 */
 	quality: Quality
-	/** Base price in Paw Tally at 1★. Higher stars cost `cost * star`. */
+	/** Base price in Paw Tally at 1★. A higher star costs `starPrice(cost, star)` — one copy per merge step. */
 	cost: number
 	/** Cells the item covers; the player may rotate it by 90° while dragging. */
 	space: GridSpace

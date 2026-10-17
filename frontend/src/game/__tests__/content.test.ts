@@ -66,10 +66,13 @@ describe('item catalogue', () => {
 		}
 	})
 
-	it('scales prices with the star rank and armour tiers with the event numbers', () => {
+	it('prices a star rank by the copies it is built from, and keeps the armour tiers', () => {
+		// 2^(star-1): 1★ = one copy, 3★ = four, 5★ = sixteen — exactly what merging costs.
 		expect(starPrice(3, 1)).toBe(3)
-		expect(starPrice(3, 4)).toBe(12)
-		expect(starPrice(3, 5)).toBe(15)
+		expect(starPrice(3, 2)).toBe(6)
+		expect(starPrice(3, 3)).toBe(12)
+		expect(starPrice(3, 4)).toBe(24)
+		expect(starPrice(3, 5)).toBe(48)
 		expect(getTemplate('hide-vest').passive?.(1).shield).toBe(180)
 		expect(getTemplate('hide-vest').passive?.(4).shield).toBe(450)
 		expect(getTemplate('hide-vest').passive?.(5).shield).toBe(675)
@@ -94,6 +97,25 @@ describe('shop rolls', () => {
 		for (const offer of rollShop(5, 99)) {
 			expect(getTemplate(offer.templateId).tier).toBe(1)
 		}
+	})
+
+	it('never sells above 3★, and only rolls an upgrade late in the run', () => {
+		const starsOf = (stageIndex: number, seeds: number) => {
+			const found: number[] = []
+			for (let seed = 0; seed < seeds; seed += 1) {
+				for (const offer of rollShop(stageIndex, seed * 7919)) found.push(offer.star)
+			}
+			return found
+		}
+
+		// Map 1 starts plain: no upgraded offer at all.
+		expect(starsOf(5, 400).every((star) => star === 1)).toBe(true)
+
+		// Last map: the rare upgrades do happen (0.5% / 0.1%), and 4★–5★ are never sold.
+		const lastMap = starsOf(60, 3000)
+		expect(lastMap.some((star) => star === 2)).toBe(true)
+		expect(lastMap.some((star) => star === 3)).toBe(true)
+		expect(Math.max(...lastMap)).toBe(3)
 	})
 })
 

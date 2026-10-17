@@ -9,7 +9,7 @@
 | Mechanic | Details |
 | --- | --- |
 | Star merge | 2 items with the **same template + same star** → `+1★`, up to **5★**. Different ones **swap positions** |
-| Price | `starPrice(cost, star) = cost × star`. Selling back = **50%** of `paid` (the total actually paid) |
+| Price | `starPrice(cost, star) = cost × 2^(star-1)` — a rank costs as much as the copies it is made of. Selling back = **50%** of `paid` (the total actually paid) |
 | Kho đồ | **Trang bị** (what is carried) is a **4-column** grid, the number of rows follows the pet level: 3→5 (12–20 cells). **Kho đồ** (storage) is also a **free 8-column grid**, **unlimited**: the grid grows taller by itself when items sit lower |
 | Where an item lives | Buying in the shop → it is **carried onto Trang bị automatically if there is room**, otherwise it goes into Kho đồ. ❌ **Only items in `run.equipped` take part in battle** (passive, aura, weapon); items in `run.inventory` have no effect |
 | Moving items | **Drag and drop** between the two panels and within each panel. **Clicking** an item opens its **details** (❌ clicking does not pick up or place anything). `R` / right click to rotate while **dragging**, `Esc` to drop. The ↑ / ↓ / "Tháo hết" buttons are still there |
@@ -48,9 +48,14 @@ result is one rank higher. **5★ is the cap** (`MAX_STAR` in `game/items.ts`).
 
 | Star | Price in the shop | Notes |
 | --- | --- | --- |
-| 1★ | `cost × 1` | Starting rank, also what the shop mostly offers early |
-| 2★–4★ | `cost × star` | Can also be bought directly later (shop star chances by map) |
-| 5★ | `cost × 5` | Only reachable by merging two 4★ copies |
+| 1★ | `cost × 1` | Starting rank, what the shop almost always offers |
+| 2★ | `cost × 2` | Two copies' worth. Shop: **0.5%** per offer, from map 2 on |
+| 3★ | `cost × 4` | Four copies' worth. Shop: **0.1%** per offer, **last map only** |
+| 4★ | `cost × 8` | Merging only — ❌ never sold |
+| 5★ | `cost × 16` | Merging only (two 4★ copies) |
+
+⚠️ A shop item above 3★ would be sold for a fraction of the copies it is made of, which is why the
+chance is that small and stops at 3★.
 
 Every per-star value in `game/items.ts` is declared as an array with **one entry per star rank**
 (`pick(star, [1★, 2★, 3★, 4★, 5★])`), so a missing rank is a type error rather than a silent fallback.

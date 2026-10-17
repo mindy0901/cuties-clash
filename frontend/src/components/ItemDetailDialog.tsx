@@ -1,5 +1,5 @@
 import { sellValue, templateFootprint } from '../game/bag'
-import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starLabel, swingMs } from '../game/items'
+import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starLabel, starPrice, swingMs } from '../game/items'
 import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ArtIcon } from './ArtIcon'
@@ -85,7 +85,7 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					{damage !== undefined && swing ? (
 						<Row label="Sát thương mỗi giây" value={(damage / (swing / 1000)).toFixed(1)} />
 					) : null}
-					<Row label="Giá ở shop" value={`${template.cost * item.star} 🐾`} />
+					<Row label="Giá ở shop" value={`${starPrice(template.cost, item.star)} 🐾`} />
 					<Row label="Đã trả" value={`${item.paid} 🐾`} />
 					<Row label="Bán được" value={`${sellValue(item)} 🐾 (hoàn 50%)`} />
 				</div>

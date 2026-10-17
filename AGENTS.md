@@ -149,7 +149,8 @@ trang, người chơi hết đường bấm. Thêm trường vào `RunState` = s
 | **Hộp thoại / UI dùng chung** | `store/uiStore.ts` | ❌ không vào `gameStore` (nó bị persist) |
 | **Trường trong `RunState`** | `types.ts` → `sanitize.ts` → bump `version` → `migrate.ts` | thiếu `sanitize` ⇒ **trắng trang** (§4.5) |
 | **Cách xếp/chứa đồ trong kho** | `game/kho.ts` | kho là **lưới tự do** — ❌ đừng xếp hộ; vướng món thì **từ chối** chứ ❌ đừng trượt sang ô khác; thả lên món **khác loại** cũng **từ chối** (❌ kho không hoán đổi, chỉ nhập sao); test `game/__tests__/kho.test.ts` + `components/__tests__/khoGrid.test.tsx` |
-| **Ô gợi ý chỗ đặt** | `components/GridBoard.tsx` | ô gợi ý + khung đứt phải nằm **trên lớp món** (`z-10`), ❌ không thì món vẽ sau **che mất** gợi ý; gợi ý phải khớp kết quả thả (`blocked` ⇄ `resolveDrop`) |
+| **Ô gợi ý chỗ đặt** | `components/GridBoard.tsx` | ô gợi ý + khung đứt phải nằm **trên lớp món** (`z-10`), ❌ không thì món vẽ sau **che mất** gợi ý; gợi ý phải khớp kết quả thả (`blocked` ⇄ `resolveDrop`); lưới phải `select-none` — ❌ không thì giữ chuột ở ô trống làm trình duyệt **bôi đen**, con trỏ hoá 🚫 như thể ô đó không đặt được |
+| **Kéo-thả: huỷ và nhả chuột** | `useHeldItem.ts` + `PrepScreen.tsx` | `Esc` phải huỷ **cả `keoRef`** (qua `onCancel`), ❌ chỉ xoá `held` thì cú **nhả chuột sau đó vẫn đặt** món xuống ô cuối con trỏ đi qua; hướng xoay đọc từ `held` **lúc nhả**, không chụp lúc bắt đầu kéo |
 | **Endpoint API** | `backend/src/routes/` | lỗi qua `ApiError`; thêm test trong `backend/tests/` |
 | **Bảng / cột DB** | `prisma/schema.prisma` + migration | migration phải chạy được trên database đang có bảng |
 

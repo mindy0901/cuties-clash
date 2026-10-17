@@ -559,6 +559,43 @@ describe('thả món xuống', () => {
 		).toEqual(['gem-a', 'sword', 'gem-b'])
 	})
 
+	it('Esc giữa lúc kéo rồi nhả chuột thì KHÔNG đặt món nào', () => {
+		// LỖI ĐÃ GẶP: `Esc` chỉ xoá `held`, còn cha vẫn nhớ món đang kéo, nên cú **nhả chuột** sau đó
+		// vẫn đặt món xuống ô cuối cùng con trỏ đi qua — người chơi đã huỷ mà món vẫn bị dời.
+		reset([blade('sword', 0), jade('gem', 5)], [])
+		renderPrep()
+		khoRoiXa()
+
+		batDauKeo(buttonOf('sword'))
+		hoverCell(2)
+		expect(outlineClass(), 'ô này đặt được (nếu không thì test không chứng minh được gì)').toContain(
+			'border-gold',
+		)
+		pressKey('Escape')
+		nhaChuot()
+
+		expect(ghost(), 'huỷ rồi thì không còn món bám con trỏ').toBeNull()
+		expect(
+			useGameStore.getState().run.equipped.map((item) => [item.uid, item.slot]),
+			'huỷ rồi thì không món nào được đặt',
+		).toEqual([
+			['sword', 0],
+			['gem', 5],
+		])
+	})
+
+	it('lưới chặn bôi đen văn bản (giữ chuột ở ô trống không được hoá con trỏ 🚫)', () => {
+		// Ô trống cạnh nhau vẫn tạo được **vùng bôi đen**, và khi đó trình duyệt chuyển sang thao tác
+		// "kéo vùng bôi đen" → con trỏ thành 🚫 (lưới không nhận drop), trông như ô đó không đặt được
+		// đồ. `select-none` chặn từ gốc; jsdom không có bôi đen nên ở đây khoá bằng class.
+		reset([blade('sword', 0)], [])
+		renderPrep()
+
+		const boards = [...document.querySelectorAll<HTMLElement>('[data-grid-board]')]
+		expect(boards.length, 'có cả hai lưới').toBe(2)
+		for (const board of boards) expect(board.className, 'lưới phải có select-none').toContain('select-none')
+	})
+
 	it('thả vào ô KHOÁ thì không đặt được và báo rõ', () => {
 		reset([], [stored('stored')])
 		renderPrep()

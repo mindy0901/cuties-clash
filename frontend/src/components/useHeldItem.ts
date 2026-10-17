@@ -26,7 +26,18 @@ export interface HeldItem {
  * - **Kéo** món (giữ chuột rồi di chuyển) → nhấc lên; **nhả chuột** → đặt xuống ô đang trỏ.
  * - `R` hoặc **chuột phải** khi đang kéo → xoay 90°. `Esc` → bỏ.
  */
-export function useHeldItem(loadout: ItemInstance[], inventory: ItemInstance[]) {
+export function useHeldItem(
+	loadout: ItemInstance[],
+	inventory: ItemInstance[],
+	/**
+	 * Gọi khi người chơi **huỷ** thao tác kéo (`Esc`).
+	 *
+	 * ⚠️ VÌ SAO CẦN: cha còn giữ "món đang kéo" để đặt lúc **nhả chuột**. Chỉ `clear()` thôi thì
+	 * cú nhả sau đó vẫn đặt món xuống ô cuối cùng con trỏ đi qua — người chơi đã bấm huỷ mà món
+	 * vẫn bị dời.
+	 */
+	onCancel?: () => void,
+) {
 	const [held, setHeld] = useState<HeldItem | null>(null)
 
 	/**
@@ -78,6 +89,7 @@ export function useHeldItem(loadout: ItemInstance[], inventory: ItemInstance[]) 
 				rotateHeld()
 			} else if (event.key === 'Escape') {
 				event.preventDefault()
+				onCancel?.()
 				clear()
 			}
 		}
@@ -95,7 +107,7 @@ export function useHeldItem(loadout: ItemInstance[], inventory: ItemInstance[]) 
 			document.removeEventListener('keydown', keys)
 			document.removeEventListener('contextmenu', menu)
 		}
-	}, [held, rotateHeld, clear])
+	}, [held, rotateHeld, clear, onCancel])
 
 	return { held, find, hold, rotateHeld, clear, pointerRef }
 }

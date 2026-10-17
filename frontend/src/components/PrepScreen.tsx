@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { ActionBar } from './ActionBar'
 import { HeldGhost } from './HeldGhost'
 import { InventoryPanel } from './InventoryPanel'
@@ -43,7 +43,28 @@ export function PrepScreen() {
 	const totalMatches = run.wins + run.losses
 
 	// Kéo-thả đồ giữa kho và trang bị — state phải ở đây vì hai panel là anh em.
-	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory)
+	/**
+	 * Món **đang kéo**, cho `onDragEnd` biết phải đặt gì.
+	 *
+	 * ⚠️ Cần ref riêng cho trường hợp kéo **từ kho**: `held` trong closure của `onDragEnd` có
+	 * thể chưa kịp có giá trị mới, mà `pointerup` lại cần biết ngay.
+	 *
+	 * ⚠️ Hướng xoay phải **đọc từ `held`** lúc nhả, không lấy giá trị chụp lúc bắt đầu kéo —
+	 * người chơi có thể đã bấm `R` giữa chừng và giá trị chụp sẽ cũ.
+	 */
+	const keoRef = useRef<{ uid: string; from: 'inventory' | 'loadout' } | null>(null)
+
+	/**
+	 * Huỷ thao tác kéo (`Esc`).
+	 *
+	 * ⚠️ Phải **quên cả `keoRef`**, ❌ không chỉ để `useHeldItem` xoá `held`: cú nhả chuột sau đó
+	 * vẫn chạy `onDragEnd` và sẽ đặt món xuống ô cuối cùng con trỏ đi qua, dù người chơi đã huỷ.
+	 */
+	const huyKeo = useCallback(() => {
+		keoRef.current = null
+	}, [])
+
+	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory, huyKeo)
 	const equipAt = useGameStore((state) => state.equipAt)
 	const unequipAt = useGameStore((state) => state.unequipAt)
 	const dropItem = useGameStore((state) => state.dropItem)
@@ -75,17 +96,8 @@ export function PrepScreen() {
 	}
 
 	/**
-	 * Món đang được **giữ chuột**, để biết lúc nhả thì đang kéo món nào.
-	 *
-	 * ⚠️ Cần ref riêng cho trường hợp kéo **từ kho**: `held` trong closure của `onDragEnd` có
-	 * thể chưa kịp có giá trị mới, mà `pointerup` lại cần biết ngay.
-	 *
-	 * ⚠️ Hướng xoay phải **đọc từ `held`** lúc nhả, không lấy giá trị chụp lúc bắt đầu kéo —
-	 * người chơi có thể đã bấm `R` giữa chừng và giá trị chụp sẽ cũ.
+	 * Bắt đầu kéo một món (dùng chung cho lưới và kho).
 	 */
-	const keoRef = useRef<{ uid: string; from: 'inventory' | 'loadout' } | null>(null)
-
-	/** Bắt đầu kéo một món (dùng chung cho lưới và kho). */
 	const batDauKeo = (item: ItemInstance, from: 'inventory' | 'loadout') => {
 		keoRef.current = { uid: item.uid, from }
 		hold(item, from)

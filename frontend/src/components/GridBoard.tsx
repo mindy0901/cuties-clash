@@ -286,7 +286,18 @@ export function GridBoard({
 			 */
 			onPointerLeave={() => datO(null)}
 			onMouseLeave={() => datO(null)}
-			className={cn('surface-board relative rounded-panel border border-dashed border-line', className)}
+			/**
+			 * ⚠️ `select-none` là **bắt buộc**, không phải trang trí.
+			 *
+			 * Không có nó thì giữ chuột ở một ô trống là trình duyệt **bắt đầu bôi đen** (các ô là
+			 * khối rỗng cạnh nhau vẫn tạo được vùng chọn). Khi đó Chrome chuyển sang thao tác "kéo
+			 * vùng bôi đen", và vì lưới không phải chỗ nhận drop nên con trỏ đổi thành **🚫** — người
+			 * chơi tưởng ô đó không đặt được đồ, trong khi thật ra chẳng có thao tác kéo nào của game.
+			 */
+			className={cn(
+				'surface-board relative rounded-panel border border-dashed border-line select-none',
+				className,
+			)}
 			style={
 				{
 					'--board-cols': `${width}`,

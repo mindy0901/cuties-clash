@@ -22,23 +22,47 @@ export type ContentOverride = Record<string, unknown>
 export interface ContentOverrides {
 	items: Record<string, ContentOverride>
 	pets: Record<string, ContentOverride>
+	/**
+	 * Pictures uploaded from the admin page, keyed `"item:<id>"` / `"pet:<id>"`, value = URL ready
+	 * for `<img src>` (`/api/content/art/item/wooden-blade?v=3`).
+	 *
+	 * ⚠️ Kept apart from the per-entity payload: a payload replaces the whole field set when saved,
+	 * so a picture inside it would vanish the next time the admin edited `damage`.
+	 */
+	art: Record<string, string>
 }
 
-const EMPTY: ContentOverrides = { items: {}, pets: {} }
+const EMPTY: ContentOverrides = { items: {}, pets: {}, art: {} }
 
 let overrides: ContentOverrides = EMPTY
+
+/** Keep only paths the game can actually load — a broken URL would show a broken icon. */
+function cleanArt(value: unknown): Record<string, string> {
+	if (!isRecord(value)) return {}
+	const clean: Record<string, string> = {}
+	for (const [key, url] of Object.entries(value)) {
+		if (typeof url === 'string' && url.startsWith('/')) clean[key] = url
+	}
+	return clean
+}
 
 /** Load overrides from the server. Pass `null`/`{}` to fall back to the code defaults. */
 export function applyContentOverrides(next: Partial<ContentOverrides> | null | undefined): void {
 	overrides = {
 		items: isRecord(next?.items) ? (next.items as Record<string, ContentOverride>) : {},
 		pets: isRecord(next?.pets) ? (next.pets as Record<string, ContentOverride>) : {},
+		art: cleanArt(next?.art),
 	}
 }
 
 /** Overlay currently applied — the admin page uses it to mark overridden entities. */
 export function currentContentOverrides(): ContentOverrides {
 	return overrides
+}
+
+/** Uploaded picture of one entity, if the admin has imported one. */
+export function uploadedArt(kind: 'item' | 'pet', id: string): string | null {
+	return overrides.art[`${kind}:${id}`] ?? null
 }
 
 export function itemOverride(id: string): ContentOverride | undefined {

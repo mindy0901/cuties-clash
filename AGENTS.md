@@ -142,6 +142,7 @@ and the player has nothing left to click. Adding a field to `RunState` = sanitiz
 | To add | Change | Do not forget |
 | --- | --- | --- |
 | **An item** | `game/items.ts` | art is **one file per item**: `public/icons/items/<id>.png` + `art: true` (❌ never per star rank); `content.test.ts` counts them |
+| **A picture for an item/pet** | admin page → **Tải ảnh lên** (`components/ArtImportDialog.tsx` + `cropImage.ts`) | cropped **in the browser** to a 256×256 PNG, stored in Postgres (`content_art`) and served from `/api/content/art/…?v=<version>`; the upload is **not** part of the override payload, so editing fields or "Về mặc định" cannot drop it — see [`docs/ADMIN.md`](docs/ADMIN.md) |
 | **A pet** | `game/pets.ts` | art in `pets/` + `skills/`; `unlockStage` is currently 20/40 |
 | **A stage / map** | `game/stages.ts` | re-run the balance probe ([`docs/BALANCE.md`](docs/BALANCE.md)) |
 | **An effect / aura** | `game/stats.ts` + `game/build.ts` | if you add a random branch in `battle.ts` you must add a determinism test |

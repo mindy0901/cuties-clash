@@ -24,16 +24,29 @@ export interface ApiSave {
 	updated_at: string | null
 }
 
-/** Content overlay: `{ items: { id: payload }, pets: { id: payload } }`. */
+/** Content overlay: `{ items: { id: payload }, pets: { id: payload }, art: { "item:id": url } }`. */
 export interface ApiContent {
 	items: Record<string, Record<string, unknown>>
 	pets: Record<string, Record<string, unknown>>
+	/** Uploaded pictures, ready to use as `<img src>`. */
+	art: Record<string, string>
 }
 
 export interface ApiContentOverride {
 	kind: 'item' | 'pet'
 	entityId: string
 	payload: Record<string, unknown>
+	updatedAt: string
+	updatedBy: string | null
+}
+
+/** One uploaded picture (metadata only — the bytes come from `/api/content/art/…`). */
+export interface ApiContentArt {
+	kind: 'item' | 'pet'
+	entityId: string
+	version: number
+	width: number
+	height: number
 	updatedAt: string
 	updatedBy: string | null
 }
@@ -95,7 +108,8 @@ export const api = {
 	content: () => request<ApiContent>('/api/content'),
 
 	/** Overridden rows (with author) — admin accounts only. */
-	adminContent: () => request<{ overrides: ApiContentOverride[] }>('/api/admin/content'),
+	adminContent: () =>
+		request<{ overrides: ApiContentOverride[]; art: ApiContentArt[] }>('/api/admin/content'),
 
 	putContent: (kind: 'item' | 'pet', id: string, payload: Record<string, unknown>) =>
 		request<{ override: ApiContentOverride }>(
@@ -106,6 +120,24 @@ export const api = {
 	/** Deleting an override returns the entity to its code default. */
 	deleteContent: (kind: 'item' | 'pet', id: string) =>
 		request<{ ok: boolean }>(`/api/admin/content/${kind}/${encodeURIComponent(id)}`, {
+			method: 'DELETE',
+		}),
+
+	/**
+	 * Upload the picture of one entity as a **raw PNG body** (already cropped to a square in the
+	 * browser). ❌ Not multipart: the browser can send a Blob directly, and base64 in JSON would add
+	 * a third to the size for nothing.
+	 */
+	uploadArt: (kind: 'item' | 'pet', id: string, png: Blob) =>
+		request<{ art: ApiContentArt }>(`/api/admin/content/${kind}/${encodeURIComponent(id)}/art`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'image/png' },
+			body: png,
+		}),
+
+	/** Remove the uploaded picture (the entity returns to its bundled art, then the emoji). */
+	deleteArt: (kind: 'item' | 'pet', id: string) =>
+		request<{ ok: boolean }>(`/api/admin/content/${kind}/${encodeURIComponent(id)}/art`, {
 			method: 'DELETE',
 		}),
 

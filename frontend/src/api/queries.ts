@@ -66,6 +66,36 @@ export function useResetContent() {
 	})
 }
 
+/**
+ * Upload a picture for one item/pet.
+ *
+ * The overlay is refetched right after, so the new URL (with its version) reaches every screen —
+ * and every player — without a reload.
+ */
+export function useUploadArt() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (input: { kind: 'item' | 'pet'; id: string; png: Blob }) =>
+			api.uploadArt(input.kind, input.id, input.png),
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: adminContentKey })
+			await queryClient.invalidateQueries({ queryKey: contentKey })
+		},
+	})
+}
+
+/** Remove the uploaded picture of one entity. */
+export function useDeleteArt() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (input: { kind: 'item' | 'pet'; id: string }) => api.deleteArt(input.kind, input.id),
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: adminContentKey })
+			await queryClient.invalidateQueries({ queryKey: contentKey })
+		},
+	})
+}
+
 export interface SessionState {
 	loading: boolean
 	/** ❌ The server cannot be reached (backend not running / offline) — quite different from "OAuth not configured". */

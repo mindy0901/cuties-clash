@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, afterEach } from 'vitest'
 import { ITEM_TEMPLATES, STARS, getTemplate, starPrice } from '../items'
 import { rollShop, SHOP_SIZE } from '../economy'
 import { FINAL_STAGE, MAPS, STAGES, getStage, stageTier } from '../stages'
+import { applyContentOverrides } from '../content'
+import { itemArtSrc, petArtSrc } from '../art'
 import { PETS, petLevelStats, petUpgradeCost } from '../pets'
 
 describe('item catalogue', () => {
@@ -101,5 +103,35 @@ describe('pets', () => {
 
 	it('charges a growing fee for pet upgrades', () => {
 		expect(petUpgradeCost(1)).toBeLessThan(petUpgradeCost(4))
+	})
+})
+
+describe('art uploaded from the admin page', () => {
+	const ITEM = ITEM_TEMPLATES[0]!.id
+	const PET = PETS[0]!.id
+
+	afterEach(() => {
+		applyContentOverrides(null)
+	})
+
+	it('prefers the uploaded picture over the bundled one', () => {
+		const bundled = itemArtSrc(ITEM)
+		expect(bundled).toBe(`/icons/items/${ITEM}.png`)
+		expect(petArtSrc(PET)).toBe(`/icons/pets/${PET}.png`)
+
+		applyContentOverrides({
+			art: { [`item:${ITEM}`]: '/api/content/art/item/x?v=2', [`pet:${PET}`]: '/api/content/art/pet/y?v=1' },
+		})
+		expect(itemArtSrc(ITEM)).toContain('/api/content/art/item/x?v=2')
+		expect(petArtSrc(PET)).toContain('/api/content/art/pet/y?v=1')
+
+		// Removing the picture puts the entity back on the bundled art (or the emoji).
+		applyContentOverrides({ art: {} })
+		expect(itemArtSrc(ITEM)).toBe(bundled)
+	})
+
+	it('ignores a broken art URL instead of rendering a broken icon', () => {
+		applyContentOverrides({ art: { [`item:${ITEM}`]: 'javascript:alert(1)' } as never })
+		expect(itemArtSrc(ITEM)).toBe(`/icons/items/${ITEM}.png`)
 	})
 })

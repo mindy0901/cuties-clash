@@ -93,7 +93,7 @@ describe('content API', () => {
 		withApp(async ({ app }) => {
 			const response = await app.inject({ method: 'GET', url: '/api/content' })
 			expect(response.statusCode).toBe(200)
-			expect(response.json()).toEqual({ items: {}, pets: {} })
+			expect(response.json()).toEqual({ items: {}, pets: {}, art: {} })
 		}))
 
 	it('refuses anonymous edits', () =>
@@ -178,6 +178,7 @@ describe('content API', () => {
 				expect((await app.inject({ method: 'GET', url: '/api/content' })).json()).toEqual({
 					items: {},
 					pets: {},
+					art: {},
 				})
 			},
 			{ config: adminConfig },
@@ -198,6 +199,7 @@ describe('content API', () => {
 				expect((await app.inject({ method: 'GET', url: '/api/content' })).json()).toEqual({
 					items: {},
 					pets: {},
+					art: {},
 				})
 			},
 			{ config: adminConfig },
@@ -240,6 +242,210 @@ describe('content API', () => {
 				).json()
 				expect(asAdmin.is_admin).toBe(true)
 				expect(asMember.is_admin).toBe(false)
+			},
+			{ config: adminConfig },
+		))
+})
+
+/**
+ * A structurally valid PNG header for the given size: signature + `IHDR`.
+ *
+ * The server only reads those bytes to reject non-PNGs and non-square pictures, so this is enough
+ * to exercise the whole endpoint without shipping binary fixtures.
+ */
+function pngOfSize(width: number, height: number): Buffer {
+	const header = Buffer.alloc(33)
+	Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(header, 0)
+	header.writeUInt32BE(13, 8)
+	header.write('IHDR', 12, 'ascii')
+	header.writeUInt32BE(width, 16)
+	header.writeUInt32BE(height, 20)
+	header[24] = 8
+	header[25] = 6
+	return header
+}
+
+const PNG_HEADERS = { 'content-type': 'image/png' } as const
+
+describe('uploaded art', () => {
+	it('refuses anonymous uploads', () =>
+		withApp(async ({ app }) => {
+			const response = await app.inject({
+				method: 'PUT',
+				url: '/api/admin/content/item/wooden-blade/art',
+				headers: PNG_HEADERS,
+				payload: pngOfSize(64, 64),
+			})
+			expect(response.statusCode).toBe(401)
+		}))
+
+	it('blocks a regular user with 403', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'nguoichoi@example.com')
+				const response = await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade/art',
+					headers: PNG_HEADERS,
+					payload: pngOfSize(64, 64),
+					cookies: sessionCookies(sessionToken),
+				})
+				expect(response.statusCode).toBe(403)
+			},
+			{ config: adminConfig },
+		))
+
+	it('rejects anything that is not a square PNG of a sane size', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				const upload = (payload: Buffer, headers: Record<string, string> = PNG_HEADERS) =>
+					app.inject({
+						method: 'PUT',
+						url: '/api/admin/content/item/wooden-blade/art',
+						headers,
+						payload,
+						cookies: sessionCookies(sessionToken),
+					})
+
+				// A JPEG (or any non-PNG) would be served as an image and show as a broken icon.
+				const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46])
+				expect((await upload(jpeg)).statusCode).toBe(400)
+				expect((await upload(jpeg)).json().error).toBe('invalid_art')
+
+				expect((await upload(pngOfSize(64, 32))).json().error).toBe('invalid_art')
+				expect((await upload(pngOfSize(8, 8))).json().error).toBe('invalid_art')
+				expect((await upload(pngOfSize(4096, 4096))).json().error).toBe('invalid_art')
+
+				// Too large: a valid header padded past the 512 KB limit.
+				const huge = Buffer.concat([pngOfSize(64, 64), Buffer.alloc(600 * 1024)])
+				expect((await upload(huge)).json().error).toBe('art_too_large')
+			},
+			{ config: adminConfig },
+		))
+
+	it('publishes the picture, serves it with cache headers and versions every upload', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				const first = await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade/art',
+					headers: PNG_HEADERS,
+					payload: pngOfSize(256, 256),
+					cookies: sessionCookies(sessionToken),
+				})
+				expect(first.statusCode).toBe(201)
+				expect(first.json().art).toMatchObject({ kind: 'item', entityId: 'wooden-blade', version: 1 })
+
+				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				const url: string = overlay.art['item:wooden-blade']
+				expect(url).toBe('/api/content/art/item/wooden-blade?v=1')
+
+				const image = await app.inject({ method: 'GET', url })
+				expect(image.statusCode).toBe(200)
+				expect(image.headers['content-type']).toBe('image/png')
+				expect(image.headers['cache-control']).toContain('immutable')
+				expect(image.headers.etag).toBe('"v1"')
+				expect(image.rawPayload.equals(pngOfSize(256, 256))).toBe(true)
+
+				// Same URL + matching ETag → 304, so a cached icon is revalidated, never re-sent.
+				const revalidated = await app.inject({
+					method: 'GET',
+					url,
+					headers: { 'if-none-match': '"v1"' },
+				})
+				expect(revalidated.statusCode).toBe(304)
+
+				// A new picture gets a new URL, so no browser cache can keep showing the old one.
+				const second = await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade/art',
+					headers: PNG_HEADERS,
+					payload: pngOfSize(128, 128),
+					cookies: sessionCookies(sessionToken),
+				})
+				expect(second.json().art.version).toBe(2)
+				const updated = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(updated.art['item:wooden-blade']).toBe('/api/content/art/item/wooden-blade?v=2')
+			},
+			{ config: adminConfig },
+		))
+
+	it('keeps the picture when other fields are edited', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade/art',
+					headers: PNG_HEADERS,
+					payload: pngOfSize(256, 256),
+					cookies: sessionCookies(sessionToken),
+				})
+				// The payload replaces the whole field set on save — the art lives in its own table,
+				// so it must survive a normal edit.
+				await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade',
+					payload: { cost: 9 },
+					cookies: sessionCookies(sessionToken),
+				})
+				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(overlay.items['wooden-blade']).toEqual({ cost: 9 })
+				expect(overlay.art['item:wooden-blade']).toContain('wooden-blade')
+			},
+			{ config: adminConfig },
+		))
+
+	it('lists which entities have a picture, without shipping the bytes', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/pet/fire-pup/art',
+					headers: PNG_HEADERS,
+					payload: pngOfSize(256, 256),
+					cookies: sessionCookies(sessionToken),
+				})
+				const listed = (
+					await app.inject({
+						method: 'GET',
+						url: '/api/admin/content',
+						cookies: sessionCookies(sessionToken),
+					})
+				).json()
+				expect(listed.art).toEqual([
+					expect.objectContaining({ kind: 'pet', entityId: 'fire-pup', version: 1, width: 256, height: 256 }),
+				])
+				expect(JSON.stringify(listed)).not.toContain('bytes')
+			},
+			{ config: adminConfig },
+		))
+
+	it('deleting the picture puts the entity back on its own art', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				await app.inject({
+					method: 'PUT',
+					url: '/api/admin/content/item/wooden-blade/art',
+					headers: PNG_HEADERS,
+					payload: pngOfSize(256, 256),
+					cookies: sessionCookies(sessionToken),
+				})
+				const removed = await app.inject({
+					method: 'DELETE',
+					url: '/api/admin/content/item/wooden-blade/art',
+					cookies: sessionCookies(sessionToken),
+				})
+				expect(removed.statusCode).toBe(200)
+
+				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(overlay.art).toEqual({})
+				const gone = await app.inject({ method: 'GET', url: '/api/content/art/item/wooden-blade' })
+				expect(gone.statusCode).toBe(404)
 			},
 			{ config: adminConfig },
 		))

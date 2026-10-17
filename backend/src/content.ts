@@ -282,6 +282,14 @@ export interface ContentOverrideRow {
 export interface ContentOut {
 	items: Record<string, ContentPayload>
 	pets: Record<string, ContentPayload>
+	/**
+	 * Uploaded pictures, ready to use as `<img src>`: `{ "item:wooden-blade": "/api/content/art/item/wooden-blade?v=3" }`.
+	 *
+	 * ⚠️ Kept out of the per-entity payload on purpose: a payload **replaces** the whole field set on
+	 * save, so an admin editing `damage` would silently drop the picture. Separately, it also means
+	 * "Về mặc định" (delete the override) cannot lose an uploaded image.
+	 */
+	art: Record<string, string>
 }
 
 /** Raw rows, so the admin page can tell which entities are overridden and by whom. */
@@ -303,12 +311,15 @@ export async function listContentOverrides(db: Db): Promise<ContentOverrideRow[]
 	})
 }
 
-/** The shape the game client needs: `{ items: { id: payload }, pets: { id: payload } }`. */
+/** The shape the game client needs: `{ items: { id: payload }, pets: { id: payload }, art: { key: url } }`. */
 export async function readContent(db: Db): Promise<ContentOut> {
 	const overrides = await listContentOverrides(db)
-	const out: ContentOut = { items: {}, pets: {} }
+	const out: ContentOut = { items: {}, pets: {}, art: {} }
 	for (const override of overrides) {
 		out[override.kind === 'item' ? 'items' : 'pets'][override.entityId] = override.payload
+	}
+	for (const art of await listArt(db)) {
+		out.art[`${art.kind}:${art.entityId}`] = artUrl(art.kind, art.entityId, art.version)
 	}
 	return out
 }
@@ -343,4 +354,173 @@ export async function saveContentOverride(
 /** Deleting a row puts that entity back on the code default. */
 export async function deleteContentOverride(db: Db, kind: ContentKind, entityId: string): Promise<void> {
 	await db.contentOverride.deleteMany({ where: { id: contentOverrideId(kind, entityId) } })
+}
+
+// ── Uploaded art ─────────────────────────────────────────────────────────────
+//
+// One picture per entity (item or pet), stored as a PNG in the database. The server does **not**
+// edit the picture: the admin page crops it in the browser (`react-easy-crop`) and uploads the
+// finished 256×256 PNG. The server only checks that it really is a PNG of a sane size and hands it
+// out again with cache headers — it holds no game rules and no image processing.
+
+/** Hard limit for one upload. A 256×256 icon is a few tens of KB; anything near this is abuse. */
+export const ART_MAX_BYTES = 512 * 1024
+
+/** Accepted side length of the uploaded picture (it must be square). */
+const ART_MIN_SIDE = 32
+const ART_MAX_SIDE = 512
+
+const ART_MIME = 'image/png'
+
+export interface ArtRow {
+	kind: ContentKind
+	entityId: string
+	version: number
+	width: number
+	height: number
+	updatedAt: string
+	updatedBy: string | null
+}
+
+export interface ArtFile {
+	bytes: Buffer
+	mime: string
+	version: number
+}
+
+/** Public URL of one entity's picture. `v` makes each version a **different** URL, so it can be cached forever. */
+export function artUrl(kind: ContentKind, entityId: string, version: number): string {
+	return `/api/content/art/${kind}/${entityId}?v=${version}`
+}
+
+/**
+ * Read the PNG header and return its size, or `null` when this is not a PNG.
+ *
+ * ⚠️ The signature is checked byte by byte, ❌ not by the `Content-Type` the client claims: a
+ * mislabelled file would otherwise be served as an image and show as a broken icon.
+ * Dimensions come from the `IHDR` chunk, which every PNG must have first.
+ */
+export function readPngSize(bytes: Buffer): { width: number; height: number } | null {
+	const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+	if (bytes.length < 24) return null
+	for (let index = 0; index < signature.length; index += 1) {
+		if (bytes[index] !== signature[index]) return null
+	}
+	return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+}
+
+/**
+ * Copy a Node `Buffer` into a plain `Uint8Array`.
+ *
+ * Prisma types `Bytes` as `Uint8Array<ArrayBuffer>`; a `Buffer` is a view over an `ArrayBufferLike`
+ * and does not satisfy it. One copy of a ≤512 KB icon is cheaper than casting the type away.
+ */
+function toBytes(bytes: Buffer): Uint8Array<ArrayBuffer> {
+	const copy = new ArrayBuffer(bytes.byteLength)
+	const view = new Uint8Array(copy)
+	view.set(bytes)
+	return view
+}
+
+/** Store (or replace) the picture of one entity and return it with its new version number. */
+export async function saveArt(
+	db: Db,
+	kind: ContentKind,
+	entityId: string,
+	bytes: Buffer,
+	updatedBy: string | null,
+): Promise<ArtRow> {
+	if (bytes.length === 0) throw badRequest('The uploaded file is empty.', 'empty_art')
+	if (bytes.length > ART_MAX_BYTES) {
+		throw badRequest(
+			`The picture is too large (${Math.round(bytes.length / 1024)} KB). Keep it under ${ART_MAX_BYTES / 1024} KB.`,
+			'art_too_large',
+		)
+	}
+
+	const size = readPngSize(bytes)
+	if (!size) throw badRequest('The picture must be a PNG file.', 'invalid_art')
+	if (size.width !== size.height) {
+		throw badRequest(`The picture must be square (got ${size.width}×${size.height}).`, 'invalid_art')
+	}
+	if (size.width < ART_MIN_SIDE || size.width > ART_MAX_SIDE) {
+		throw badRequest(
+			`The picture must be ${ART_MIN_SIDE}–${ART_MAX_SIDE} px per side (got ${size.width}).`,
+			'invalid_art',
+		)
+	}
+
+	const id = contentOverrideId(kind, entityId)
+	const existing = await db.contentArt.findUnique({ where: { id }, select: { version: true } })
+	const version = (existing?.version ?? 0) + 1
+	const row = await db.contentArt.upsert({
+		where: { id },
+		create: {
+			id,
+			kind,
+			bytes: toBytes(bytes),
+			mime: ART_MIME,
+			version,
+			width: size.width,
+			height: size.height,
+			updatedAt: new Date(),
+			updatedBy,
+		},
+		update: {
+			bytes: toBytes(bytes),
+			mime: ART_MIME,
+			version,
+			width: size.width,
+			height: size.height,
+			updatedAt: new Date(),
+			updatedBy,
+		},
+		select: { version: true, width: true, height: true, updatedAt: true, updatedBy: true },
+	})
+
+	return { kind, entityId, ...row, updatedAt: row.updatedAt.toISOString() }
+}
+
+/** Remove the uploaded picture. Idempotent: deleting twice is not an error. */
+export async function deleteArt(db: Db, kind: ContentKind, entityId: string): Promise<void> {
+	await db.contentArt.deleteMany({ where: { id: contentOverrideId(kind, entityId) } })
+}
+
+/** The picture itself, for the public endpoint. `null` = nothing uploaded for this entity. */
+export async function readArt(db: Db, kind: ContentKind, entityId: string): Promise<ArtFile | null> {
+	const row = await db.contentArt.findUnique({
+		where: { id: contentOverrideId(kind, entityId) },
+		select: { bytes: true, mime: true, version: true },
+	})
+	if (!row) return null
+	return { bytes: Buffer.from(row.bytes), mime: row.mime, version: row.version }
+}
+
+/**
+ * Versions (no bytes!) of every uploaded picture.
+ *
+ * ⚠️ `select` is mandatory: without it Prisma would load every BYTEA column and the public overlay
+ * — which every anonymous player fetches — would carry megabytes of images.
+ */
+export async function listArt(db: Db): Promise<ArtRow[]> {
+	const rows = await db.contentArt.findMany({
+		orderBy: { id: 'asc' },
+		select: { id: true, kind: true, version: true, width: true, height: true, updatedAt: true, updatedBy: true },
+	})
+	return rows.flatMap((row) => {
+		const [kind, ...rest] = row.id.split(':')
+		const entityId = rest.join(':')
+		if (!isContentKind(kind) || entityId.length === 0) return []
+		return [
+			{
+				kind,
+				entityId,
+				version: row.version,
+				width: row.width,
+				height: row.height,
+				updatedAt: row.updatedAt.toISOString(),
+				updatedBy: row.updatedBy,
+			},
+		]
+	})
 }

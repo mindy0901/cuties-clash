@@ -62,7 +62,39 @@ The coloured background follows the item everywhere it is drawn — Trang bị, 
 the detail dialog and the enemy grid in battle — through the shared `itemTileClass()` in
 `src/components/ui.ts`. The palette lives in `@theme` in `src/styles/app.css`.
 
-## How it is stored
+## Importing a picture (items and pets)
+
+The **🖼️ Tải ảnh lên** button next to the current picture opens a cropper
+(`react-easy-crop`): drag to choose the area, scroll or use the slider to zoom, ⟲/⟳ to rotate, then
+**Lưu ảnh**. Everything happens **in the browser** — the cropped picture is turned into a
+**256×256 PNG** (transparency kept) and that PNG, not the original file, is uploaded.
+
+| Piece | Where |
+| --- | --- |
+| Cropper dialog | `components/ArtImportDialog.tsx` |
+| Crop → square PNG | `components/cropImage.ts` (`croppedPng`, `ART_SIZE`) |
+| Storage | **Postgres**, table `content_art` — one row per entity, `bytes` as `bytea` |
+| Public read | `GET /api/content/art/:kind/:id?v=<version>` |
+| Upload / delete | `PUT` / `DELETE /api/admin/content/:kind/:id/art` |
+
+⚠️ **Why the database and not a file on disk:** the container has no writable volume for user
+content, so a file would disappear on every rebuild. An icon is a few tens of KB.
+
+⚠️ **Why `version` in the URL:** each upload bumps it, so `/…?v=2` is a *different* URL and the
+response can be cached **forever** (`immutable`) — players never see a stale picture and also never
+re-download one.
+
+⚠️ The uploaded picture is **separate from the override payload** (it travels in the overlay's
+`art` map, not in the per-entity JSON). A payload replaces the whole field set on save, so a
+picture stored inside it would vanish the next time someone edited `damage`; and **Về mặc định**
+(deleting the override) must not delete an uploaded image.
+
+Removing a picture (↺ **Bỏ ảnh đã tải**) puts the entity back on its bundled file, then the emoji.
+
+⚠️ The server only checks that the bytes really are a **square PNG from 32 to 512 px, at most
+512 KB** — it holds no image processing and no game rules. A non-PNG arrives as `400 invalid_art`.
+
+## How it is stored (fields)
 
 - `GET /api/content` — public overlay for the game client: `{ items: {id: payload}, pets: {…} }`.
 - `GET /api/admin/content` — overridden rows plus the author (page only).
@@ -98,6 +130,13 @@ Determinism is untouched: the seed decides rolls, and the lists keep their origi
 
 ## Adding art later
 
-Item and pet art paths are declared in code (`art`/`artExt`, `skillArt`, `avatar` flags) and can be
-toggled from the page; the actual files go under `public/icons/…`, **one per item** — see
-[`ASSETS.md`](./ASSETS.md).
+Two ways, and the uploaded one wins:
+
+1. **From the admin page** (no deploy): 🖼️ **Tải ảnh lên** → crop → save. Stored in the database as a
+   256×256 PNG and served from `/api/content/art/…` — see [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
+2. **As a bundled file**: put `public/icons/items/<id>.png` (one per item) and set `art: true`.
+   `art`/`artExt`, `skillArt` and `avatar` flags are also editable from the page.
+
+`itemArtSrc()` / `petArtSrc()` return **uploaded → bundled → `null`** (emoji), so a picture can be
+replaced or removed at any time without touching code. `avatarArtSrc()` also falls back to the
+uploaded pet picture, so the arena shows a new pet image straight away.

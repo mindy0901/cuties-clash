@@ -1,17 +1,13 @@
 import { useMemo, useState } from 'react'
-import { useAdminContent, useResetContent, useSaveContent, useSessionState } from '../api/queries'
-import {
-	ITEM_BY_ID,
-	ITEM_TEMPLATES,
-	QUALITY_LABELS,
-	QUALITY_VALUES,
-	STARS,
-	starLabel,
-} from '../game/items'
+import { useAdminContent, useDeleteArt, useResetContent, useSaveContent, useSessionState, useUploadArt } from '../api/queries'
+import { ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, starLabel } from '../game/items'
+import { itemArtSrc, petArtSrc } from '../game/art'
 import { PETS, getPet } from '../game/pets'
 import type { ItemTemplate, PetDef, Quality, Star } from '../game/types'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
+import { ArtIcon } from './ArtIcon'
+import { ArtImportDialog } from './ArtImportDialog'
 import {
 	ITEM_QUALITY_SWATCH,
 	btnClass,
@@ -341,8 +337,11 @@ function AdminContentEditor() {
 	const { data, isLoading } = useAdminContent(true)
 	const saveContent = useSaveContent()
 	const resetContent = useResetContent()
+	const uploadArt = useUploadArt()
+	const deleteArt = useDeleteArt()
 	const pushToast = useGameStore((state) => state.pushToast)
 	const bumpContent = useUiStore((state) => state.bumpContent)
+	const [importOpen, setImportOpen] = useState(false)
 
 	const ids = useMemo(
 		() => (kind === 'item' ? ITEM_TEMPLATES.map((template) => template.id) : PETS.map((pet) => pet.id)),
@@ -357,6 +356,12 @@ function AdminContentEditor() {
 		}
 		return map
 	}, [data, kind])
+
+	/** Uploaded picture of the edited entity (metadata only — the bytes are in the image itself). */
+	const artRow = useMemo(
+		() => (data?.art ?? []).find((entry) => entry.kind === kind && entry.entityId === selected),
+		[data, kind, selected],
+	)
 
 	/**
 	 * Entity actually being edited.
@@ -524,6 +529,61 @@ function AdminContentEditor() {
 						) : null}
 					</div>
 
+					{/* Picture: one per entity, uploaded and cropped in the browser. */}
+					<div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-line bg-black/25 p-2.5">
+						<div className="grid size-16 shrink-0 place-items-center rounded-[10px] border border-line bg-ink-700 p-1">
+							<ArtIcon
+								src={kind === 'item' ? itemArtSrc(activeId) : petArtSrc(activeId)}
+								emoji={kind === 'item' ? (ITEM_BY_ID[activeId]?.icon ?? '❔') : getPet(activeId).icon}
+								emojiClass="text-3xl"
+								alt="Ảnh hiện tại"
+							/>
+						</div>
+						<div className="flex min-w-0 flex-1 flex-col gap-1">
+							<div className="flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									data-admin-import-art
+									className={cn(btnClass, btnSmClass, btnGoldClass)}
+									onClick={() => setImportOpen(true)}
+									disabled={uploadArt.isPending || deleteArt.isPending}
+								>
+									🖼️ Tải ảnh lên
+								</button>
+								{artRow ? (
+									<button
+										type="button"
+										data-admin-remove-art
+										className={cn(btnClass, btnSmClass)}
+										onClick={() => {
+											deleteArt.mutate(
+												{ kind, id: activeId },
+												{
+													onSuccess: () => {
+														bumpContent()
+														pushToast(`Đã bỏ ảnh tải lên của "${activeId}"`, 'good')
+													},
+													onError: (error) =>
+														setMessage({ text: error.message, bad: true }),
+												},
+											)
+										}}
+										disabled={uploadArt.isPending || deleteArt.isPending}
+									>
+										↺ Bỏ ảnh đã tải
+									</button>
+								) : null}
+							</div>
+							<span className="text-[11.5px] text-muted">
+								{artRow
+									? `Ảnh tải lên · ${artRow.width}×${artRow.height} · v${artRow.version} · ${
+											artRow.updatedBy ?? '—'
+										}`
+									: 'Đang dùng ảnh đóng gói sẵn (hoặc emoji). Ảnh tải lên được cắt vuông 256×256, giữ nền trong suốt.'}
+							</span>
+						</div>
+					</div>
+
 					<div className="grid gap-2 md:grid-cols-2">
 						{FIELDS[kind].map((field) => (
 							<div
@@ -593,6 +653,19 @@ function AdminContentEditor() {
 					</div>
 				</section>
 			</div>
+
+			{importOpen ? (
+				<ArtImportDialog
+					entityName={kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name}
+					onCancel={() => setImportOpen(false)}
+					onSave={async (png) => {
+						await uploadArt.mutateAsync({ kind, id: activeId, png })
+						bumpContent()
+						pushToast(`Đã cập nhật ảnh cho "${activeId}"`, 'good')
+						setImportOpen(false)
+					}}
+				/>
+			) : null}
 		</div>
 	)
 }

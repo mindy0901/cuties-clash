@@ -96,6 +96,10 @@ again. `frontend/src/game/__tests__/artAlpha.test.ts` guards it: every image mus
 `art: true` on the template. The star rank is **not** part of the picture: upgrading an item only
 draws **more stars** on the tile and **recolours** them (`ITEM_STAR_TEXT`, silver → gold-orange).
 
+**Uploaded pictures win over these files.** The admin page can import a picture per item/pet (cropped
+to a 256×256 PNG in the browser, stored in Postgres) — `itemArtSrc`/`petArtSrc` return
+**uploaded → bundled → emoji**. See [`ADMIN.md`](./ADMIN.md#importing-a-picture-items-and-pets).
+
 ❌ The old mechanism used one file per star rank (`<id>-1.png` … `<id>-4.png`, a different material
 tier per rank). It turned a single weapon into four unrelated pictures and left 5★ with no picture
 at all. Those variants were deleted; `src/game/__tests__/art.test.ts` fails if `<id>-<star>.png`

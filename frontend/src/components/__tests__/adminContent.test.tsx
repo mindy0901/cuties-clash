@@ -33,28 +33,40 @@ const MEMBER_SESSION = {
 interface Stub {
 	session?: typeof ADMIN_SESSION
 	overrides?: unknown[]
+	/** Uploaded pictures reported by `/api/admin/content`. */
+	art?: unknown[]
 }
 
-/** Stub `fetch` for the endpoints the page uses and record PUT bodies. */
+/** Stub `fetch` for the endpoints the page uses and record PUT/DELETE calls. */
 function stubApi(options: Stub = {}) {
 	const puts: { url: string; body: unknown }[] = []
+	const deletes: string[] = []
+	const uploads: string[] = []
 	const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = String(input)
 		if (url.includes('/api/auth/session')) {
 			return json(options.session ?? ADMIN_SESSION)
+		}
+		if (url.includes('/art') && init?.method === 'PUT') {
+			uploads.push(url)
+			return json({ art: { version: 1 } }, 201)
+		}
+		if (url.includes('/art') && init?.method === 'DELETE') {
+			deletes.push(url)
+			return json({ ok: true })
 		}
 		if (url.includes('/api/admin/content') && init?.method === 'PUT') {
 			puts.push({ url, body: JSON.parse(String(init.body)) })
 			return json({ override: null })
 		}
 		if (url.includes('/api/admin/content')) {
-			return json({ overrides: options.overrides ?? [] })
+			return json({ overrides: options.overrides ?? [], art: options.art ?? [] })
 		}
-		if (url.includes('/api/content')) return json({ items: {}, pets: {} })
+		if (url.includes('/api/content')) return json({ items: {}, pets: {}, art: {} })
 		return json({}, 404)
 	})
 	vi.stubGlobal('fetch', fetchMock)
-	return { puts }
+	return { puts, deletes, uploads }
 }
 
 function json(body: unknown, status = 200) {
@@ -235,5 +247,56 @@ describe('editing content', () => {
 			const entry = document.querySelector<HTMLElement>('[data-admin-entry="fire-spear"]')
 			expect(entry?.textContent, 'an overridden entry must be marked').toContain('●')
 		})
+	})
+})
+
+describe('importing a picture', () => {
+	/** An already uploaded picture for `wooden-blade`, as `/api/admin/content` reports it. */
+	const UPLOADED = {
+		kind: 'item',
+		entityId: 'wooden-blade',
+		version: 3,
+		width: 256,
+		height: 256,
+		updatedAt: '2026-01-01T00:00:00.000Z',
+		updatedBy: 'quantri@example.com',
+	}
+
+	it('offers the import button, and no "remove" until something was uploaded', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		expect(document.querySelector('[data-admin-import-art]')).toBeTruthy()
+		expect(document.querySelector('[data-admin-remove-art]')).toBeNull()
+	})
+
+	it('opens the cropper dialog with a file picker', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(document.querySelector('[data-admin-import-art]')!)
+
+		const dialog = await screen.findByRole('dialog', { name: /Tải ảnh cho/ })
+		expect(dialog.textContent).toContain('256×256')
+		expect(dialog.querySelector('[data-art-file]')).toBeTruthy()
+		// Nothing to save yet: a picture has to be chosen first.
+		expect(
+			[...dialog.querySelectorAll('button')].find((button) => button.textContent?.includes('Lưu ảnh'))
+				?.disabled,
+		).toBe(true)
+	})
+
+	it('shows the uploaded picture metadata and removes it on request', async () => {
+		const { deletes } = stubApi({ art: [UPLOADED] })
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		expect(await screen.findByText(/Ảnh tải lên · 256×256 · v3/)).toBeTruthy()
+		fireEvent.click(document.querySelector('[data-admin-remove-art]')!)
+
+		await waitFor(() => expect(deletes).toHaveLength(1))
+		expect(deletes[0]).toContain('/api/admin/content/item/wooden-blade/art')
 	})
 })

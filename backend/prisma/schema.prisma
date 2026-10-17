@@ -78,3 +78,27 @@ model ContentOverride {
   @@index([kind], map: "ix_content_overrides_kind")
   @@map("content_overrides")
 }
+
+// Art uploaded from the admin page (one picture per entity), stored as PNG bytes.
+//
+// ⚠️ WHY IN THE DATABASE AND NOT ON DISK: the container has no writable volume for user
+// content, so a file on disk would vanish on every rebuild. Icons are tiny (256×256 PNG,
+// a few tens of KB), so a row is simpler and survives redeploys with the rest of the data.
+//
+// `version` is bumped on every upload and goes into the public URL (`?v=3`), which lets the
+// response be cached forever: a new picture always gets a new URL.
+model ContentArt {
+  // `item:<templateId>` or `pet:<petId>` — same key shape as `ContentOverride`.
+  id        String   @id @db.VarChar(120)
+  kind      String   @db.VarChar(16)
+  bytes     Bytes
+  mime      String   @db.VarChar(32)
+  version   Int
+  width     Int
+  height    Int
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?  @map("updated_by") @db.VarChar(320)
+
+  @@index([kind], map: "ix_content_art_kind")
+  @@map("content_art")
+}

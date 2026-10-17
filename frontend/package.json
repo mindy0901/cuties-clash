@@ -15,6 +15,7 @@
     "@tanstack/react-router": "^1.170.44",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-easy-crop": "^6.2.4",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

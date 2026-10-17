@@ -271,7 +271,7 @@ describe('importing a picture', () => {
 		expect(document.querySelector('[data-admin-remove-art]')).toBeNull()
 	})
 
-	it('opens the cropper dialog with a file picker', async () => {
+	it('opens the cropper dialog with a crop frame shaped like the item', async () => {
 		stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
@@ -279,7 +279,9 @@ describe('importing a picture', () => {
 		fireEvent.click(document.querySelector('[data-admin-import-art]')!)
 
 		const dialog = await screen.findByRole('dialog', { name: /Tải ảnh cho/ })
-		expect(dialog.textContent).toContain('256×256')
+		// Đao Gỗ covers 1×3 cells → the frame follows that shape and the file comes out 85×256.
+		expect(dialog.textContent).toContain('1×3 ô')
+		expect(dialog.textContent).toContain('85×256')
 		expect(dialog.querySelector('[data-art-file]')).toBeTruthy()
 		// Nothing to save yet: a picture has to be chosen first.
 		expect(

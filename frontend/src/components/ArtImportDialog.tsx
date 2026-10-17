@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 import type { Star } from '../game/types'
 import { ArtPreview } from './ArtPreview'
-import { ART_SIZE, croppedPng } from './cropImage'
+import { artOutputSize, croppedPng } from './cropImage'
 import { btnClass, btnGoldClass, btnSmClass, cn, dialogClass, hintClass, overlayClass, rowClass } from './ui'
 
 /** Largest file accepted straight from the admin's disk (before cropping). */
@@ -16,24 +16,41 @@ export interface ArtImportDialogProps {
 	entityId: string
 	/** Star rank to preview at (only changes the star colour). */
 	star: Star
-	/** Called with the finished square PNG. Resolving closes the dialog. */
+	/**
+	 * Footprint of the item in cells (`space`) — the **crop frame and the saved picture use exactly
+	 * this aspect ratio**, so a 1×3 sword is cropped tall and lands in its three cells without being
+	 * squeezed. Pets are square (`{ w: 1, h: 1 }`).
+	 */
+	space: { w: number; h: number }
+	/** Called with the finished PNG. Resolving closes the dialog. */
 	onSave: (png: Blob) => Promise<void>
 	onCancel: () => void
 }
 
 /**
- * Pick a picture, crop it square, upload it.
+ * Pick a picture, crop it, upload it.
  *
- * ⚠️ The crop is **square on purpose**: item cells and the arena avatar frame are square, so a
- * picture of another shape would be squashed or would leave gaps. `ART_SIZE` (256 px) stays crisp
- * even on a high-DPI screen.
+ * ⚠️ The crop frame is **the item's own grid shape** (see `space`), not a square: the tile in the
+ * game is exactly that footprint, so cropping to the same shape means the picture fits it without
+ * being stretched, and the frame shows the area the picture will really occupy.
  *
  * ⚠️ The chosen file is never uploaded as-is — only the cropped PNG leaves the browser.
  *
  * ⚠️ The preview is drawn through the **real** tile (`ArtPreview` → the game's own grid/pet cell), so
  * what you see is exactly what lands in the shop and the loadout grid.
  */
-export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCancel }: ArtImportDialogProps) {
+export function ArtImportDialog({
+	entityName,
+	kind,
+	entityId,
+	star,
+	// Defaulted so a caller that forgets `space` cannot crash the dialog (a crash here is a blank page).
+	space = { w: 1, h: 1 },
+	onSave,
+	onCancel,
+}: ArtImportDialogProps) {
+	const output = artOutputSize(space)
+	const aspect = space.w / space.h
 	const [source, setSource] = useState<{ url: string; name: string } | null>(null)
 	const [crop, setCrop] = useState({ x: 0, y: 0 })
 	const [zoom, setZoom] = useState(1)
@@ -65,7 +82,7 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 		const timer = setTimeout(() => {
 			void (async () => {
 				try {
-					const png = await croppedPng(source.url, area, { rotation, size: ART_SIZE })
+					const png = await croppedPng(source.url, area, { rotation, width: output.width, height: output.height })
 					if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
 					const url = URL.createObjectURL(png)
 					previewUrl.current = url
@@ -115,7 +132,11 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 		setBusy(true)
 		setError(null)
 		try {
-			const png = await croppedPng(source.url, area, { rotation, size: ART_SIZE })
+			const png = await croppedPng(source.url, area, {
+				rotation,
+				width: output.width,
+				height: output.height,
+			})
 			await onSave(png)
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : 'Không lưu được ảnh.')
@@ -136,8 +157,9 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 			>
 				<h2 className="text-[20px]">Tải ảnh cho “{entityName}”</h2>
 				<p className={hintClass}>
-					Ảnh được cắt thành ô vuông {ART_SIZE}×{ART_SIZE}, giữ nền trong suốt nếu ảnh có. Kéo để chọn vùng,
-					lăn chuột để thu phóng, bấm xoay nếu ảnh nằm ngang.
+					Khung cắt theo đúng hình ô của món ({space.w}×{space.h} ô) và ảnh lưu ra{' '}
+					{output.width}×{output.height} px, giữ nền trong suốt nếu ảnh có. Kéo để chọn vùng, lăn chuột để thu
+					phóng (thu nhỏ được tới 0.5× nếu ảnh không cùng tỉ lệ), bấm xoay nếu ảnh nằm ngang.
 				</p>
 
 				{source ? (
@@ -147,7 +169,7 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 							crop={crop}
 							zoom={zoom}
 							rotation={rotation}
-							aspect={1}
+							aspect={aspect}
 							objectFit="contain"
 							showGrid
 							restrictPosition={false}
@@ -155,6 +177,12 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 							onZoomChange={setZoom}
 							onRotationChange={setRotation}
 							onCropComplete={(_area, areaPixels) => setArea(areaPixels)}
+							/*
+							 * Zooming **out** below 1 is allowed on purpose: a picture that is squarer than the
+							 * item's footprint (a square icon for a 1×3 sword) can then be brought fully inside
+							 * the frame instead of only being cropped.
+							 */
+							minZoom={0.5}
 						/>
 					</div>
 				) : (
@@ -214,8 +242,8 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 							<ArtPreview kind={kind} id={entityId} star={star} artSrc={preview} />
 						</div>
 						<span className="text-[12px] text-muted">
-							Xem trước trong ô thật (nền theo phẩm, sao theo cấp). Ảnh được cắt vuông {ART_SIZE}×
-							{ART_SIZE} khi bấm Lưu.
+							Xem trước trong ô thật (nền theo phẩm, sao theo cấp). Ảnh lưu ra {output.width}×
+							{output.height} px khi bấm Lưu.
 						</span>
 					</div>
 				) : null}
@@ -226,7 +254,7 @@ export function ArtImportDialog({ entityName, kind, entityId, star, onSave, onCa
 						<input
 							type="range"
 							data-art-zoom
-							min={1}
+							min={0.5}
 							max={3}
 							step={0.01}
 							value={zoom}

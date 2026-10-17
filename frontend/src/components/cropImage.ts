@@ -19,8 +19,20 @@ export interface CropArea {
 	height: number
 }
 
-/** Side of the stored picture, in px. Square, and well above the size a grid cell can show. */
+/** Largest side of the stored picture, in px (a grid cell is only ~60 CSS px). */
 export const ART_SIZE = 256
+
+/**
+ * Output size for a picture of an item that covers `w`×`h` cells.
+ *
+ * ⚠️ The **aspect ratio follows the item's footprint**, because the tile is exactly that footprint:
+ * a 1×3 sword gets a 85×256 picture, a 2×3 sabre 171×256, a jade 256×256. Cropping square and then
+ * stretching it into a long tile is what made the art look squeezed.
+ */
+export function artOutputSize(space: { w: number; h: number }): { width: number; height: number } {
+	const scale = ART_SIZE / Math.max(space.w, space.h)
+	return { width: Math.max(1, Math.round(space.w * scale)), height: Math.max(1, Math.round(space.h * scale)) }
+}
 
 /** Load an image element from an object URL (or a normal URL). */
 export function loadImage(src: string): Promise<HTMLImageElement> {
@@ -40,7 +52,7 @@ function rotatedBounds(width: number, height: number, radians: number) {
 }
 
 /**
- * Draw `area` of `src` (optionally rotated) onto a transparent `size`×`size` canvas → PNG blob.
+ * Draw `area` of `src` (optionally rotated) onto a transparent canvas of the given size → PNG blob.
  *
  * The canvas starts empty, so the picture's own transparency is kept: a PNG with an alpha channel
  * stays clean instead of getting a black or white backdrop. `artAlpha.test.ts` guards the bundled
@@ -49,9 +61,9 @@ function rotatedBounds(width: number, height: number, radians: number) {
 export async function croppedPng(
 	src: string,
 	area: CropArea,
-	options: { rotation?: number; size?: number } = {},
+	options: { rotation?: number; width?: number; height?: number } = {},
 ): Promise<Blob> {
-	const { rotation = 0, size = ART_SIZE } = options
+	const { rotation = 0, width = ART_SIZE, height = ART_SIZE } = options
 	const image = await loadImage(src)
 	const radians = (rotation * Math.PI) / 180
 
@@ -74,10 +86,10 @@ export async function croppedPng(
 		sourceHeight = rotated.height
 	}
 
-	// 2. Crop + scale into the final square canvas.
+	// 2. Crop + scale into the final canvas (its shape follows the item's footprint).
 	const canvas = document.createElement('canvas')
-	canvas.width = size
-	canvas.height = size
+	canvas.width = width
+	canvas.height = height
 	const context = canvas.getContext('2d')
 	if (!context) throw new Error('Trình duyệt không hỗ trợ canvas.')
 	context.imageSmoothingEnabled = true
@@ -95,8 +107,8 @@ export async function croppedPng(
 		clampedHeight,
 		0,
 		0,
-		size,
-		size,
+		width,
+		height,
 	)
 
 	const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))

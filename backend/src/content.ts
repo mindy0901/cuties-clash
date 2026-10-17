@@ -363,11 +363,18 @@ export async function deleteContentOverride(db: Db, kind: ContentKind, entityId:
 // finished 256×256 PNG. The server only checks that it really is a PNG of a sane size and hands it
 // out again with cache headers — it holds no game rules and no image processing.
 
-/** Hard limit for one upload. A 256×256 icon is a few tens of KB; anything near this is abuse. */
+/**
+ * Hard limit for one upload. A 256 px icon is a few tens of KB; anything near this is abuse.
+ */
 export const ART_MAX_BYTES = 512 * 1024
 
-/** Accepted side length of the uploaded picture (it must be square). */
-const ART_MIN_SIDE = 32
+/**
+ * Accepted side length of the uploaded picture.
+ *
+ * ⚠️ **Not forced to be square**: the admin page crops to the item's own footprint (1×3 sword,
+ * 2×3 sabre), so the stored picture has the shape of the tile it will fill.
+ */
+const ART_MIN_SIDE = 8
 const ART_MAX_SIDE = 512
 
 const ART_MIME = 'image/png'
@@ -440,12 +447,14 @@ export async function saveArt(
 
 	const size = readPngSize(bytes)
 	if (!size) throw badRequest('The picture must be a PNG file.', 'invalid_art')
-	if (size.width !== size.height) {
-		throw badRequest(`The picture must be square (got ${size.width}×${size.height}).`, 'invalid_art')
-	}
-	if (size.width < ART_MIN_SIDE || size.width > ART_MAX_SIDE) {
+	if (
+		size.width < ART_MIN_SIDE ||
+		size.width > ART_MAX_SIDE ||
+		size.height < ART_MIN_SIDE ||
+		size.height > ART_MAX_SIDE
+	) {
 		throw badRequest(
-			`The picture must be ${ART_MIN_SIDE}–${ART_MAX_SIDE} px per side (got ${size.width}).`,
+			`The picture must be ${ART_MIN_SIDE}–${ART_MAX_SIDE} px on each side (got ${size.width}×${size.height}).`,
 			'invalid_art',
 		)
 	}

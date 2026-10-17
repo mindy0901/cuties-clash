@@ -679,6 +679,12 @@ function AdminContentEditor() {
 					kind={kind}
 					entityId={activeId}
 					star={previewStar}
+					// The crop frame follows the item's grid shape; pets are square cells.
+					space={
+						kind === 'item'
+							? (ITEM_BY_ID[activeId]?.space ?? { w: 1, h: 1 })
+							: { w: 1, h: 1 }
+					}
 					onCancel={() => setImportOpen(false)}
 					onSave={async (png) => {
 						await uploadArt.mutateAsync({ kind, id: activeId, png })

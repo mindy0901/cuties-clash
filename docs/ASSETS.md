@@ -110,10 +110,13 @@ The art that was kept is the **plain-material variant** (what `<id>-1.png` used 
 compete with the tile colour (quality) or the star colour (rank), so both signals stay readable.
 
 ⚠️ **The picture is stretched to its tile** (`ArtIcon fit="fill"`, `object-fill`). A tile is exactly
-the item's footprint (1×3 sword, 2×3 sabre…), and the art itself is square — drawn with `contain` it
+the item's footprint (1×3 sword, 2×3 sabre…), and the bundled art is square — drawn with `contain` it
 would sit in **one cell in the middle** of a long tile. So a long weapon's picture is stretched along
-its long axis to cover every cell it occupies; square items look unchanged. Art for a specific item
-may therefore be drawn **at the item's proportions** to avoid stretching (a 1×3 icon for a 1×3 item).
+its long axis to cover every cell it occupies; square items look unchanged.
+
+⇒ Art for a specific item should be drawn **at the item's own proportions** (a 1×3 canvas for a 1×3
+weapon) to avoid any stretch. Pictures imported from the admin page already are: the cropper's frame
+follows the footprint and saves e.g. 85×256 for a 1×3 item (`artOutputSize`), so nothing is stretched.
 
 **Icon type for each item:**
 

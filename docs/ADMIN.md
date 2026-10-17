@@ -66,13 +66,18 @@ the detail dialog and the enemy grid in battle — through the shared `itemTileC
 
 The **🖼️ Tải ảnh lên** button next to the current picture opens a cropper
 (`react-easy-crop`): drag to choose the area, scroll or use the slider to zoom, ⟲/⟳ to rotate, then
-**Lưu ảnh**. Everything happens **in the browser** — the cropped picture is turned into a
-**256×256 PNG** (transparency kept) and that PNG, not the original file, is uploaded.
+**Lưu ảnh**. Everything happens **in the browser** — the cropped picture is turned into a PNG and
+that PNG, not the original file, is uploaded.
+
+⚠️ **The crop frame is the item's own grid shape**, ❌ not a square: a 1×3 sword is cropped in a tall
+1:3 frame and the file comes out **85×256** (a 2×3 sabre → 171×256, a jade → 256×256). The tile in the
+game is exactly that footprint, so the picture fills it without being squeezed. Zoom out to **0.5×**
+when the picture is squarer than the frame. Pets are square cells (`1×1`).
 
 | Piece | Where |
 | --- | --- |
 | Cropper dialog | `components/ArtImportDialog.tsx` |
-| Crop → square PNG | `components/cropImage.ts` (`croppedPng`, `ART_SIZE`) |
+| Crop → PNG in the item's shape | `components/cropImage.ts` (`croppedPng`, `artOutputSize`) |
 | Storage | **Postgres**, table `content_art` — one row per entity, `bytes` as `bytea` |
 | Public read | `GET /api/content/art/:kind/:id?v=<version>` |
 | Upload / delete | `PUT` / `DELETE /api/admin/content/:kind/:id/art` |
@@ -91,8 +96,9 @@ picture stored inside it would vanish the next time someone edited `damage`; and
 
 Removing a picture (↺ **Bỏ ảnh đã tải**) puts the entity back on its bundled file, then the emoji.
 
-⚠️ The server only checks that the bytes really are a **square PNG from 32 to 512 px, at most
-512 KB** — it holds no image processing and no game rules. A non-PNG arrives as `400 invalid_art`.
+⚠️ The server only checks that the bytes really are a **PNG from 8 to 512 px per side, at most
+512 KB** — it holds no image processing and no game rules, and it does **not** require a square
+picture (the shape follows the item's footprint). A non-PNG arrives as `400 invalid_art`.
 
 ### Previewing
 

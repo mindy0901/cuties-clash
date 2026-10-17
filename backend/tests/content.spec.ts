@@ -89,11 +89,15 @@ describe('content payload validation', () => {
 })
 
 describe('content API', () => {
-	it('reads publicly and starts empty', () =>
+	it('reads publicly and is shaped as { items, pets, art }', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({ method: 'GET', url: '/api/content' })
 			expect(response.statusCode).toBe(200)
-			expect(response.json()).toEqual({ items: {}, pets: {}, art: {} })
+			// ⚠️ Not "the table is empty": these tests run against the real dev database, so whatever
+			// an admin has already saved (including the pictures they uploaded) is there.
+			const body = response.json()
+			expect(Object.keys(body).sort()).toEqual(['art', 'items', 'pets'])
+			expect(body.items['test-art-item']).toBeUndefined()
 		}))
 
 	it('refuses anonymous edits', () =>
@@ -175,11 +179,9 @@ describe('content API', () => {
 					cookies,
 				})
 				expect(removed.statusCode).toBe(200)
-				expect((await app.inject({ method: 'GET', url: '/api/content' })).json()).toEqual({
-					items: {},
-					pets: {},
-					art: {},
-				})
+				// Scoped to this entity: the real dev database may hold other rows.
+				const body = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(body.pets['fire-pup']).toBeUndefined()
 			},
 			{ config: adminConfig },
 		))
@@ -196,11 +198,8 @@ describe('content API', () => {
 				})
 				expect(response.statusCode).toBe(400)
 				expect(response.json().error).toBe('unknown_field')
-				expect((await app.inject({ method: 'GET', url: '/api/content' })).json()).toEqual({
-					items: {},
-					pets: {},
-					art: {},
-				})
+				const body = (await app.inject({ method: 'GET', url: '/api/content' })).json()
+				expect(body.items['wooden-blade']).toBeUndefined()
 			},
 			{ config: adminConfig },
 		))
@@ -267,12 +266,21 @@ function pngOfSize(width: number, height: number): Buffer {
 
 const PNG_HEADERS = { 'content-type': 'image/png' } as const
 
+/**
+ * Item id used by these tests.
+ *
+ * ⚠️ Not `wooden-blade`: the suite runs against the **real dev database**, where an admin may already
+ * have uploaded a picture. A dedicated id keeps every assertion about "the first upload" true.
+ */
+const ART_ID = 'test-art-item'
+const ART_URL = `/api/admin/content/item/${ART_ID}/art`
+
 describe('uploaded art', () => {
 	it('refuses anonymous uploads', () =>
 		withApp(async ({ app }) => {
 			const response = await app.inject({
 				method: 'PUT',
-				url: '/api/admin/content/item/wooden-blade/art',
+				url: ART_URL,
 				headers: PNG_HEADERS,
 				payload: pngOfSize(64, 64),
 			})
@@ -285,7 +293,7 @@ describe('uploaded art', () => {
 				const { sessionToken } = await seed(db, 'nguoichoi@example.com')
 				const response = await app.inject({
 					method: 'PUT',
-					url: '/api/admin/content/item/wooden-blade/art',
+					url: ART_URL,
 					headers: PNG_HEADERS,
 					payload: pngOfSize(64, 64),
 					cookies: sessionCookies(sessionToken),
@@ -302,7 +310,7 @@ describe('uploaded art', () => {
 				const upload = (payload: Buffer, headers: Record<string, string> = PNG_HEADERS) =>
 					app.inject({
 						method: 'PUT',
-						url: '/api/admin/content/item/wooden-blade/art',
+						url: ART_URL,
 						headers,
 						payload,
 						cookies: sessionCookies(sessionToken),
@@ -329,50 +337,72 @@ describe('uploaded art', () => {
 			{ config: adminConfig },
 		))
 
-	it('publishes the picture, serves it with cache headers and versions every upload', () =>
+	it('publishes the picture and serves it with cache headers', () =>
 		withApp(
 			async ({ app, db }) => {
 				const { sessionToken } = await seed(db, 'quantri@example.com')
 				const first = await app.inject({
 					method: 'PUT',
-					url: '/api/admin/content/item/wooden-blade/art',
+					url: ART_URL,
 					headers: PNG_HEADERS,
 					payload: pngOfSize(256, 256),
 					cookies: sessionCookies(sessionToken),
 				})
 				expect(first.statusCode).toBe(201)
-				expect(first.json().art).toMatchObject({ kind: 'item', entityId: 'wooden-blade', version: 1 })
+				expect(first.json().art).toMatchObject({ kind: 'item', entityId: ART_ID, width: 256, height: 256 })
 
 				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
-				const url: string = overlay.art['item:wooden-blade']
-				expect(url).toBe('/api/content/art/item/wooden-blade?v=1')
+				const url: string = overlay.art[`item:${ART_ID}`]
+				expect(url).toMatch(new RegExp(`^/api/content/art/item/${ART_ID}\\?v=\\d+$`))
 
 				const image = await app.inject({ method: 'GET', url })
 				expect(image.statusCode).toBe(200)
 				expect(image.headers['content-type']).toBe('image/png')
 				expect(image.headers['cache-control']).toContain('immutable')
-				expect(image.headers.etag).toBe('"v1"')
 				expect(image.rawPayload.equals(pngOfSize(256, 256))).toBe(true)
 
 				// Same URL + matching ETag → 304, so a cached icon is revalidated, never re-sent.
 				const revalidated = await app.inject({
 					method: 'GET',
 					url,
-					headers: { 'if-none-match': '"v1"' },
+					headers: { 'if-none-match': String(image.headers.etag) },
 				})
 				expect(revalidated.statusCode).toBe(304)
+			},
+			{ config: adminConfig },
+		))
 
-				// A new picture gets a new URL, so no browser cache can keep showing the old one.
-				const second = await app.inject({
-					method: 'PUT',
-					url: '/api/admin/content/item/wooden-blade/art',
-					headers: PNG_HEADERS,
-					payload: pngOfSize(128, 128),
-					cookies: sessionCookies(sessionToken),
-				})
-				expect(second.json().art.version).toBe(2)
-				const updated = (await app.inject({ method: 'GET', url: '/api/content' })).json()
-				expect(updated.art['item:wooden-blade']).toBe('/api/content/art/item/wooden-blade?v=2')
+	it('gives every upload a brand new URL, even after the picture was deleted', () =>
+		withApp(
+			async ({ app, db }) => {
+				const { sessionToken } = await seed(db, 'quantri@example.com')
+				const cookies = sessionCookies(sessionToken)
+				const urlOf = async () =>
+					(await app.inject({ method: 'GET', url: '/api/content' })).json().art[`item:${ART_ID}`] as
+						| string
+						| undefined
+				const upload = (bytes: Buffer) =>
+					app.inject({ method: 'PUT', url: ART_URL, headers: PNG_HEADERS, payload: bytes, cookies })
+
+				await upload(pngOfSize(256, 256))
+				const first = await urlOf()
+				expect(first).toBeTruthy()
+
+				// Replace it: a new URL, so a cached copy can never win.
+				await new Promise((resolve) => setTimeout(resolve, 5))
+				await upload(pngOfSize(85, 256))
+				const second = await urlOf()
+				expect(second).not.toBe(first)
+
+				// ⚠️ Regression: delete + upload again used to restart the counter at 1, which restored the
+				// **first** URL — the browser then kept showing the deleted picture (an axe instead of a sword).
+				await app.inject({ method: 'DELETE', url: ART_URL, cookies })
+				expect(await urlOf()).toBeUndefined()
+				await new Promise((resolve) => setTimeout(resolve, 5))
+				await upload(pngOfSize(85, 256))
+				const third = await urlOf()
+				expect(third).toBeTruthy()
+				expect(third).not.toBe(first)
 			},
 			{ config: adminConfig },
 		))
@@ -383,7 +413,7 @@ describe('uploaded art', () => {
 				const { sessionToken } = await seed(db, 'quantri@example.com')
 				await app.inject({
 					method: 'PUT',
-					url: '/api/admin/content/item/wooden-blade/art',
+					url: ART_URL,
 					headers: PNG_HEADERS,
 					payload: pngOfSize(256, 256),
 					cookies: sessionCookies(sessionToken),
@@ -392,13 +422,13 @@ describe('uploaded art', () => {
 				// so it must survive a normal edit.
 				await app.inject({
 					method: 'PUT',
-					url: '/api/admin/content/item/wooden-blade',
+					url: `/api/admin/content/item/${ART_ID}`,
 					payload: { cost: 9 },
 					cookies: sessionCookies(sessionToken),
 				})
 				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
-				expect(overlay.items['wooden-blade']).toEqual({ cost: 9 })
-				expect(overlay.art['item:wooden-blade']).toContain('wooden-blade')
+				expect(overlay.items[ART_ID]).toEqual({ cost: 9 })
+				expect(overlay.art[`item:${ART_ID}`]).toContain(ART_ID)
 			},
 			{ config: adminConfig },
 		))
@@ -409,7 +439,7 @@ describe('uploaded art', () => {
 				const { sessionToken } = await seed(db, 'quantri@example.com')
 				await app.inject({
 					method: 'PUT',
-					url: '/api/admin/content/pet/fire-pup/art',
+					url: ART_URL,
 					headers: PNG_HEADERS,
 					payload: pngOfSize(256, 256),
 					cookies: sessionCookies(sessionToken),
@@ -421,9 +451,8 @@ describe('uploaded art', () => {
 						cookies: sessionCookies(sessionToken),
 					})
 				).json()
-				expect(listed.art).toEqual([
-					expect.objectContaining({ kind: 'pet', entityId: 'fire-pup', version: 1, width: 256, height: 256 }),
-				])
+				const mine = listed.art.find((entry: { entityId: string }) => entry.entityId === ART_ID)
+				expect(mine).toMatchObject({ kind: 'item', entityId: ART_ID, width: 256, height: 256 })
 				expect(JSON.stringify(listed)).not.toContain('bytes')
 			},
 			{ config: adminConfig },
@@ -435,21 +464,21 @@ describe('uploaded art', () => {
 				const { sessionToken } = await seed(db, 'quantri@example.com')
 				await app.inject({
 					method: 'PUT',
-					url: '/api/admin/content/item/wooden-blade/art',
+					url: ART_URL,
 					headers: PNG_HEADERS,
 					payload: pngOfSize(256, 256),
 					cookies: sessionCookies(sessionToken),
 				})
 				const removed = await app.inject({
 					method: 'DELETE',
-					url: '/api/admin/content/item/wooden-blade/art',
+					url: ART_URL,
 					cookies: sessionCookies(sessionToken),
 				})
 				expect(removed.statusCode).toBe(200)
 
 				const overlay = (await app.inject({ method: 'GET', url: '/api/content' })).json()
-				expect(overlay.art).toEqual({})
-				const gone = await app.inject({ method: 'GET', url: '/api/content/art/item/wooden-blade' })
+				expect(overlay.art[`item:${ART_ID}`]).toBeUndefined()
+				const gone = await app.inject({ method: 'GET', url: `/api/content/art/item/${ART_ID}` })
 				expect(gone.statusCode).toBe(404)
 			},
 			{ config: adminConfig },

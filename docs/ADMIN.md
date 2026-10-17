@@ -79,15 +79,20 @@ when the picture is squarer than the frame. Pets are square cells (`1×1`).
 | Cropper dialog | `components/ArtImportDialog.tsx` |
 | Crop → PNG in the item's shape | `components/cropImage.ts` (`croppedPng`, `artOutputSize`) |
 | Storage | **Postgres**, table `content_art` — one row per entity, `bytes` as `bytea` |
-| Public read | `GET /api/content/art/:kind/:id?v=<version>` |
+| Public read | `GET /api/content/art/:kind/:id?v=<upload time in ms>` |
 | Upload / delete | `PUT` / `DELETE /api/admin/content/:kind/:id/art` |
 
 ⚠️ **Why the database and not a file on disk:** the container has no writable volume for user
 content, so a file would disappear on every rebuild. An icon is a few tens of KB.
 
-⚠️ **Why `version` in the URL:** each upload bumps it, so `/…?v=2` is a *different* URL and the
-response can be cached **forever** (`immutable`) — players never see a stale picture and also never
-re-download one.
+⚠️ **Why the tag in the URL:** it is the **upload time in ms** (not an upload counter), so every
+upload — including one that replaces a deleted picture — is a *different* URL and the response can be
+cached **forever** (`immutable`): players never see a stale picture and never re-download one.
+
+⚠️ It must **not** be a counter: the counter restarts at 1 after "Bỏ ảnh đã tải", so a re-upload would
+restore an already cached URL and the browser would keep showing the **deleted** picture. That really
+happened (an uploaded axe kept showing after it was replaced by a sword), and
+`backend/tests/content.spec.ts` now has a regression test for it.
 
 ⚠️ The uploaded picture is **separate from the override payload** (it travels in the overlay's
 `art` map, not in the per-entity JSON). A payload replaces the whole field set on save, so a

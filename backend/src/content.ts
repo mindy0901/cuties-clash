@@ -319,7 +319,7 @@ export async function readContent(db: Db): Promise<ContentOut> {
 		out[override.kind === 'item' ? 'items' : 'pets'][override.entityId] = override.payload
 	}
 	for (const art of await listArt(db)) {
-		out.art[`${art.kind}:${art.entityId}`] = artUrl(art.kind, art.entityId, art.version)
+		out.art[`${art.kind}:${art.entityId}`] = artUrl(art.kind, art.entityId, art.updatedAt)
 	}
 	return out
 }
@@ -392,12 +392,26 @@ export interface ArtRow {
 export interface ArtFile {
 	bytes: Buffer
 	mime: string
-	version: number
+	/** Cache tag of these exact bytes — see `artUrl`. */
+	tag: string
 }
 
-/** Public URL of one entity's picture. `v` makes each version a **different** URL, so it can be cached forever. */
-export function artUrl(kind: ContentKind, entityId: string, version: number): string {
-	return `/api/content/art/${kind}/${entityId}?v=${version}`
+/**
+ * **Cache tag** of one upload: the write time in ms.
+ *
+ * ⚠️ WHY NOT THE UPLOAD COUNTER (`version`): the counter restarts at 1 when a picture is deleted
+ * and uploaded again, so the URL would repeat — and because responses are cached `immutable`, the
+ * browser would keep showing the **deleted** picture. That really happened: delete an axe, upload a
+ * sword, still see the axe. The timestamp is unique per upload, so a repeated URL can only ever mean
+ * the same bytes.
+ */
+function artTag(updatedAt: Date | string): string {
+	return String(new Date(updatedAt).getTime())
+}
+
+/** Public URL of one entity's picture. The tag makes each upload a **different** URL, so it can be cached forever. */
+export function artUrl(kind: ContentKind, entityId: string, updatedAt: Date | string): string {
+	return `/api/content/art/${kind}/${entityId}?v=${artTag(updatedAt)}`
 }
 
 /**
@@ -499,10 +513,10 @@ export async function deleteArt(db: Db, kind: ContentKind, entityId: string): Pr
 export async function readArt(db: Db, kind: ContentKind, entityId: string): Promise<ArtFile | null> {
 	const row = await db.contentArt.findUnique({
 		where: { id: contentOverrideId(kind, entityId) },
-		select: { bytes: true, mime: true, version: true },
+		select: { bytes: true, mime: true, updatedAt: true },
 	})
 	if (!row) return null
-	return { bytes: Buffer.from(row.bytes), mime: row.mime, version: row.version }
+	return { bytes: Buffer.from(row.bytes), mime: row.mime, tag: artTag(row.updatedAt) }
 }
 
 /**

@@ -52,8 +52,10 @@ export const contentRoutes: FastifyPluginAsync<ContentRouteOptions> = async (app
 	/**
 	 * Public: one uploaded picture.
 	 *
-	 * `?v=<version>` is part of the URL, so the bytes never change under a given URL — hence
-	 * `immutable` caching. A new upload gets a new `v` and shows up immediately.
+	 * `?v=<upload time in ms>` is part of the URL, so the bytes never change under a given URL — hence
+	 * `immutable` caching. ⚠️ It must be the **upload time**, not the upload counter: the counter
+	 * restarts at 1 after a delete, so a re-upload would reuse an already cached URL and the browser
+	 * would keep showing the deleted picture.
 	 */
 	app.get<{ Params: ContentParams }>('/api/content/art/:kind/:id', async (request, reply) => {
 		const kind = assertKind(request.params.kind)
@@ -61,7 +63,7 @@ export const contentRoutes: FastifyPluginAsync<ContentRouteOptions> = async (app
 		const art = await readArt(db, kind, entityId)
 		if (!art) throw notFound('Chưa có ảnh nào được tải lên cho mục này.')
 
-		const etag = `"v${art.version}"`
+		const etag = `"${art.tag}"`
 		if (request.headers['if-none-match'] === etag) return reply.code(304).send()
 		return reply
 			.header('Content-Type', art.mime)

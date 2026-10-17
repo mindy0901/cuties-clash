@@ -195,6 +195,14 @@ function defaultDraft(kind: Kind, id: string): Draft {
 	return draft
 }
 
+/** A positive number from a form box, or `null` when the box is empty or not a number. */
+function positiveNumber(raw: string | undefined): number | null {
+	const text = (raw ?? '').trim()
+	if (text === '') return null
+	const value = Number(text)
+	return Number.isFinite(value) && value > 0 ? value : null
+}
+
 /** Error message for one value, prefixed with the star rank it belongs to. */
 function invalid(star: Star | undefined, message: string): never {
 	throw new Error(star ? `${star}★ ${message}` : message)
@@ -398,6 +406,24 @@ function AdminContentEditor() {
 	/** Drop an optional field the editor added — the code value (or nothing) applies again. */
 	const clearOptionalField = (key: string) =>
 		setDraft((current) => ({ ...current, [key]: [] }))
+
+	/**
+	 * **Damage per minute** of each star rank, computed from the **draft** rather than the saved row,
+	 * so the number follows every keystroke in the damage or speed boxes.
+	 *
+	 * `speed` is attacks per second, so one minute is `damage × speed × 60`. An item without a speed
+	 * box swings at `DEFAULT_SPEED`; a box that is empty or unparsable shows `—` instead of a guess.
+	 */
+	const dpm = useMemo(() => {
+		if (kind !== 'item') return STARS.map(() => null)
+		const damage = draft.damage ?? []
+		const speed = draft.speed ?? []
+		return STARS.map((_, index) => {
+			const hit = positiveNumber(damage[index])
+			const rate = positiveNumber(speed[index] ?? defaults.speed?.[index] ?? String(DEFAULT_SPEED))
+			return hit !== null && rate !== null ? Math.round(hit * rate * 60) : null
+		})
+	}, [kind, draft, defaults])
 
 	/** Entities that currently have an override, mapped to the last editor's email. */
 	const overridden = useMemo(() => {
@@ -651,6 +677,19 @@ function AdminContentEditor() {
 									key={field.key}
 									className={cn('flex flex-col gap-1 text-[12.5px]', isPerStar(field) && 'md:col-span-2')}
 								>
+									{field.key === 'damage' && dpm.some((value) => value !== null) ? (
+										<span
+											data-admin-dpm
+											className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11.5px] text-gold-soft"
+										>
+											<span className="font-semibold">DPM</span>
+											{dpm.map((value, index) => (
+												<span key={index} className="tabular-nums">
+													{index + 1}★ {value === null ? '—' : value.toLocaleString('vi-VN')}
+												</span>
+											))}
+										</span>
+									) : null}
 									<span className="flex items-center gap-1.5 text-muted">
 										{field.label}
 										{field.hint ? <span className="opacity-70">· {field.hint}</span> : null}

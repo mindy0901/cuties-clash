@@ -177,6 +177,28 @@ describe('editing content', () => {
 		expect(document.querySelector('[data-admin-add-field="speed"]')).toBeTruthy()
 	})
 
+	it('shows DPM above the damage boxes and follows every edit', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		// Đao Gỗ 1★: 12 damage at 0.6667 attacks per second → 480 damage per minute.
+		const line = () =>
+			[...document.querySelectorAll('[data-admin-dpm] > span')].map((node) => node.textContent)
+		expect(line()).toEqual(['DPM', '1★ 480', '2★ 851', '3★ 1.455', '4★ 2.439', '5★ 4.105'])
+
+		fireEvent.change(document.querySelectorAll<HTMLInputElement>('[data-admin-field="damage"]')[0]!, {
+			target: { value: '24' },
+		})
+		expect(line()[1]).toBe('1★ 960')
+
+		// Doubling the speed doubles the rate: 24 × 1/s × 60.
+		fireEvent.change(document.querySelectorAll<HTMLInputElement>('[data-admin-field="speed"]')[0]!, {
+			target: { value: '1' },
+		})
+		expect(line()[1]).toBe('1★ 1.440')
+	})
+
 	it('sends the whole per-star array when a single star rank changes', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)

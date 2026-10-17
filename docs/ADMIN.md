@@ -60,6 +60,10 @@ players still see seconds in the detail dialog. `interval` is the cadence of a s
 
 An item that deals damage but declares no `speed` swings at `DEFAULT_SPEED`, never at an interval of 0.
 
+**DPM** is printed above the `damage` boxes: `damage × speed × 60` for every star rank, recomputed on
+each keystroke, so a damage/speed pair can be judged without starting a battle. It disappears for an
+item with no damage (armour, jewellery).
+
 **Quality** is a fixed property of the template (❌ independent of the item's star rank) that only
 decides the **tile colour**. The star rank uses the **same palette** for the star glyphs, so one
 five-step scale covers both:

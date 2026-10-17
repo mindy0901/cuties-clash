@@ -588,7 +588,7 @@ function AdminContentEditor() {
 										? `Ảnh tải lên · ${artRow.width}×${artRow.height} · v${artRow.version} · ${
 												artRow.updatedBy ?? '—'
 											}`
-										: 'Đang dùng ảnh đóng gói sẵn (hoặc emoji). Ảnh tải lên được cắt vuông 256×256, giữ nền trong suốt.'}
+										: 'Đang dùng ảnh đóng gói sẵn (hoặc emoji).'}
 								</span>
 								{/* Star rank only recolours the stars and adds more of them — check that the art still reads. */}
 								<div className="flex flex-wrap items-center gap-1">

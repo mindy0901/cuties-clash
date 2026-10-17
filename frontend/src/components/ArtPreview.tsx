@@ -5,16 +5,12 @@ import { PetTile } from './PetTile'
 
 /**
  * Preview a picture **where it will actually appear**:
- * - an item → a real grid tile (`LoadoutGrid`, so cell size, quality background, class border,
- *   star colour and name all come from the same code as the game);
+ * - an item → a real grid tile (`LoadoutGrid`, so cell size, quality background, class border and
+ *   stars all come from the same code as the game), on a board sized to the item's **own footprint**;
  * - a pet → the square pet cell used by the pet panel.
  *
- * ⚠️ WHY IT IS NOT A LOOK-ALIKE BOX: a plain 64×64 thumbnail hides exactly the things that can go
- * wrong — an item spanning 2×3 cells, a bright picture over the quality tint, stars disappearing
- * against the art. Drawing through the real components keeps the preview honest for free.
- *
- * ⚠️ The board is sized to the item's **own footprint** (`space`), ❌ not a full loadout grid: the
- * point is to look at the weapon in its cells, not at empty cells around it.
+ * ⚠️ WHY IT IS NOT A LOOK-ALIKE BOX: a plain thumbnail hides exactly what can go wrong — an item
+ * spanning 2×3 cells, a bright picture over the quality tint, stars lost against the art.
  */
 export function ItemGridPreview({
 	templateId,

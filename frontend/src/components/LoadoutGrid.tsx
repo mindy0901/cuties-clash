@@ -76,19 +76,19 @@ export function LoadoutGrid({
 					title={`${template.name} ${size.w}×${size.h}`}
 					data-item-quality={template.quality}
 				>
+					<span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
+						<ItemIcon templateId={item.templateId} artSrc={artSrc} />
+					</span>
+					{/* Stars take the line under the picture; the name lives in the `title` tooltip. */}
 					<span
 						data-item-stars={item.star}
 						className={cn(
-							'absolute top-0.5 right-1 text-[9px] tracking-[-1px] drop-shadow-[0_1px_1px_rgb(0_0_0/70%)]',
+							'shrink-0 text-[10px] leading-none tracking-[-1px] whitespace-nowrap drop-shadow-[0_1px_1px_rgb(0_0_0/70%)]',
 							ITEM_STAR_TEXT[item.star],
 						)}
 					>
 						{'★'.repeat(item.star)}
 					</span>
-					<span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-						<ItemIcon templateId={item.templateId} artSrc={artSrc} />
-					</span>
-					<span className="max-w-full truncate text-[10px] leading-[1.1] text-muted">{template.name}</span>
 					{interactive && (onRotate || onSell) ? (
 						<span className="absolute right-0.5 bottom-0.5 flex gap-1 opacity-0 transition-opacity duration-100 group-hover/slot:opacity-100">
 							{onRotate ? (

@@ -16,11 +16,7 @@ export interface ArtImportDialogProps {
 	entityId: string
 	/** Star rank to preview at (only changes the star colour). */
 	star: Star
-	/**
-	 * Footprint of the item in cells (`space`) — the **crop frame and the saved picture use exactly
-	 * this aspect ratio**, so a 1×3 sword is cropped tall and lands in its three cells without being
-	 * squeezed. Pets are square (`{ w: 1, h: 1 }`).
-	 */
+	/** Footprint in cells — the crop frame and the saved picture use exactly this aspect ratio. */
 	space: { w: number; h: number }
 	/** Called with the finished PNG. Resolving closes the dialog. */
 	onSave: (png: Blob) => Promise<void>
@@ -28,16 +24,10 @@ export interface ArtImportDialogProps {
 }
 
 /**
- * Pick a picture, crop it, upload it.
+ * Pick a picture, crop it to the item's own grid shape, upload it.
  *
- * ⚠️ The crop frame is **the item's own grid shape** (see `space`), not a square: the tile in the
- * game is exactly that footprint, so cropping to the same shape means the picture fits it without
- * being stretched, and the frame shows the area the picture will really occupy.
- *
- * ⚠️ The chosen file is never uploaded as-is — only the cropped PNG leaves the browser.
- *
- * ⚠️ The preview is drawn through the **real** tile (`ArtPreview` → the game's own grid/pet cell), so
- * what you see is exactly what lands in the shop and the loadout grid.
+ * ⚠️ Only the cropped PNG leaves the browser — never the original file. The preview is drawn through
+ * the **real** tile (`ArtPreview`), so it shows exactly what lands in the shop and the loadout grid.
  */
 export function ArtImportDialog({
 	entityName,
@@ -74,7 +64,7 @@ export function ArtImportDialog({
 	/**
 	 * Live preview: crop into a throw-away canvas shortly after the drag/zoom settles.
 	 *
-	 * Debounced because `onCropComplete` fires on every mouse move — cropping 256 px per frame would
+	 * Debounced because `onCropComplete` fires on every mouse move — re-cropping on each frame would
 	 * make dragging stutter.
 	 */
 	useEffect(() => {
@@ -93,7 +83,7 @@ export function ArtImportDialog({
 			})()
 		}, 140)
 		return () => clearTimeout(timer)
-	}, [source, area, rotation])
+	}, [source, area, rotation, output.width, output.height])
 
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {

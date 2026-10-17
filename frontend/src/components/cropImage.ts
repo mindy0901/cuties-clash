@@ -1,14 +1,12 @@
 /**
- * Turn the area chosen in the cropper into a finished square PNG.
+ * Turn the area chosen in the cropper into a finished PNG shaped like the item's footprint.
  *
  * ⚠️ All of it happens **in the browser**: the server only accepts a ready PNG (see
- * `backend/src/content.ts`). That keeps image processing out of the API and means the admin's
- * original file is never uploaded.
+ * `backend/src/content.ts`), and the admin's original file is never uploaded.
  *
  * ⚠️ Rotation is not free: `react-easy-crop` reports the crop area in the coordinates of the
  * **rotated** image, so the picture is first drawn rotated into a temporary canvas and the crop is
- * taken from that one. Drawing straight from the original with the reported area would cut a
- * slanted rectangle.
+ * taken from that one. Drawing straight from the original would cut a slanted rectangle.
  */
 
 /** Area of the source picture chosen in the cropper (in pixels of the rotated image). */
@@ -22,18 +20,14 @@ export interface CropArea {
 /**
  * Longest side of the stored picture, in px.
  *
- * ⚠️ Sized for the **worst case on a HiDPI screen**: a 4-column grid cell is ~60 CSS px, so on a 2×
- * screen it is ~120 device px, and a 4-wide item gets `ART_SIZE / 4` = 128 px per cell. Cropping
- * smaller (256) left the picture stretched and soft.
+ * ⚠️ Sized for the **worst case on a HiDPI screen**: a grid cell is ~60 CSS px (≈120 device px at
+ * 2×), and a 4-wide item gets `ART_SIZE / 4` = 128 px per cell.
  */
 export const ART_SIZE = 512
 
 /**
- * Output size for a picture of an item that covers `w`×`h` cells.
- *
- * ⚠️ The **aspect ratio follows the item's footprint**, because the tile is exactly that footprint:
- * a 1×3 sword gets a 85×256 picture, a 2×3 sabre 171×256, a jade 256×256. Cropping square and then
- * stretching it into a long tile is what made the art look squeezed.
+ * Output size for a picture of an item that covers `w`×`h` cells: **the item's own aspect ratio**,
+ * longest side `ART_SIZE` (1×3 → 171×512, 2×3 → 341×512, 1×1 → 512×512).
  */
 export function artOutputSize(space: { w: number; h: number }): { width: number; height: number } {
 	const scale = ART_SIZE / Math.max(space.w, space.h)

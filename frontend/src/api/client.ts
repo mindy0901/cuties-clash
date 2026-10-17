@@ -124,9 +124,9 @@ export const api = {
 		}),
 
 	/**
-	 * Upload the picture of one entity as a **raw PNG body** (already cropped to a square in the
-	 * browser). ❌ Not multipart: the browser can send a Blob directly, and base64 in JSON would add
-	 * a third to the size for nothing.
+	 * Upload the picture of one entity as a **raw PNG body**, already cropped in the browser to the
+	 * item's footprint. ❌ Not multipart: a Blob can be sent directly, and base64 in JSON would add a
+	 * third to the size for nothing.
 	 */
 	uploadArt: (kind: 'item' | 'pet', id: string, png: Blob) =>
 		request<{ art: ApiContentArt }>(`/api/admin/content/${kind}/${encodeURIComponent(id)}/art`, {

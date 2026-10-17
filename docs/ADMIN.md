@@ -112,9 +112,9 @@ picture (the shape follows the item's footprint). A non-PNG arrives as `400 inva
 The picture is always shown **where it will appear**, never as a bare thumbnail:
 
 - an **item** → the game's own grid tile (`ArtPreview` → `LoadoutGrid`): real cell size, the quality
-  background, the class border, the star row and the name. The board is exactly the item's
-  **footprint** (a 2×3 great sabre → a 2-column × 3-row board, a 1×3 sword → a 1×3 strip), so the
-  preview shows **the weapon and the cells it takes — ❌ no empty cells around it**;
+  background, the class border and the star row (the name is only in the tile's tooltip). The board is
+  exactly the item's **footprint** (a 2×3 great sabre → a 2-column × 3-row board, a 1×3 sword → a 1×3
+  strip), so the preview shows **the weapon and the cells it takes — ❌ no empty cells around it**;
 - a **pet** → the square pet cell used by the pet panel (`PetTile`).
 
 The row **Xem ở 1★ … 5★** switches the star rank, so you can check that the art still reads against

@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from 'vitest'
-import { BASE_ATTACK_MS, ITEM_TEMPLATES, STARS, getTemplate, starPrice, swingMs } from '../items'
+import { DEFAULT_SPEED, ITEM_TEMPLATES, STARS, getTemplate, starPrice, swingMs } from '../items'
 import { rollShop, SHOP_SIZE } from '../economy'
 import { FINAL_STAGE, MAPS, STAGES, getStage, stageTier } from '../stages'
 import { applyContentOverrides } from '../content'
@@ -20,12 +20,12 @@ describe('item catalogue', () => {
 		}
 	})
 
-	it('reads speed as a multiplier of the reference cadence', () => {
-		// 1 = the standard weapon rate, so anyone can type "1" and get the reference cadence.
-		expect(swingMs(1)).toBe(BASE_ATTACK_MS)
-		expect(swingMs(2)).toBe(750)
-		expect(swingMs(0.5)).toBe(3000)
-		// Faster speed → sooner swing, and every star rank swings sooner than the one below it.
+	it('reads speed as attacks per second, with 0.625 as the standard rate', () => {
+		// 0.625 attacks per second = one swing every 1.6 s; 1/s = every second.
+		expect(swingMs(DEFAULT_SPEED)).toBe(1600)
+		expect(swingMs(1)).toBe(1000)
+		expect(swingMs(2)).toBe(500)
+		// A higher star rank attacks faster, so its interval is shorter.
 		for (const template of ITEM_TEMPLATES.filter((entry) => entry.speed)) {
 			const interval = STARS.map((star) => swingMs(template.speed!(star)))
 			for (let index = 1; index < interval.length; index += 1) {

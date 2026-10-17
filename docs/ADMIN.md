@@ -47,10 +47,11 @@ Per-star fields are edited as **5 values (1★ → 5★)**. In code these are fu
 never contains code. A single box with comma separated values was replaced by one input per star:
 with one box, a missing comma shifted every later rank silently.
 
-**`speed`** is a plain multiplier of the reference cadence, not a number of milliseconds:
-**1 = the standard rate** (`BASE_ATTACK_MS` = 1500 ms, which is Đao Gỗ at 1★), 2 = twice as often,
-0.5 = half as often. `swingMs()` turns it into the interval the battle simulation uses, so a design
-value stays readable and the players still see seconds in the detail dialog.
+**`speed`** is an attack rate in **attacks per second**, not a number of milliseconds: `0.625` — the
+standard for every item — is one swing every 1.6 s, `1.25` is one every 0.8 s. `swingMs()` turns it
+into the interval the battle simulation uses (`round(1000 / speed)`), so a design value stays
+readable and the players still see seconds in the detail dialog. An item that deals damage but
+declares no `speed` swings at `DEFAULT_SPEED`, never at an interval of 0.
 
 **Quality** is a fixed property of the template (❌ independent of the item's star rank) that only
 decides the **tile colour**. The star rank uses the **same palette** for the star glyphs, so one

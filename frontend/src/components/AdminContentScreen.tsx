@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAdminContent, useDeleteArt, useResetContent, useSaveContent, useSessionState, useUploadArt } from '../api/queries'
-import { ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, starLabel } from '../game/items'
+import { DEFAULT_SPEED, ITEM_BY_ID, ITEM_TEMPLATES, QUALITY_LABELS, QUALITY_VALUES, STARS, starLabel } from '../game/items'
 import { PETS, getPet } from '../game/pets'
 import type { ItemTemplate, PetDef, Quality, Star } from '../game/types'
 import { useGameStore } from '../store/gameStore'
@@ -106,7 +106,7 @@ const ITEM_FIELDS: FieldDef[] = [
 		kind: 'perStarNumber',
 		min: 0.05,
 		max: 20,
-		hint: 'cao hơn = đánh nhanh hơn · 1 = chuẩn (1500 ms)',
+		hint: 'số đòn mỗi giây · mặc định 0.625 (1 đòn / 1.6s)',
 	},
 	{ key: 'interval', label: 'Nhịp hiệu lực (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
 	{ key: 'passive', label: 'Chỉ số cộng thêm', kind: 'perStarJson', hint: 'một ô JSON cho mỗi sao' },
@@ -153,6 +153,8 @@ function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
 	switch (field.kind) {
 		case 'perStarNumber': {
 			const source = (base as unknown as Record<string, ((star: Star) => number) | undefined>)[field.key]
+			// Every item has a speed: a template without its own uses the standard rate.
+			if (!source && field.key === 'speed') return STARS.map(() => String(DEFAULT_SPEED))
 			return STARS.map((star) => (source ? String(source(star)) : ''))
 		}
 		case 'perStarJson': {

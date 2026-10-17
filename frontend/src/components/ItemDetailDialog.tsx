@@ -1,5 +1,5 @@
 import { sellValue, templateFootprint } from '../game/bag'
-import { CLASS_LABELS, getTemplate, starLabel, swingMs } from '../game/items'
+import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starLabel, swingMs } from '../game/items'
 import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ArtIcon } from './ArtIcon'
@@ -28,7 +28,8 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 	const passive = template.passive?.(item.star)
 	const mods = passive ? STAT_KEYS.filter((key) => passive[key] !== undefined) : []
 	const damage = template.damage?.(item.star)
-	const speed = template.speed?.(item.star)
+	// Every item has a speed: the template's own, or the standard 0.625 attacks per second.
+	const speed = template.speed?.(item.star) ?? (damage !== undefined ? DEFAULT_SPEED : undefined)
 	const swing = speed !== undefined ? swingMs(speed) : undefined
 
 	return (
@@ -79,7 +80,7 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 
 				<div className={statGridClass}>
 					{damage !== undefined ? <Row label="Sát thương mỗi đòn" value={String(damage)} /> : null}
-					{speed !== undefined ? <Row label="Tốc độ đánh" value={`${Number(speed.toFixed(2))}×`} /> : null}
+					{speed !== undefined ? <Row label="Tốc độ đánh" value={`${Number(speed.toFixed(2))} đòn/giây`} /> : null}
 					{swing !== undefined ? <Row label="Nhịp đánh" value={`${(swing / 1000).toFixed(1)}s`} /> : null}
 					{damage !== undefined && swing ? (
 						<Row label="Sát thương mỗi giây" value={(damage / (swing / 1000)).toFixed(1)} />

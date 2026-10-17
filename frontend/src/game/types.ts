@@ -106,8 +106,8 @@ export interface ItemTemplate {
 	/** Cells the item covers; the player may rotate it by 90° while dragging. */
 	space: GridSpace
 	/**
-	 * Attack rate of a weapon: **1 = the reference cadence** (`BASE_ATTACK_MS` = 1500 ms), and
-	 * higher is faster. `swingMs()` turns it into the interval the battle simulation uses.
+	 * Attack rate in **attacks per second** — `DEFAULT_SPEED` (0.625) when the template omits it.
+	 * `swingMs()` turns it into the interval the battle simulation uses.
 	 */
 	speed?: (star: Star) => number
 	/** Weapon damage per swing. */

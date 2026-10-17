@@ -1,8 +1,8 @@
-import { getTemplate, swingMs } from './items'
+import { DEFAULT_SPEED, getTemplate, swingMs } from './items'
 import { adjacentUids, cellsOf, occupancy, templateFootprint } from './bag'
 import { GRID_WIDTH, MAX_BAG_ROWS, getPet, petLevelStats } from './pets'
 import { addMods, emptyStats, powerScore } from './stats'
-import type { ActiveEffect, ActiveStatus, ItemInstance, StatMods, StatSheet, Star } from './types'
+import type { ActiveEffect, ActiveStatus, ItemInstance, ItemTemplate, StatMods, StatSheet, Star } from './types'
 
 export interface CombatItem {
 	uid: string
@@ -72,6 +72,19 @@ export function combatItemUid(templateId: string, slot: number): string {
 	return `${templateId}-${slot}`
 }
 
+/**
+ * Swing interval for one item, in ms.
+ *
+ * `speed` is attacks per second. An item that **deals damage** always gets a cadence — falling back
+ * to `DEFAULT_SPEED` keeps a later "add damage to this jade" edit from producing an interval of 0,
+ * which would mean an infinite attack rate and a division by zero in the DPS estimate.
+ */
+function itemCadence(template: ItemTemplate, star: Star): number {
+	if (template.speed) return swingMs(template.speed(star))
+	if (template.damage) return swingMs(DEFAULT_SPEED)
+	return template.interval ? template.interval(star) : 0
+}
+
 /** Resolves passives + aura adjacency, then assembles the combatant. */
 export function buildCombatant(input: BuildInput): Combatant {
 	const stats = emptyStats()
@@ -104,7 +117,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 			slot: entry.slot,
 			cls: template.cls,
 			damage: template.damage ? template.damage(entry.star) : 0,
-			interval: template.speed ? swingMs(template.speed(entry.star)) : template.interval ? template.interval(entry.star) : 0,
+			interval: itemCadence(template, entry.star),
 			effects: template.active ? template.active(entry.star) : [],
 			onHit: template.onHit ? template.onHit(entry.star) : undefined,
 			linked: false,

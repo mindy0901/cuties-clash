@@ -46,9 +46,9 @@ describe('ItemDetailDialog', () => {
 
 		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
 		expect(screen.getByText('2★')).toBeTruthy()
-		// Speed is the design value: 1 = standard rate, so the player also gets the swing time in s.
+		// Speed is the design value (attacks per second), so the player also gets the swing time.
 		expect(screen.getByText('Tốc độ đánh')).toBeTruthy()
-		expect(screen.getByText('1.15×')).toBeTruthy()
+		expect(screen.getByText('0.76 đòn/giây')).toBeTruthy()
 		expect(screen.getByText('1.3s')).toBeTruthy()
 		// Paid 8 → resells for 4.
 		expect(screen.getByText(/4 🐾 \(hoàn 50%\)/)).toBeTruthy()

@@ -33,14 +33,29 @@ describe('the avatar frame', () => {
 		expect(holder().textContent).toContain('👹')
 	})
 
-	it('shows the name and the label, and no extra image but the picture', () => {
+	it('shows the name and the label', () => {
 		render(<AvatarCard side="player" name="Cẩu Hỏa Sài" label="Lv3" petId="fire-pup" />)
 
 		expect(document.body.textContent).toContain('Cẩu Hỏa Sài')
 		expect(document.body.textContent).toContain('Lv3')
-		// ❌ No skill icon row any more: the picture owns the whole card, so a second small image only
-		// sat on top of it.
-		expect(document.querySelectorAll('img')).toHaveLength(1)
+	})
+
+	it('draws the skill slots under the picture, never on top of it', () => {
+		render(
+			<AvatarCard
+				side="player"
+				name="Cẩu Hỏa Sài"
+				petId="fire-pup"
+				skills={[{ uid: 'skill', icon: <span>🔥</span>, label: 'Hỏa Khuyển Trảo', charge: 40 }]}
+			/>,
+		)
+
+		const [chip] = [...document.querySelectorAll<HTMLElement>('[title="Hỏa Khuyển Trảo"]')]
+		expect(chip, 'the skill slot must carry a title').toBeTruthy()
+		expect(chip.querySelector<HTMLElement>('[style*="width"]')?.style.width).toBe('40%')
+		// The picture owns the frame; the slots sit **below** it, so the photo is never covered.
+		expect(holder().contains(chip), 'not inside the picture frame').toBe(false)
+		expect(document.body.textContent).toContain('🔥')
 	})
 
 	it('fills the frame with the picture instead of letterboxing it', () => {

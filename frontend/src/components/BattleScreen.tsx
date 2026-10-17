@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { COUNTER_COST } from '../game/battle'
 import { combatItemUid } from '../game/build'
+import { getTemplate } from '../game/items'
 import { STATUS_ICON, STATUS_TEXT } from '../game/labels'
 import { GRID_MAX_ROWS, GRID_WIDTH, getPet } from '../game/pets'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import type { ItemBlueprint, ItemInstance, SideState, StatusKey } from '../game/types'
-import { AvatarCard } from './AvatarCard'
+import { AvatarCard, type AvatarSkill } from './AvatarCard'
 import { Pause, Play, Shield, SkipForward, Swords } from './icons'
-import { PetIcon } from './ItemIcon'
+import { ItemIcon, PetIcon, SkillIcon } from './ItemIcon'
 import { LoadoutGrid } from './LoadoutGrid'
 import {
 	btnClass,
@@ -27,6 +28,13 @@ const SPEEDS = [1, 2, 4, 8]
 /** Replay tick: every 60 ms of real time advances 60 ms of simulated time at ×1 speed. */
 const TICK_MS = 60
 
+/** A skill shown under the avatar picture — with `uid` to look up charge in `SideState.cooldowns`. */
+interface SkillChip {
+	uid: string
+	icon: ReactNode
+	label: string
+}
+
 /** Opponent loadout (`ItemBlueprint`) → items the grid can display. */
 function toGridItems(entries: ItemBlueprint[]): ItemInstance[] {
 	return entries.map((entry) => ({
@@ -37,6 +45,33 @@ function toGridItems(entries: ItemBlueprint[]): ItemInstance[] {
 		rotated: entry.rotated ?? false,
 		paid: 0,
 	}))
+}
+
+/**
+ * Skill slot for an **item**: only items with an **active effect** show up, since only they have
+ * a cycle of their own.
+ *
+ * `uid` must match how `buildCombatant` sets an item's uid (`combatItemUid`) for the cooldown
+ * progress from `SideState.cooldowns` to be found.
+ */
+function activeItemChips(items: ItemInstance[]): SkillChip[] {
+	return items
+		.filter((item) => getTemplate(item.templateId).active)
+		.map((item) => ({
+			uid: combatItemUid(item.templateId, item.slot),
+			icon: <ItemIcon templateId={item.templateId} emojiClass="text-base" />,
+			label: `${getTemplate(item.templateId).name} — hiệu lực chủ động`,
+		}))
+}
+
+/** Attaches each skill slot's cooldown progress (0–100) from that side's current state. */
+function withCharge(state: SideState, chips: SkillChip[]): AvatarSkill[] {
+	return chips.map((chip) => {
+		const cooldown = state.cooldowns.find((entry) => entry.uid === chip.uid)
+		const charge =
+			cooldown && cooldown.total > 0 ? 100 - (cooldown.remaining / cooldown.total) * 100 : 100
+		return { ...chip, charge }
+	})
 }
 
 /**
@@ -226,6 +261,15 @@ export function BattleScreen() {
 
 	const playerItems = run.equipped.filter((item) => item.slot >= 0)
 	const enemyItems = toGridItems(battle.opponentItems)
+	const playerSkills = withCharge(current.player, [
+		{
+			uid: 'skill',
+			icon: <SkillIcon petId={pet.id} emojiClass="text-base" />,
+			label: `${pet.skill.name} — mỗi ${(pet.skill.interval / 1000).toFixed(1)}s`,
+		},
+		...activeItemChips(playerItems),
+	])
+	const enemySkills = withCharge(current.enemy, activeItemChips(enemyItems))
 
 	const damageEvent = DAMAGE_KINDS.has(current.kind) && current.amount ? current : null
 	const floaterSide = damageEvent ? (damageEvent.side === 'player' ? 'enemy' : 'player') : null
@@ -324,6 +368,7 @@ export function BattleScreen() {
 						name={pet.name}
 						label={`Lv${level}`}
 						petId={pet.id}
+						skills={playerSkills}
 						hit={Boolean(playerFloater)}
 						floater={playerFloater}
 					/>
@@ -357,6 +402,7 @@ export function BattleScreen() {
 						name={battle.opponentName}
 						label={opponentLabel}
 						emoji={opponentEmoji}
+						skills={enemySkills}
 						hit={Boolean(enemyFloater)}
 						floater={enemyFloater}
 					/>

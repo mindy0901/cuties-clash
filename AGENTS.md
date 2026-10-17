@@ -19,6 +19,7 @@
 | Balancing 60 stages · performance numbers | [`docs/BALANCE.md`](docs/BALANCE.md) |
 | Art: sources, licences, rules for adding images | [`docs/ASSETS.md`](docs/ASSETS.md) |
 | Google OAuth: getting keys, error table | [`docs/OAUTH-SETUP.md`](docs/OAUTH-SETUP.md) |
+| What changed in previous sessions, and why | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 | Things still worth doing | [`README.md`](README.md) |
 
 ## 1. The project

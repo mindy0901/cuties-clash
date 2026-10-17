@@ -270,4 +270,4 @@ Backend coverage: sign-in sessions, anonymous play still working, logging out re
 
 Read **[`AGENTS.md`](AGENTS.md)** before changing anything: the documentation lookup table, the commands, the source layout, the mandatory invariants, and the recipe for adding a new feature.
 
-Topic-specific details live in [`docs/`](docs/): [architecture](docs/ARCHITECTURE.md) · [game rules](docs/GAME-RULES.md) · [testing](docs/TESTING.md) · [balance](docs/BALANCE.md) · [art](docs/ASSETS.md) · [OAuth](docs/OAUTH-SETUP.md).
+Topic-specific details live in [`docs/`](docs/): [architecture](docs/ARCHITECTURE.md) · [game rules](docs/GAME-RULES.md) · [testing](docs/TESTING.md) · [balance](docs/BALANCE.md) · [art](docs/ASSETS.md) · [OAuth](docs/OAUTH-SETUP.md) · [changelog](docs/CHANGELOG.md).

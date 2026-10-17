@@ -39,7 +39,8 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 | --- | --- |
 | `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for `interval`, a JSON textarea for `passive`/`aura` |
 | `damage` + `speed` | one **Đòn đánh cơ bản** block: the DPM line, the damage boxes and the speed boxes together. **Any** item can add it (＋ chip) or drop it (✕) — dropping a weapon's attack stores `damage: 0` at every rank, so the item stops swinging and reads as a passive piece |
-| `interval` on an item that lacks it | hidden, replaced by a **＋ Nhịp hiệu lực** chip. Clicking it adds the five boxes seeded with `9000`; a **✕** takes an added field away again. A value that comes from `items.ts` cannot be removed here |
+| `interval` on an item that lacks it | hidden; the single **＋ Thêm trường** button lists every optional field that is still missing (Đòn đánh cơ bản · Nhịp hiệu lực), so there is **one** add button, not a chip per field. Picking one seeds it with `10` damage / `0.625` speed / `9000` ms. A **✕** on the field takes it away again |
+| the ＋ menu itself | a **shadcn/ui `DropdownMenu`** (`components/shadcn/dropdown-menu.tsx`, Radix under the hood), styled with this game's tokens — ❌ no `ui/` folder next to `ui.ts`, no extra icon/animation dependencies |
 | `art` flags, emoji | ❌ not in the form: they only declare **which file on disk** to use (`icon` is the emoji fallback for a missing picture). The picture itself is uploaded from this page, so the flags stay in `items.ts`/`pets.ts` |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |

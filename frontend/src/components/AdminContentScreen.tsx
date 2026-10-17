@@ -9,6 +9,14 @@ import { ArtPreview } from './ArtPreview'
 import { ArtImportDialog } from './ArtImportDialog'
 import { ConfirmDialog } from './ConfirmDialog'
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from './shadcn/dropdown-menu'
+import {
 	ITEM_QUALITY_SWATCH,
 	ITEM_STAR_TEXT,
 	btnClass,
@@ -455,6 +463,41 @@ function AdminContentEditor() {
 			return next
 		})
 
+	/**
+	 * Data the editor can still switch on for this entity: the basic-attack block and every optional
+	 * field that is not filled in yet. One "+" button opens this list — ❌ no chip per field, which
+	 * left a row of buttons that all meant "add a field".
+	 */
+	const optionalChoices = useMemo(() => {
+		const choices: { key: string; label: string; hint?: string; field?: FieldDef; group?: FieldDef[] }[] = []
+		if (attackFields.length > 0 && !attackPresent) {
+			choices.push({
+				key: 'attack',
+				label: 'Đòn đánh cơ bản',
+				hint: 'sát thương mỗi đòn · số đòn mỗi giây · DPM',
+				group: attackFields,
+			})
+		}
+		for (const field of FIELDS[kind]) {
+			if (!field.optional || field.group) continue
+			if ((draft[field.key] ?? []).some((value) => value.trim() !== '')) continue
+			choices.push({ key: field.key, label: field.label, hint: field.hint, field })
+		}
+		return choices
+	}, [attackFields, attackPresent, draft, kind])
+
+	const addChoice = (choice: { field?: FieldDef; group?: FieldDef[] }) => {
+		if (choice.group) {
+			setGroup(choice.group, (entry) => {
+				// Re-adding restores the code numbers when the item had them.
+				const code = codeDefaults[entry.key] ?? []
+				return code.some((value) => value.trim() !== '') ? code : STARS.map(() => entry.addDefault ?? '')
+			})
+			return
+		}
+		if (choice.field) addOptionalField(choice.field)
+	}
+
 	/** Drop an optional field the editor added — the code value (or nothing) applies again. */
 	const clearOptionalField = (key: string) =>
 		setDraft((current) => ({ ...current, [key]: [] }))
@@ -783,44 +826,12 @@ function AdminContentEditor() {
 													</div>
 												))}
 											</>
-										) : (
-											<button
-												type="button"
-												data-admin-add-group="attack"
-												className={cn(btnClass, btnSmClass, 'self-start')}
-												title="Sát thương mỗi đòn, số đòn mỗi giây và DPM theo từng sao"
-												onClick={() =>
-													setGroup(attackFields, (entry) => {
-														// Re-adding restores the code numbers when the item had them.
-														const code = codeDefaults[entry.key] ?? []
-														return code.some((value) => value.trim() !== '')
-															? code
-															: STARS.map(() => entry.addDefault ?? '')
-													})
-												}
-											>
-												＋ Đòn đánh cơ bản
-											</button>
-										)}
+										) : null}
 									</div>
 								)
 							}
 
-							if (!present) {
-								return (
-									<div key={field.key} className="flex flex-col gap-1 text-[12.5px]">
-										<button
-											type="button"
-											data-admin-add-field={field.key}
-											className={cn(btnClass, btnSmClass, 'self-start')}
-											title={field.hint}
-											onClick={() => addOptionalField(field)}
-										>
-											＋ {field.label}
-										</button>
-									</div>
-								)
-							}
+							if (!present) return null
 
 							return (
 								<div
@@ -857,6 +868,37 @@ function AdminContentEditor() {
 							)
 						})}
 					</div>
+
+					{optionalChoices.length > 0 ? (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									type="button"
+									data-admin-add-open
+									className={cn(btnClass, btnSmClass, 'self-start')}
+									title="Thêm một trường tuỳ chọn cho món này"
+								>
+									＋ Thêm trường
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start">
+								<DropdownMenuLabel>Trường tuỳ chọn</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								{optionalChoices.map((choice) => (
+									<DropdownMenuItem
+										key={choice.key}
+										data-admin-add-option={choice.key}
+										onSelect={() => addChoice(choice)}
+									>
+										<span className="font-semibold">{choice.label}</span>
+										{choice.hint ? (
+											<span className="text-[11px] text-muted opacity-80">{choice.hint}</span>
+										) : null}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					) : null}
 
 					{message ? (
 						<p

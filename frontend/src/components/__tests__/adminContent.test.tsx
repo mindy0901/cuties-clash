@@ -38,6 +38,24 @@ interface Stub {
 	art?: unknown[]
 }
 
+/**
+ * Open the single "+" menu and pick one entry.
+ *
+ * Radix opens the menu on a keyboard press as well as on a pointer, and renders it in a **portal**,
+ * so the item is looked up on `document` rather than inside the form.
+ */
+async function addOptional(key: string) {
+	const trigger = document.querySelector('[data-admin-add-open]')
+	if (!trigger) throw new Error('the add button is missing')
+	fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+	const item = await waitFor(() => {
+		const found = document.querySelector<HTMLElement>(`[data-admin-add-option="${key}"]`)
+		if (!found) throw new Error(`option "${key}" is not in the menu`)
+		return found
+	})
+	fireEvent.click(item)
+}
+
 /** Stub `fetch` for the endpoints the page uses and record PUT/DELETE calls. */
 function stubApi(options: Stub = {}) {
 	const puts: { url: string; body: unknown }[] = []
@@ -153,23 +171,23 @@ describe('editing content', () => {
 		expect(document.querySelector('[data-admin-field="damage"][data-admin-star="5"]')).toBeTruthy()
 	})
 
-	it('shows a per-star field only when the item has it, with a chip to add one', async () => {
+	it('shows a per-star field only when the item has it, with one "+" menu to add one', async () => {
 		stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
-		// A weapon swings but has nothing that self-triggers: no interval boxes, only the add chip.
-		expect(document.querySelector('[data-admin-add-group="attack"]')).toBeNull()
+		// A weapon swings but has nothing that self-triggers: no interval boxes, only the add menu.
 		expect(document.querySelectorAll('[data-admin-field="interval"]')).toHaveLength(0)
-		expect(document.querySelector('[data-admin-add-field="interval"]')).toBeTruthy()
+		// ⚠️ ONE add button for every optional field — not one chip per field.
+		expect(document.querySelectorAll('[data-admin-add-open]')).toHaveLength(1)
 
-		// Armour does not attack at all: no damage and no speed boxes, just the attack chip.
+		// Armour does not attack at all: no damage and no speed boxes either.
 		fireEvent.click(document.querySelector('[data-admin-entry="hide-vest"]')!)
 		await waitFor(() => expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0))
 		expect(document.querySelectorAll('[data-admin-field="speed"]')).toHaveLength(0)
 
-		// Adding the basic attack seeds damage and the standard rate at every rank; ✕ takes it away.
-		fireEvent.click(document.querySelector('[data-admin-add-group="attack"]')!)
+		// The menu lists what is missing; picking the attack seeds damage and the standard rate.
+		await addOptional('attack')
 		const valuesOf = (key: string) =>
 			[...document.querySelectorAll<HTMLInputElement>(`[data-admin-field="${key}"]`)].map(
 				(input) => input.value,
@@ -182,7 +200,6 @@ describe('editing content', () => {
 		fireEvent.click(document.querySelector('[data-admin-remove-group="attack"]')!)
 		expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0)
 		expect(document.querySelectorAll('[data-admin-field="speed"]')).toHaveLength(0)
-		expect(document.querySelector('[data-admin-add-group="attack"]')).toBeTruthy()
 	})
 
 	it('shows DPM above the damage boxes and follows every edit', async () => {
@@ -262,10 +279,17 @@ describe('editing content', () => {
 		await screen.findByText('wooden-blade')
 
 		fireEvent.click(document.querySelector('[data-admin-remove-group="attack"]')!)
-		// The block collapses back to the chip, so the item reads as "no attack".
+		// The block collapses, so the item reads as "no attack".
 		expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0)
-		expect(document.querySelector('[data-admin-add-group="attack"]')).toBeTruthy()
 
+		// The menu offers it again, and adding it back restores the numbers from code.
+		await addOptional('attack')
+		expect(
+			[...document.querySelectorAll<HTMLInputElement>('[data-admin-field="damage"]')].map((input) => input.value),
+		).toEqual(['12', '20', '32', '50', '78'])
+
+		// Removing it a second time is what gets saved.
+		fireEvent.click(document.querySelector('[data-admin-remove-group="attack"]')!)
 		const save = screen.getByText(/Lưu/).closest('button')!
 		expect(save.disabled).toBe(false)
 		fireEvent.click(save)

@@ -98,7 +98,12 @@ that PNG, not the original file, is uploaded.
 the game is exactly that footprint, so the picture fills it without being squeezed. `ART_SIZE` (512) is
 the **longest** side: every grid cell gets at least 128 px, which stays sharp on a 2× screen — a
 smaller size made imported pictures look soft. Zoom out to **0.5×** when the picture is squarer than
-the frame. Pets are square cells (`1×1`).
+the frame.
+
+⚠️ **A pet is always cropped square (1:1, 512×512)**: its picture lands in two square frames — the
+round avatar of the preparation room and the frame the battle draws — and both draw it with
+`object-cover`, so the ring is filled edge to edge instead of showing the corners of a square. That
+is why the dialog previews **both** frames for a pet (see *Previewing*).
 
 | Piece | Where |
 | --- | --- |
@@ -143,7 +148,13 @@ The picture is always shown **where it will appear**, never as a bare thumbnail:
   background, the class border and the star row (the name is only in the tile's tooltip). The board is
   exactly the item's **footprint** (a 2×3 great sabre → a 2-column × 3-row board, a 1×3 sword → a 1×3
   strip), so the preview shows **the weapon and the cells it takes — ❌ no empty cells around it**;
-- a **pet** → the square pet cell used by the pet panel (`PetTile`).
+- a **pet** → the **round portrait** it appears as (`PetPortrait`, the ring in the middle of the
+  preparation room).
+
+A pet picture has **two** destinations and they are both square, so the crop dialog shows **both at
+once, live**: the round avatar (`PetPortrait`) and the frame the battle draws
+(`AvatarCard`, name label included). Judging a pet crop from one small square is what led to "the
+picture does not fit" after saving.
 
 The row **Xem ở 1★ … 5★** switches the star rank, so you can check that the art still reads against
 every star colour. The crop dialog shows the same preview **live** (debounced) before you save, so a
@@ -151,7 +162,7 @@ bad crop is caught without uploading anything.
 
 ⚠️ The preview draws through the real components on purpose — a look-alike box hides exactly what can
 go wrong (a picture that clashes with the quality tint, stars lost against a bright picture, an item
-that does not fit its footprint).
+that does not fit its footprint, a square pet crop whose corners show inside the avatar ring).
 
 ## Creating and deleting items
 

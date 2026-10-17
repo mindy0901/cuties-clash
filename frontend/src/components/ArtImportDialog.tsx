@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 import type { Star } from '../game/types'
 import { ArtPreview } from './ArtPreview'
+import { AvatarCard } from './AvatarCard'
 import { artOutputSize, croppedPng } from './cropImage'
 import { ImagePlus } from './icons'
+import { PetPortrait } from './PetPortrait'
 import { btnClass, btnGoldClass, btnSmClass, cn, dialogClass, hintClass, overlayClass, rowClass } from './ui'
 
 /** Largest file accepted straight from the admin's disk (before cropping). */
@@ -148,9 +150,19 @@ export function ArtImportDialog({
 			>
 				<h2 className="text-[20px]">Tải ảnh cho “{entityName}”</h2>
 				<p className={hintClass}>
-					Khung cắt theo đúng hình ô của món ({space.w}×{space.h} ô) và ảnh lưu ra{' '}
-					{output.width}×{output.height} px, giữ nền trong suốt nếu ảnh có. Kéo để chọn vùng, lăn chuột để thu
-					phóng (thu nhỏ được tới 0.5× nếu ảnh không cùng tỉ lệ), bấm xoay nếu ảnh nằm ngang.
+					{kind === 'item' ? (
+						<>
+							Khung cắt theo đúng hình ô của món ({space.w}×{space.h} ô) và ảnh lưu ra {output.width}×
+							{output.height} px
+						</>
+					) : (
+						<>
+							Thú cưng dùng khung cắt <strong>vuông 1:1</strong> (ảnh lưu ra {output.width}×
+							{output.height} px) vì ảnh hiện ở vòng avatar và khung ảnh khi đấu — hai khung vuông
+						</>
+					)}
+					, giữ nền trong suốt nếu ảnh có. Kéo để chọn vùng, lăn chuột để thu phóng (thu nhỏ được tới 0.5× nếu
+					ảnh không cùng tỉ lệ), bấm xoay nếu ảnh nằm ngang.
 				</p>
 
 				{source ? (
@@ -226,17 +238,44 @@ export function ArtImportDialog({
 					</div>
 				) : null}
 
-				{/* What the picture will look like **in the game** — the real tile / pet cell. */}
+				{/*
+				 * What the picture will look like **in the game**.
+				 *
+				 * ✅ An item has one place: its own tile.
+				 * ✅ A pet has **two**, and they are not the same shape, so both are shown — the round
+				 * avatar of the preparation room and the frame the battle draws. Judging a pet crop from a
+				 * single small square is what led to "the picture does not fit" after saving.
+				 */}
 				{source ? (
-					<div className="flex items-center gap-3 rounded-[10px] border border-line bg-black/25 p-2.5">
-						<div data-art-preview className="shrink-0">
-							<ArtPreview kind={kind} id={entityId} star={star} artSrc={preview} />
+					kind === 'item' ? (
+						<div className="flex items-center gap-3 rounded-[10px] border border-line bg-black/25 p-2.5">
+							<div data-art-preview className="shrink-0">
+								<ArtPreview kind="item" id={entityId} star={star} artSrc={preview} />
+							</div>
+							<span className="text-[12px] text-muted">
+								Xem trước trong ô thật (nền theo phẩm, sao theo cấp). Ảnh lưu ra {output.width}×
+								{output.height} px khi bấm Lưu.
+							</span>
 						</div>
-						<span className="text-[12px] text-muted">
-							Xem trước trong ô thật (nền theo phẩm, sao theo cấp). Ảnh lưu ra {output.width}×
-							{output.height} px khi bấm Lưu.
-						</span>
-					</div>
+					) : (
+						<div
+							data-art-preview
+							className="flex flex-wrap items-start gap-4 rounded-[10px] border border-line bg-black/25 p-2.5"
+						>
+							<figure className="flex flex-col items-center gap-1.5">
+								<PetPortrait petId={entityId} artSrc={preview} className="size-[110px]" iconClass="text-[60px]" />
+								<figcaption className="text-[11.5px] text-muted">Vòng avatar ở phòng chuẩn bị</figcaption>
+							</figure>
+							<figure className="flex flex-col items-center gap-1.5">
+								<AvatarCard side="player" name={entityName} label="Lv1" petId={entityId} artSrc={preview} />
+								<figcaption className="text-[11.5px] text-muted">Khung ảnh khi đấu</figcaption>
+							</figure>
+							<span className="min-w-[160px] flex-1 text-[12px] text-muted">
+								Cả hai khung đều <strong>vuông</strong> nên ảnh được cắt 1:1 và phóng to để phủ kín
+								khung — đặt mặt nhân vật vào giữa khung cắt để không bị cắt mất khi hiện ở vòng tròn.
+							</span>
+						</div>
+					)
 				) : null}
 
 				{source ? (

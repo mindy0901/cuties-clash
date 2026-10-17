@@ -24,6 +24,13 @@ export interface AvatarCardProps {
 	petId?: string
 	/** Without `petId` (stage opponents) → uses an emoji. */
 	emoji?: string
+	/**
+	 * Draw this picture instead of the pet's own art.
+	 *
+	 * ⚠️ Only the admin page uses it, to preview a crop that is not uploaded yet in the very frame the
+	 * battle draws. ❌ Not a second way to pick art.
+	 */
+	artSrc?: string | null
 	skills?: AvatarSkill[]
 	/** Flashes when the fighter just took a hit. */
 	hit?: boolean
@@ -45,11 +52,14 @@ export function AvatarCard({
 	label,
 	petId,
 	emoji,
+	artSrc,
 	skills = [],
 	hit,
 	floater,
 }: AvatarCardProps) {
 	const pet = petId ? getPet(petId) : null
+	// `artSrc` is the preview override; otherwise the pet's avatar art, falling back to its own.
+	const picture = artSrc === undefined ? (petId ? (avatarArtSrc(petId) ?? petArtSrc(petId)) : null) : artSrc
 
 	return (
 		<aside
@@ -65,7 +75,10 @@ export function AvatarCard({
 			</div>
 
 			{/*
-			 * Avatar frame — where art will go later.
+			 * Avatar frame.
+			 *
+			 * ⚠️ **Square**, not a stretched column: the imported picture is a 1:1 crop, so a frame that
+			 * grew with the card left wide bands above and below the picture. `object-cover` fills it.
 			 *
 			 * `key` changes when a hit lands so the `shake` animation restarts (same approach as the
 			 * older panels).
@@ -73,17 +86,17 @@ export function AvatarCard({
 			<div
 				data-avatar-holder
 				className={cn(
-					'relative grid min-h-[132px] flex-1 place-items-center overflow-hidden rounded-xl border border-dashed border-gold/30 bg-black/45 p-1',
+					'relative grid aspect-square w-full place-items-center overflow-hidden rounded-xl border border-dashed border-gold/30 bg-black/45',
 					hit && 'animate-shake',
 				)}
 				key={hit ? `hit-${floater?.key}` : 'idle'}
 			>
 				<ArtIcon
-					src={petId ? (avatarArtSrc(petId) ?? petArtSrc(petId)) : null}
+					src={picture}
 					emoji={emoji ?? pet?.icon ?? '🀄'}
 					emojiClass="text-[58px]"
-					className="max-h-[140px]"
 					alt={name}
+					fit="cover"
 				/>
 				{floater ? (
 					<span

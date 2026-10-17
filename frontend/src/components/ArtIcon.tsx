@@ -11,13 +11,15 @@ interface ArtIconProps {
 	className?: string
 	alt?: string
 	/**
-	 * `contain` (default) keeps the picture's aspect ratio; `fill` stretches it to the box.
+	 * `contain` (default) keeps the picture's aspect ratio, `fill` stretches it to the box, and
+	 * `cover` fills the box and cuts the overflow.
 	 *
 	 * A tile is exactly the item's footprint, so a picture cropped to that shape needs `contain`
-	 * (any mismatch becomes a pixel of margin, never a squeeze), while the bundled **square** art needs
-	 * `fill` — with `contain` it would sit in one cell in the middle of a long tile.
+	 * (any mismatch becomes a pixel of margin, never a squeeze), while the bundled **square** art
+	 * needs `fill` — with `contain` it would sit in one cell in the middle of a long tile. An avatar
+	 * circle needs `cover`, otherwise the corners of a square picture show inside the ring.
 	 */
-	fit?: 'contain' | 'fill'
+	fit?: 'contain' | 'fill' | 'cover'
 }
 
 /**
@@ -40,7 +42,7 @@ export function ArtIcon({ src, emoji, emojiClass, className, alt = '', fit = 'co
 			draggable={false}
 			className={cn(
 				'size-full',
-				fit === 'fill' ? 'object-fill' : 'object-contain',
+				fit === 'fill' ? 'object-fill' : fit === 'cover' ? 'object-cover' : 'object-contain',
 				className,
 			)}
 			onError={() => setFailed(true)}

@@ -621,14 +621,28 @@ describe('importing a picture', () => {
 		expect(stars()?.className).toContain('text-rank-5')
 	})
 
-	it('previews a pet in the pet cell used by the pet panel', async () => {
+	it('previews a pet as the round portrait it appears as', async () => {
 		stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
 		fireEvent.click(screen.getByRole('button', { name: 'Thú cưng' }))
 		await waitFor(() => {
-			expect(document.querySelector('[data-admin-art-preview] [data-pet-tile]')).toBeTruthy()
+			expect(document.querySelector('[data-admin-art-preview] [data-pet-portrait]')).toBeTruthy()
 		})
+	})
+
+	it('shows both pet destinations inside the cropper, not one small square', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		fireEvent.click(screen.getByRole('button', { name: 'Thú cưng' }))
+		fireEvent.click(await screen.findByText(/Tải ảnh lên/))
+
+		const dialog = await screen.findByRole('dialog', { name: /Tải ảnh cho/ })
+		// The crop is square for a pet, and the hint has to say so instead of talking about item cells.
+		expect(dialog.textContent).toContain('vuông 1:1')
+		expect(dialog.textContent).toContain('512×512')
 	})
 })

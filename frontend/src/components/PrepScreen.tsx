@@ -15,6 +15,7 @@ import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import type { ItemInstance } from '../game/types'
 import { Paw } from './icons'
+import { PetPortrait } from './PetPortrait'
 import { cn, panelClass } from './ui'
 
 function StatRow({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'jade' }) {
@@ -280,9 +281,7 @@ export function PrepScreen() {
 				{/* ── Middle: pet stage + inventory (twice as wide as the sides) ── */}
 				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-[2]">
 					<section className="surface-stage relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-panel border border-line px-4 py-8">
-						<div className="surface-pet relative grid size-40 place-items-center rounded-full border-2 border-gold/40 p-6 leading-none shadow-[0_0_48px_rgb(217_162_39/25%)]">
-							<PetIcon petId={pet.id} emojiClass="text-[104px]" />
-						</div>
+						<PetPortrait petId={pet.id} />
 						<div className="relative text-center">
 							<div className="text-lg font-bold tracking-[0.02em] text-gold-soft">{pet.name}</div>
 							<div className="text-[12px] text-muted">

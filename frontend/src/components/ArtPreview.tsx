@@ -3,7 +3,7 @@ import type { Star } from '../game/types'
 import { CELL_SIZE } from './GridBoard'
 import { ItemTile } from './ItemTile'
 import { LoadoutGrid } from './LoadoutGrid'
-import { PetTile } from './PetTile'
+import { PetPortrait } from './PetPortrait'
 import { cn } from './ui'
 
 /**
@@ -78,6 +78,8 @@ export function ArtPreview({
 	star: Star
 	artSrc?: string | null
 }) {
+	// A pet is shown as the **round portrait** wherever it represents the pet itself (its identity),
+	// the square pet cell being the small list tile.
 	if (kind === 'item') return <ItemGridPreview templateId={id} star={star} artSrc={artSrc} />
-	return <PetTile petId={id} artSrc={artSrc} className="size-[72px]" iconClass="text-[38px]" />
+	return <PetPortrait petId={id} artSrc={artSrc} className="size-[72px]" iconClass="text-[38px]" />
 }

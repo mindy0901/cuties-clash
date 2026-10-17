@@ -38,6 +38,11 @@ The avatar frame on the arena floor (`components/AvatarCard.tsx`) picks an image
 and switch the flag on. The frame already draws a dashed border around the image area, so with no
 image yet it still looks like "space reserved for an image" rather than a bug.
 
+⚠️ Both pet destinations are **square and filled** (`object-cover`): the avatar frame here, and the
+ring (`PetPortrait`) in the middle of the preparation room. A square picture therefore **covers** them
+— a public-uploaded picture is cropped 1:1 (512×512) by the admin page, and the crop dialog previews
+both frames before saving.
+
 ## In use
 
 ### ORHstudio — Wuxia Icon Series (CC0)

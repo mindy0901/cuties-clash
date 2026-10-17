@@ -106,6 +106,20 @@ describe('battle screen playback', () => {
 		expect(boards[0].querySelectorAll('[data-item-box]')).toHaveLength(equipped.length)
 	})
 
+	it('popup tổng kết KHÔNG có nút chơi lại từ đầu', async () => {
+		// Chơi lại từ đầu là thao tác ở **thanh trên** (có hỏi xác nhận). Trong popup tổng kết thì
+		// nó nằm ngay cạnh nút đi tiếp nên rất dễ bấm nhầm và xoá sạch tiến trình.
+		gearUp()
+		await renderApp()
+		fireEvent.click(screen.getByText(/Đấu Thú Cưng/))
+		fireEvent.click(screen.getByText(/Bỏ qua/))
+
+		const dialog = screen.getByRole('dialog', { name: 'Kết quả trận đấu' })
+		expect(dialog.textContent, 'không được có nút chơi lại từ đầu').not.toContain('Chơi lại từ đầu')
+		// Lối đi tiếp của popup vẫn còn nguyên.
+		expect(screen.getByText(/Sang màn tiếp theo|Về phòng chuẩn bị|Thử lại/)).toBeTruthy()
+	})
+
 	it('quay về phòng chuẩn bị sau khi đóng kết quả', async () => {
 		gearUp()
 		await renderApp()

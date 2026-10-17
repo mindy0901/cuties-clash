@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { getStage } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
-import { btnClass, btnGhostClass, btnPrimaryClass, cn, dialogClass, overlayClass, statClass, statGridClass } from './ui'
+import { btnClass, btnPrimaryClass, cn, dialogClass, overlayClass, statClass, statGridClass } from './ui'
 
 function Stat({ label, value }: { label: string; value: string }) {
 	return (
@@ -17,7 +17,6 @@ export function ResultDialog() {
 	const battle = useGameStore((state) => state.battle)
 	const run = useGameStore((state) => state.run)
 	const leaveBattle = useGameStore((state) => state.leaveBattle)
-	const newRun = useGameStore((state) => state.newRun)
 	const navigate = useNavigate()
 
 	if (!battle) return null
@@ -59,9 +58,6 @@ export function ResultDialog() {
 				) : null}
 
 				<div className="flex flex-wrap items-center justify-end gap-2.5">
-					<button type="button" className={cn(btnClass, btnGhostClass)} onClick={newRun}>
-						Chơi lại từ đầu
-					</button>
 					<button
 						type="button"
 						className={cn(btnClass, btnPrimaryClass)}

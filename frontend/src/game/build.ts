@@ -1,4 +1,4 @@
-import { getTemplate } from './items'
+import { getTemplate, swingMs } from './items'
 import { adjacentUids, cellsOf, occupancy, templateFootprint } from './bag'
 import { GRID_WIDTH, MAX_BAG_ROWS, getPet, petLevelStats } from './pets'
 import { addMods, emptyStats, powerScore } from './stats'
@@ -104,7 +104,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 			slot: entry.slot,
 			cls: template.cls,
 			damage: template.damage ? template.damage(entry.star) : 0,
-			interval: template.attackInterval ? template.attackInterval(entry.star) : template.interval ? template.interval(entry.star) : 0,
+			interval: template.speed ? swingMs(template.speed(entry.star)) : template.interval ? template.interval(entry.star) : 0,
 			effects: template.active ? template.active(entry.star) : [],
 			onHit: template.onHit ? template.onHit(entry.star) : undefined,
 			linked: false,

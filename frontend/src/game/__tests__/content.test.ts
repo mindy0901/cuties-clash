@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from 'vitest'
-import { ITEM_TEMPLATES, STARS, getTemplate, starPrice } from '../items'
+import { BASE_ATTACK_MS, ITEM_TEMPLATES, STARS, getTemplate, starPrice, swingMs } from '../items'
 import { rollShop, SHOP_SIZE } from '../economy'
 import { FINAL_STAGE, MAPS, STAGES, getStage, stageTier } from '../stages'
 import { applyContentOverrides } from '../content'
@@ -15,8 +15,22 @@ describe('item catalogue', () => {
 				// Every price is a real number at every rank: a NaN would break the shop.
 				expect(Number.isFinite(starPrice(template.cost, star)), template.id).toBe(true)
 			}
-			if (template.attackInterval) expect(template.damage, template.id).toBeDefined()
+			if (template.speed) expect(template.damage, template.id).toBeDefined()
 			if (template.active) expect(template.interval, template.id).toBeDefined()
+		}
+	})
+
+	it('reads speed as a multiplier of the reference cadence', () => {
+		// 1 = the standard weapon rate, so anyone can type "1" and get the reference cadence.
+		expect(swingMs(1)).toBe(BASE_ATTACK_MS)
+		expect(swingMs(2)).toBe(750)
+		expect(swingMs(0.5)).toBe(3000)
+		// Faster speed → sooner swing, and every star rank swings sooner than the one below it.
+		for (const template of ITEM_TEMPLATES.filter((entry) => entry.speed)) {
+			const interval = STARS.map((star) => swingMs(template.speed!(star)))
+			for (let index = 1; index < interval.length; index += 1) {
+				expect(interval[index], `${template.id} at ${index + 1}★`).toBeLessThan(interval[index - 1]!)
+			}
 		}
 	})
 

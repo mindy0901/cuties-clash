@@ -26,7 +26,7 @@ editor. That is deliberate: forgetting to configure it must never open the page 
 
 | Kind | Editable | Code only (read-only in the page) |
 | --- | --- | --- |
-| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `damage`, `attackInterval`, `interval`, `passive`, `aura` | `active`, `onHit` |
+| **Item** | `name`, `icon`, `cls`, `tier`, `quality`, `cost`, `space`, `art`, `damage`, `speed`, `interval`, `passive`, `aura` | `active`, `onHit` |
 | **Pet** | everything: `name`, `icon`, `blurb`, unlock level, health / sword-energy numbers, `skill`, bag grid per level, art flags and extensions | — |
 
 `active` / `onHit` really are functions and JSON cannot carry a function — they stay in
@@ -37,7 +37,7 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 
 | Field | Control |
 | --- | --- |
-| `damage`, `attackInterval`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
+| `damage`, `speed`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
 | `art` (one picture per item) | a **có/không select** — the file is `public/icons/items/<id>.<ext>`, ❌ art is not per star rank |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |
@@ -46,6 +46,11 @@ Per-star fields are edited as **5 values (1★ → 5★)**. In code these are fu
 (`damage: (star) => …`); the client rebuilds them from the array, so the JSON stored in the database
 never contains code. A single box with comma separated values was replaced by one input per star:
 with one box, a missing comma shifted every later rank silently.
+
+**`speed`** is a plain multiplier of the reference cadence, not a number of milliseconds:
+**1 = the standard rate** (`BASE_ATTACK_MS` = 1500 ms, which is Đao Gỗ at 1★), 2 = twice as often,
+0.5 = half as often. `swingMs()` turns it into the interval the battle simulation uses, so a design
+value stays readable and the players still see seconds in the detail dialog.
 
 **Quality** is a fixed property of the template (❌ independent of the item's star rank) that only
 decides the **tile colour**. The star rank uses the **same palette** for the star glyphs, so one

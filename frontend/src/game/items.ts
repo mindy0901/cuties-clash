@@ -47,6 +47,19 @@ export function starPrice(baseCost: number, star: Star): number {
 	return baseCost * star
 }
 
+/**
+ * Cadence of a weapon with `speed: 1`, in ms.
+ *
+ * It is the reference rate of the game — Đao Gỗ at 1★ — so `speed` is a plain multiplier that
+ * anyone can read: **2 = swings twice as often, 0.5 = half as often**.
+ */
+export const BASE_ATTACK_MS = 1500
+
+/** Swing interval in ms for a `speed` multiplier. Higher speed → shorter interval. */
+export function swingMs(speed: number): number {
+	return Math.round(BASE_ATTACK_MS / speed)
+}
+
 /** Items with their per-star numbers. Values mirror the public event tuning. */
 export const ITEM_TEMPLATES: ItemTemplate[] = [
 	// ── Weapons ─ ───────────────────────────────────────────────────────────────
@@ -60,7 +73,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 3,
 		space: { w: 1, h: 3 },
-		attackInterval: (star) => Math.round(1500 - 90 * (star - 1)),
+		speed: (star) => pick(star, [1.0, 1.0638, 1.1364, 1.2195, 1.3158]),
 		damage: (star) => pick(star, [12, 20, 32, 50, 78]),
 	},
 	{
@@ -73,7 +86,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 1,
 		cost: 4,
 		space: { w: 1, h: 4 },
-		attackInterval: (star) => Math.round(1400 - 90 * (star - 1)),
+		speed: (star) => pick(star, [1.0714, 1.145, 1.2295, 1.3274, 1.4423]),
 		damage: (star) => pick(star, [10, 17, 28, 45, 72]),
 		onHit: (star) => ({
 			chance: 0.25,
@@ -99,7 +112,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 6,
 		space: { w: 2, h: 1 },
-		attackInterval: (star) => Math.round(1300 - 70 * (star - 1)),
+		speed: (star) => pick(star, [1.1538, 1.2195, 1.2931, 1.3761, 1.4706]),
 		damage: (star) => pick(star, [14, 23, 38, 60, 95]),
 		onHit: (star) => ({
 			chance: 0.3,
@@ -116,7 +129,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 2,
 		cost: 6,
 		space: { w: 1, h: 1 },
-		attackInterval: (star) => Math.round(950 - 50 * (star - 1)),
+		speed: (star) => pick(star, [1.5789, 1.6667, 1.7647, 1.875, 2.0]),
 		damage: (star) => pick(star, [8, 13, 21, 34, 55]),
 		onHit: (star) => ({
 			chance: 0.45,
@@ -142,7 +155,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 8,
 		space: { w: 2, h: 3 },
-		attackInterval: (star) => Math.round(2300 - 140 * (star - 1)),
+		speed: (star) => pick(star, [0.6522, 0.6944, 0.7426, 0.7979, 0.8621]),
 		damage: (star) => pick(star, [34, 56, 92, 150, 245]),
 	},
 	{
@@ -155,7 +168,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 		tier: 3,
 		cost: 9,
 		space: { w: 2, h: 1 },
-		attackInterval: (star) => Math.round(750 - 40 * (star - 1)),
+		speed: (star) => pick(star, [2.0, 2.1127, 2.2388, 2.381, 2.5424]),
 		damage: (star) => pick(star, [9, 15, 24, 39, 63]),
 		passive: (star) => ({ haste: pick(star, [4, 7, 11, 17, 27]) }),
 	},

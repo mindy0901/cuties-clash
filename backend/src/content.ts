@@ -161,8 +161,8 @@ const ITEM_FIELDS: Record<string, FieldCheck> = {
 	art: asBoolean,
 	damage: (field, value) =>
 		asPerStar(field, value, (index, raw) => asNumber(`${field}[${index}★]`, raw, 0, 100_000)),
-	attackInterval: (field, value) =>
-		asPerStar(field, value, (index, raw) => asInteger(`${field}[${index}★]`, raw, 100, 60_000)),
+	speed: (field, value) =>
+		asPerStar(field, value, (index, raw) => asNumber(`${field}[${index}★]`, raw, 0.05, 20)),
 	interval: (field, value) =>
 		asPerStar(field, value, (index, raw) => asInteger(`${field}[${index}★]`, raw, 100, 60_000)),
 	passive: (field, value) =>

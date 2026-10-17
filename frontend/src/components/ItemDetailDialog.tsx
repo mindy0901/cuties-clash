@@ -1,5 +1,5 @@
 import { sellValue, templateFootprint } from '../game/bag'
-import { CLASS_LABELS, getTemplate, starLabel } from '../game/items'
+import { CLASS_LABELS, getTemplate, starLabel, swingMs } from '../game/items'
 import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ArtIcon } from './ArtIcon'
@@ -28,7 +28,8 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 	const passive = template.passive?.(item.star)
 	const mods = passive ? STAT_KEYS.filter((key) => passive[key] !== undefined) : []
 	const damage = template.damage?.(item.star)
-	const swingMs = template.attackInterval?.(item.star)
+	const speed = template.speed?.(item.star)
+	const swing = speed !== undefined ? swingMs(speed) : undefined
 
 	return (
 		<div className={overlayClass} onClick={onClose}>
@@ -78,9 +79,10 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 
 				<div className={statGridClass}>
 					{damage !== undefined ? <Row label="Sát thương mỗi đòn" value={String(damage)} /> : null}
-					{swingMs !== undefined ? <Row label="Nhịp đánh" value={`${(swingMs / 1000).toFixed(1)}s`} /> : null}
-					{damage !== undefined && swingMs ? (
-						<Row label="Sát thương mỗi giây" value={(damage / (swingMs / 1000)).toFixed(1)} />
+					{speed !== undefined ? <Row label="Tốc độ đánh" value={`${Number(speed.toFixed(2))}×`} /> : null}
+					{swing !== undefined ? <Row label="Nhịp đánh" value={`${(swing / 1000).toFixed(1)}s`} /> : null}
+					{damage !== undefined && swing ? (
+						<Row label="Sát thương mỗi giây" value={(damage / (swing / 1000)).toFixed(1)} />
 					) : null}
 					<Row label="Giá ở shop" value={`${template.cost * item.star} 🐾`} />
 					<Row label="Đã trả" value={`${item.paid} 🐾`} />

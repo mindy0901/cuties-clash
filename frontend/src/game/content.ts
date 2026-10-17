@@ -119,7 +119,7 @@ function perStarAura(values: unknown): (star: Star) => { target: AuraTarget; mod
 /** Lookup table: JSON data → the function `ItemTemplate` expects. */
 const ITEM_UNPACKERS: Record<string, (value: unknown) => unknown> = {
 	damage: perStarNumber,
-	attackInterval: perStarNumber,
+	speed: perStarNumber,
 	interval: perStarNumber,
 	passive: perStarStatMods,
 	aura: perStarAura,

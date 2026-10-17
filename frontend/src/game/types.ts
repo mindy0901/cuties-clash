@@ -105,8 +105,11 @@ export interface ItemTemplate {
 	cost: number
 	/** Cells the item covers; the player may rotate it by 90° while dragging. */
 	space: GridSpace
-	/** Weapons swing on their own cadence. */
-	attackInterval?: (star: Star) => number
+	/**
+	 * Attack rate of a weapon: **1 = the reference cadence** (`BASE_ATTACK_MS` = 1500 ms), and
+	 * higher is faster. `swingMs()` turns it into the interval the battle simulation uses.
+	 */
+	speed?: (star: Star) => number
 	/** Weapon damage per swing. */
 	damage?: (star: Star) => number
 	passive?: (star: Star) => StatMods

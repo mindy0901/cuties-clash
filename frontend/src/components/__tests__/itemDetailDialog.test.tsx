@@ -40,12 +40,16 @@ describe('ItemDetailDialog', () => {
 		expect(screen.getByText('Đang mang')).toBeTruthy()
 	})
 
-	it('shows the damage and resale value per star, and no description line', () => {
+	it('shows the damage, attack speed and resale value per star, and no description line', () => {
 		reset([], [item('spear', 'fire-spear', 2, 8)])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
 		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
 		expect(screen.getByText('2★')).toBeTruthy()
+		// Speed is the design value: 1 = standard rate, so the player also gets the swing time in s.
+		expect(screen.getByText('Tốc độ đánh')).toBeTruthy()
+		expect(screen.getByText('1.15×')).toBeTruthy()
+		expect(screen.getByText('1.3s')).toBeTruthy()
 		// Paid 8 → resells for 4.
 		expect(screen.getByText(/4 🐾 \(hoàn 50%\)/)).toBeTruthy()
 		// An item has no description field any more — the numbers say everything.

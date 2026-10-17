@@ -153,6 +153,30 @@ describe('editing content', () => {
 		expect(document.querySelector('[data-admin-field="damage"][data-admin-star="5"]')).toBeTruthy()
 	})
 
+	it('shows a per-star field only when the item has it, with a chip to add one', async () => {
+		stubApi()
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		// A weapon swings but has nothing that self-triggers: no interval boxes, only the add chip.
+		expect(document.querySelectorAll('[data-admin-field="interval"]')).toHaveLength(0)
+		expect(document.querySelector('[data-admin-add-field="interval"]')).toBeTruthy()
+
+		// Armour does not attack at all: no damage and no speed boxes either.
+		fireEvent.click(document.querySelector('[data-admin-entry="hide-vest"]')!)
+		await waitFor(() => expect(document.querySelectorAll('[data-admin-field="damage"]')).toHaveLength(0))
+		expect(document.querySelectorAll('[data-admin-field="speed"]')).toHaveLength(0)
+
+		// Adding speed seeds the standard rate at every rank; the ✕ takes it away again.
+		fireEvent.click(document.querySelector('[data-admin-add-field="speed"]')!)
+		const speed = [...document.querySelectorAll<HTMLInputElement>('[data-admin-field="speed"]')]
+		expect(speed.map((input) => input.value)).toEqual(['0.625', '0.625', '0.625', '0.625', '0.625'])
+
+		fireEvent.click(document.querySelector('[data-admin-remove-field="speed"]')!)
+		expect(document.querySelectorAll('[data-admin-field="speed"]')).toHaveLength(0)
+		expect(document.querySelector('[data-admin-add-field="speed"]')).toBeTruthy()
+	})
+
 	it('sends the whole per-star array when a single star rank changes', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)

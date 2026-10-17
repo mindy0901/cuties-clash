@@ -54,6 +54,14 @@ interface FieldDef {
 	integer?: boolean
 	options?: { value: string; label: string }[]
 	hint?: string
+	/**
+	 * Optional field: not every item has it (armour has no `speed`, a weapon has no `interval`
+	 * for a self-triggering effect). The form hides it until the template declares it or the editor
+	 * clicks "＋ thêm", so a blank row never implies that the item *has* an empty value.
+	 */
+	optional?: boolean
+	/** Value every star box is seeded with when the editor adds an optional field. */
+	addDefault?: string
 }
 
 const CLASS_OPTIONS = [
@@ -99,16 +107,36 @@ const ITEM_FIELDS: FieldDef[] = [
 		options: BOOLEAN_OPTIONS,
 		hint: 'một ảnh cho mỗi món — public/icons/items/<id>.png',
 	},
-	{ key: 'damage', label: 'Sát thương', kind: 'perStarNumber', min: 0, max: 100_000 },
+	{
+		key: 'damage',
+		label: 'Sát thương',
+		kind: 'perStarNumber',
+		min: 0,
+		max: 100_000,
+		optional: true,
+		addDefault: '10',
+	},
 	{
 		key: 'speed',
 		label: 'Speed',
 		kind: 'perStarNumber',
 		min: 0.05,
 		max: 20,
+		optional: true,
+		addDefault: String(DEFAULT_SPEED),
 		hint: 'số đòn mỗi giây · mặc định 0.625 (1 đòn / 1.6s)',
 	},
-	{ key: 'interval', label: 'Nhịp hiệu lực (ms)', kind: 'perStarNumber', min: 100, max: 60_000, integer: true },
+	{
+		key: 'interval',
+		label: 'Nhịp hiệu lực (ms)',
+		kind: 'perStarNumber',
+		min: 100,
+		max: 60_000,
+		integer: true,
+		optional: true,
+		addDefault: '9000',
+		hint: 'hiệu ứng bị động tự kích hoạt mỗi … ms',
+	},
 	{ key: 'passive', label: 'Chỉ số cộng thêm', kind: 'perStarJson', hint: 'một ô JSON cho mỗi sao' },
 	{ key: 'aura', label: 'Hào khí liền kề', kind: 'perStarJson', hint: 'một ô JSON cho mỗi sao' },
 ]
@@ -153,9 +181,9 @@ function defaultValues(kind: Kind, id: string, field: FieldDef): string[] {
 	switch (field.kind) {
 		case 'perStarNumber': {
 			const source = (base as unknown as Record<string, ((star: Star) => number) | undefined>)[field.key]
-			// Every item has a speed: a template without its own uses the standard rate.
-			if (!source && field.key === 'speed') return STARS.map(() => String(DEFAULT_SPEED))
-			return STARS.map((star) => (source ? String(source(star)) : ''))
+			// An optional field the template does not declare starts out **absent**, not as five blanks.
+			if (!source) return field.optional ? [] : STARS.map(() => '')
+			return STARS.map((star) => String(source(star)))
 		}
 		case 'perStarJson': {
 			const source = (base as unknown as Record<string, ((star: Star) => unknown) | undefined>)[field.key]
@@ -223,6 +251,8 @@ function buildPayload(
 
 	for (const field of FIELDS[kind]) {
 		const values = draft[field.key] ?? []
+		// An optional field the editor never filled is simply absent from the row.
+		if (field.optional && values.every((value) => value.trim() === '')) continue
 		if (JSON.stringify(values) === JSON.stringify(defaults[field.key] ?? [])) continue
 
 		try {
@@ -369,6 +399,20 @@ function AdminContentEditor() {
 
 	/** Human name of the edited entity — used by the picture dialogs. */
 	const entityName = kind === 'item' ? (ITEM_BY_ID[activeId]?.name ?? activeId) : getPet(activeId).name
+
+	/** Code defaults of the edited entity: an optional field with no value here can be removed again. */
+	const defaults = useMemo(() => defaultDraft(kind, activeId), [kind, activeId])
+
+	/** Attach an optional field (`speed`, `interval`…) to the item being edited. */
+	const addOptionalField = (field: FieldDef) =>
+		setDraft((current) => ({
+			...current,
+			[field.key]: STARS.map(() => field.addDefault ?? ''),
+		}))
+
+	/** Drop an optional field the editor added — the code value (or nothing) applies again. */
+	const clearOptionalField = (key: string) =>
+		setDraft((current) => ({ ...current, [key]: [] }))
 
 	/** Entities that currently have an override, mapped to the last editor's email. */
 	const overridden = useMemo(() => {
@@ -602,28 +646,62 @@ function AdminContentEditor() {
 					</div>
 
 					<div className="grid gap-2 md:grid-cols-2">
-						{FIELDS[kind].map((field) => (
-							<div
-								key={field.key}
-								className={cn('flex flex-col gap-1 text-[12.5px]', isPerStar(field) && 'md:col-span-2')}
-							>
-								<span className="text-muted">
-									{field.label}
-									{field.hint ? <span className="ml-1 opacity-70">· {field.hint}</span> : null}
-								</span>
-								<FieldInput
-									field={field}
-									values={draft[field.key] ?? []}
-									onChange={(index, value) =>
-										setDraft((current) => {
-											const next = [...(current[field.key] ?? [])]
-											next[index] = value
-											return { ...current, [field.key]: next }
-										})
-									}
-								/>
-							</div>
-						))}
+						{FIELDS[kind].map((field) => {
+							const values = draft[field.key] ?? []
+							const present = !field.optional || values.some((value) => value.trim() !== '')
+							// Only a field the editor added can be taken away again; a value from code stays.
+							const removable = field.optional && (defaults[field.key] ?? []).every((value) => !value.trim())
+
+							if (!present) {
+								return (
+									<div key={field.key} className="flex flex-col gap-1 text-[12.5px]">
+										<button
+											type="button"
+											data-admin-add-field={field.key}
+											className={cn(btnClass, btnSmClass, 'self-start')}
+											title={field.hint}
+											onClick={() => addOptionalField(field)}
+										>
+											＋ {field.label}
+										</button>
+									</div>
+								)
+							}
+
+							return (
+								<div
+									key={field.key}
+									className={cn('flex flex-col gap-1 text-[12.5px]', isPerStar(field) && 'md:col-span-2')}
+								>
+									<span className="flex items-center gap-1.5 text-muted">
+										{field.label}
+										{field.hint ? <span className="opacity-70">· {field.hint}</span> : null}
+										{removable ? (
+											<button
+												type="button"
+												data-admin-remove-field={field.key}
+												className="rounded border border-line px-1 text-[11px] leading-4 hover:border-danger-soft hover:text-danger-soft"
+												title={`Bỏ trường ${field.label}`}
+												onClick={() => clearOptionalField(field.key)}
+											>
+												✕
+											</button>
+										) : null}
+									</span>
+									<FieldInput
+										field={field}
+										values={values}
+										onChange={(index, value) =>
+											setDraft((current) => {
+												const next = [...(current[field.key] ?? [])]
+												next[index] = value
+												return { ...current, [field.key]: next }
+											})
+										}
+									/>
+								</div>
+							)
+						})}
 					</div>
 
 					<div className={statClass}>

@@ -38,20 +38,27 @@ dialog reads one, so the five text boxes that used to hold it were removed.
 | Field | Control |
 | --- | --- |
 | `damage`, `speed`, `interval`, `passive`, `aura` | **one control per star rank**, in a row with `1★` … `5★` printed above each: a number input for the numeric ones, a JSON textarea for `passive`/`aura` |
-| `art` (one picture per item) | a **có/không select** — the file is `public/icons/items/<id>.<ext>`, ❌ art is not per star rank |
+| `damage`, `speed`, `interval` on an item that lacks them | hidden, replaced by a **＋ chip** (＋ Sát thương · ＋ Speed · ＋ Nhịp hiệu lực). Clicking it adds the five boxes seeded with a sane value — `0.625` for `speed`, `9000` for `interval` — and a **✕** takes an added field away again. A value that comes from `items.ts` cannot be removed here |
+| `art` (one picture per item) | a **có/không select** — the file is `public/icons/items/<id>.png`, ❌ art is not per star rank |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON |
 | `quality` | a **select** with the five labelled bands, next to a swatch of the colour that band gives an item tile |
+
+⚠️ Why the chips: armour has no `speed` and no `damage`, and a plain weapon has no `interval` for a
+self-triggering effect. Five **empty** boxes looked like "this item has an empty value" and invited
+edits that meant nothing — an absent field now simply is not there.
 
 Per-star fields are edited as **5 values (1★ → 5★)**. In code these are functions
 (`damage: (star) => …`); the client rebuilds them from the array, so the JSON stored in the database
 never contains code. A single box with comma separated values was replaced by one input per star:
 with one box, a missing comma shifted every later rank silently.
 
-**`speed`** is an attack rate in **attacks per second**, not a number of milliseconds: `0.625` — the
-standard for every item — is one swing every 1.6 s, `1.25` is one every 0.8 s. `swingMs()` turns it
-into the interval the battle simulation uses (`round(1000 / speed)`), so a design value stays
-readable and the players still see seconds in the detail dialog. An item that deals damage but
-declares no `speed` swings at `DEFAULT_SPEED`, never at an interval of 0.
+**`speed`** is an attack rate in **attacks per second**, not a number of milliseconds: `0.625` — what
+the ＋ chip seeds — is one swing every 1.6 s, `1.25` is one every 0.8 s. `swingMs()` turns it into the
+interval the battle simulation uses (`round(1000 / speed)`), so a design value stays readable and the
+players still see seconds in the detail dialog. `interval` is the cadence of a self-triggering passive
+(shield, burn, heal…), in ms, and only an item with an `active` effect has one.
+
+An item that deals damage but declares no `speed` swings at `DEFAULT_SPEED`, never at an interval of 0.
 
 **Quality** is a fixed property of the template (❌ independent of the item's star rank) that only
 decides the **tile colour**. The star rank uses the **same palette** for the star glyphs, so one

@@ -214,15 +214,16 @@ describe('editing content', () => {
 		expect(line()[1]).toBe('1★ 1.440')
 	})
 
-	it('disables Save until something changed, and keeps only the reset button', async () => {
+	it('disables Save and Reset until something changed or an override exists', async () => {
 		stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
 
 		const save = screen.getByText(/Lưu/).closest('button')!
-		// Nothing changed → nothing to save, so the button is disabled instead of the old status row.
+		const reset = screen.getByText('↺ Đặt lại như cũ').closest('button')!
+		// Nothing edited and nothing stored → nothing to save, nothing to reset.
 		expect(save.disabled).toBe(true)
-		expect(screen.getByText('↺ Đặt lại như cũ')).toBeTruthy()
+		expect(reset.disabled).toBe(true)
 		expect(screen.queryByText('Trạng thái')).toBeNull()
 		expect(screen.queryByText('Hoàn tác ô nhập')).toBeNull()
 
@@ -230,6 +231,29 @@ describe('editing content', () => {
 			target: { value: '13' },
 		})
 		expect(save.disabled).toBe(false)
+		// An edit is also something "Đặt lại như cũ" can throw away.
+		expect(reset.disabled).toBe(false)
+	})
+
+	it('keeps Reset available when the entity already has an override', async () => {
+		stubApi({
+			overrides: [
+				{
+					kind: 'item',
+					entityId: 'wooden-blade',
+					payload: { cost: 9 },
+					updatedAt: '2026-01-01T00:00:00.000Z',
+					updatedBy: 'quantri@example.com',
+				},
+			],
+		})
+		renderInRouter(<AdminContentScreen />)
+		await screen.findByText('wooden-blade')
+
+		// The form is untouched, but the row holds an override only this button can delete.
+		await waitFor(() =>
+			expect(screen.getByText('↺ Đặt lại như cũ').closest('button')!.disabled).toBe(false),
+		)
 	})
 
 	it('sends the whole per-star array when a single star rank changes', async () => {

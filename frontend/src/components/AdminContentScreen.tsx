@@ -488,6 +488,14 @@ function AdminContentEditor() {
 		)
 	}, [draft, kind, activeId])
 
+	/**
+	 * Whether the entity has a stored override — i.e. whether "Đặt lại như cũ" has anything to delete.
+	 *
+	 * ⚠️ Both buttons follow the same rule as the form: nothing edited **and** nothing stored means
+	 * there is nothing to save and nothing to reset, so both are disabled.
+	 */
+	const hasOverride = overridden.has(activeId)
+
 	const onSave = () => {
 		const { payload, errors } = buildPayload(kind, activeId, draft)
 		if (errors.length > 0) {
@@ -840,7 +848,7 @@ function AdminContentEditor() {
 						<button
 							type="button"
 							className={cn(btnClass, 'justify-center')}
-							disabled={busy}
+							disabled={busy || !(dirty || hasOverride)}
 							onClick={onReset}
 							title="Xoá phần ghi đè của mục này, quay về giá trị trong mã nguồn"
 						>

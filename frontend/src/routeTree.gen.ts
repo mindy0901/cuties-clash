@@ -10,53 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as CuaHangRouteImport } from './routes/cua-hang'
-import { Route as QuanTriRouteImport } from './routes/quan-tri'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ShopRouteImport } from './routes/shop'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CuaHangRoute = CuaHangRouteImport.update({
-  id: '/cua-hang',
-  path: '/cua-hang',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const QuanTriRoute = QuanTriRouteImport.update({
-  id: '/quan-tri',
-  path: '/quan-tri',
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/cua-hang': typeof CuaHangRoute
-  '/quan-tri': typeof QuanTriRoute
+  '/admin': typeof AdminRoute
+  '/shop': typeof ShopRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/cua-hang': typeof CuaHangRoute
-  '/quan-tri': typeof QuanTriRoute
+  '/admin': typeof AdminRoute
+  '/shop': typeof ShopRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/cua-hang': typeof CuaHangRoute
-  '/quan-tri': typeof QuanTriRoute
+  '/admin': typeof AdminRoute
+  '/shop': typeof ShopRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cua-hang' | '/quan-tri'
+  fullPaths: '/' | '/admin' | '/shop'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cua-hang' | '/quan-tri'
-  id: '__root__' | '/' | '/cua-hang' | '/quan-tri'
+  to: '/' | '/admin' | '/shop'
+  id: '__root__' | '/' | '/admin' | '/shop'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CuaHangRoute: typeof CuaHangRoute
-  QuanTriRoute: typeof QuanTriRoute
+  AdminRoute: typeof AdminRoute
+  ShopRoute: typeof ShopRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,18 +68,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/cua-hang': {
-      id: '/cua-hang'
-      path: '/cua-hang'
-      fullPath: '/cua-hang'
-      preLoaderRoute: typeof CuaHangRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/quan-tri': {
-      id: '/quan-tri'
-      path: '/quan-tri'
-      fullPath: '/quan-tri'
-      preLoaderRoute: typeof QuanTriRouteImport
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -87,8 +87,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CuaHangRoute: CuaHangRoute,
-  QuanTriRoute: QuanTriRoute,
+  AdminRoute: AdminRoute,
+  ShopRoute: ShopRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,4 +1,4 @@
-# Content admin (`/quan-tri`)
+# Content admin (`/admin`)
 
 Edit **items** and **pets** for every player from the browser, without touching code or
 redeploying. Built-in defaults stay in `game/items.ts` / `game/pets.ts`; the database only holds
@@ -16,7 +16,7 @@ play all keep the game complete.
 
 2. Restart the API (`pnpm dev` inside `backend/`, or `docker compose restart be-dev`).
 3. Sign in in the game, then open the **⚙ Quản trị** button in the top bar, or go to
-   `/quan-tri`.
+   `/admin`.
 
 ⚠️ `ADMIN_EMAILS` empty means **nobody** gets in — the page shows a message instead of the
 editor. That is deliberate: forgetting to configure it must never open the page to everyone.

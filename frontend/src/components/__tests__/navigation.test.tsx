@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Navigation between the preparation room (`/`) and the dedicated shop page (`/cua-hang`).
+ * Navigation between the preparation room (`/`) and the dedicated shop page (`/shop`).
  *
  * Three things to remember when writing tests here:
  * - Use @testing-library's `render`, **not** `renderToString` (zustand v5 returns the initial
@@ -47,13 +47,13 @@ describe('navigation between the preparation room and the shop', () => {
 		// Wait for the new screen to render before checking the URL: router navigation is an async
 		// transition, so `window.location` may change a tick later.
 		expect(await screen.findByText('Cửa hàng vật phẩm')).toBeTruthy()
-		expect(window.location.pathname).toBe('/cua-hang')
+		expect(window.location.pathname).toBe('/shop')
 		// The shop page no longer shows the inventory.
 		expect(screen.queryByText('Kho đồ')).toBeNull()
 	})
 
 	it('the back button returns to the preparation room', async () => {
-		await renderApp('/cua-hang')
+		await renderApp('/shop')
 		expect(screen.getByText('Cửa hàng vật phẩm')).toBeTruthy()
 
 		fireEvent.click(screen.getByText(/Quay về/))
@@ -63,7 +63,7 @@ describe('navigation between the preparation room and the shop', () => {
 	})
 
 	it('items can be bought right on the shop page', async () => {
-		await renderApp('/cua-hang')
+		await renderApp('/shop')
 
 		const before = useGameStore.getState().run
 		const offer = before.shop[0]
@@ -77,8 +77,8 @@ describe('navigation between the preparation room and the shop', () => {
 		expect(after.shop[0].sold).toBe(true)
 	})
 
-	it('opening /cua-hang directly lands on the shop page', async () => {
-		await renderApp('/cua-hang')
+	it('opening /shop directly lands on the shop page', async () => {
+		await renderApp('/shop')
 		expect(screen.getByText('Cửa hàng vật phẩm')).toBeTruthy()
 	})
 
@@ -96,7 +96,7 @@ describe('navigation between the preparation room and the shop', () => {
 	it('during a battle the battle screen is shown even on the shop URL', async () => {
 		useGameStore.getState().buyOffer(0)
 		useGameStore.getState().startBattle('stage')
-		await renderApp('/cua-hang')
+		await renderApp('/shop')
 		expect(useGameStore.getState().phase).toBe('battle')
 		// The battle screen has the Sword Energy bar and the speed buttons.
 		expect(screen.getAllByText(/Kiếm Thế/).length).toBeGreaterThan(0)

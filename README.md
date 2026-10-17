@@ -125,7 +125,7 @@ The game has **two screens**, navigated with real paths (the browser Back button
 | Screen | Path | Contents |
 | -------- | --------- | -------- |
 | **Phòng chuẩn bị** | `/` | Pet + stat panel (Sức mạnh, Máu, Lịch sử đấu) · pet stage · **Kho đồ** (storage) · **Trang bị** (what is carried) · action button bar |
-| **Cửa hàng** | `/cua-hang` | Buy items with Paw Tally, reroll the shop list. Opened from the **Mua Vật Phẩm »** button |
+| **Cửa hàng** | `/shop` | Buy items with Paw Tally, reroll the shop list. Opened from the **Mua Vật Phẩm »** button |
 
 ### How Trang bị and Kho đồ differ
 
@@ -198,13 +198,13 @@ frontend/                     # The `frontend` package
 ├─ src/routes/                # One file per screen
 │  ├─ __root.tsx              # Shared frame (TopBar, dialogs, Toasts)
 │  ├─ index.tsx               # Phòng chuẩn bị (/)
-│  └─ cua-hang.tsx            # Cửa hàng (/cua-hang)
+│  └─ shop.tsx            # Cửa hàng (/shop)
 ├─ src/components/            # React UI
 │  ├─ ItemIcon.tsx            # ItemIcon / PetIcon / SkillIcon — art or emoji fallback
 │  ├─ ArtIcon.tsx             # Renders the image, falls back to emoji when the file is missing
 │  ├─ GridBoard.tsx           # Shared multi-cell grid (Kho đồ + Trang bị panel)
 │  ├─ PrepScreen.tsx          # Phòng chuẩn bị (path /)
-│  ├─ ShopScreen.tsx          # Separate Cửa hàng screen (/cua-hang)
+│  ├─ ShopScreen.tsx          # Separate Cửa hàng screen (/shop)
 │  ├─ ActionBar.tsx           # Bottom button bar: Mua Vật Phẩm · Nhiệm Vụ · Bộ Sưu Tập · Bản đồ · Đấu
 │  ├─ PetLoadoutPanel.tsx     # Trang bị (currently carried) + shop button
 │  └─ …                       # TopBar, InventoryPanel, PetPanel, BattleScreen, dialogs…

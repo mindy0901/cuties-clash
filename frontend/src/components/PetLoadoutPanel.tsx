@@ -84,7 +84,7 @@ export function PetLoadoutPanel({
 						btnClass,
 						'flex-1 justify-center border-gold/60 bg-linear-to-b from-gold/25 to-transparent font-semibold',
 					)}
-					onClick={() => void navigate({ to: '/cua-hang' })}
+					onClick={() => void navigate({ to: '/shop' })}
 				>
 					🛒 Mua Vật Phẩm »
 				</button>

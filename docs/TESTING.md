@@ -33,7 +33,7 @@ Zustand v5 returns the **initial state** for `getServerSnapshot`. A component re
 | Helper | Kind | Use when |
 | --- | --- | --- |
 | `renderInRouter(<PrepScreen/>)` | **synchronous** | You only need the component to have `useNavigate`. Grid/drag-and-drop tests use this one so they do **not** have to switch to `async` |
-| `await renderApp('/cua-hang')` | **`async`** | Navigation tests — builds the whole real route tree with browser history |
+| `await renderApp('/shop')` | **`async`** | Navigation tests — builds the whole real route tree with browser history |
 
 ⚠️ Why `renderInRouter` can be synchronous: it uses `RouterContextProvider` (which only needs the
 context), while `renderApp` has to go through `RouterProvider` — which **renders nothing on the first

@@ -9,7 +9,7 @@ import { ItemIcon } from './ItemIcon'
 import { btnClass, btnGoldClass, btnSmClass, cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
 
 /**
- * The dedicated shop page (`/cua-hang`).
+ * The dedicated shop page (`/shop`).
  *
  * Layout follows the original: title plus the Paw Tally count, the list of purchasable items, and
  * a button back to the preparation room. After buying you stay here to keep shopping.

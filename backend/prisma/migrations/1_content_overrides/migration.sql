@@ -1,4 +1,4 @@
--- Table holding content edited from the admin page (`/quan-tri`).
+-- Table holding content edited from the admin page (`/admin`).
 --
 -- Written IDEMPOTENT for the same reason as `0_init`: `AUTO_CREATE_TABLES=true` runs every
 -- migration file at startup, so a second boot must be a no-op instead of failing with

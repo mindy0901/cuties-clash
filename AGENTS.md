@@ -103,7 +103,7 @@ The backend ❌ contains no game rules: it only authenticates identity and store
 ✅ **The URL is the source of truth** — ❌ the store does not hold `route` (it once did, and the two sources
 diverged). Adding a screen = adding a file in `frontend/src/routes/`; ❌ do not edit `routeTree.gen.ts` (it is
 generated). The SPA fallback must exist on **both sides** — `frontend/nginx.conf` **and** the `spaFallback`
-plugin in `vite.config.ts`; without one of the two, F5 on `/cua-hang` 404s.
+plugin in `vite.config.ts`; without one of the two, F5 on `/shop` 404s.
 
 ### 4.4 Save sync 🔴 this is where data gets lost
 

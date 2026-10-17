@@ -226,7 +226,7 @@ function buildPayload(
 }
 
 /**
- * Content admin page: edit **items** and **pets** at `/quan-tri`.
+ * Content admin page: edit **items** and **pets** at `/admin`.
  *
  * ⚠️ Editing here changes the game for **every player** (content lives on the server, it is not
  * part of a personal save). Access is limited to accounts whose email is listed in

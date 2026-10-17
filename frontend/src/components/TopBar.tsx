@@ -50,7 +50,7 @@ export function TopBar() {
 				<button
 					type="button"
 					className={cn(btnClass, btnSmClass, btnGhostClass)}
-					onClick={() => void navigate({ to: '/quan-tri' })}
+					onClick={() => void navigate({ to: '/admin' })}
 				>
 					⚙ Quản trị
 				</button>

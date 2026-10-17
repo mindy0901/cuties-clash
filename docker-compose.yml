@@ -34,7 +34,7 @@ x-backend-env: &backend-env
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
   AUTO_LOGIN: ${AUTO_LOGIN:-false}
-  # Email allowed into the content admin page (/quan-tri). Empty = nobody gets in.
+  # Email allowed into the content admin page (/admin). Empty = nobody gets in.
   ADMIN_EMAILS: ${ADMIN_EMAILS:-}
 
 services:

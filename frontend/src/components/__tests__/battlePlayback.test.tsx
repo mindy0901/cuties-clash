@@ -106,6 +106,23 @@ describe('battle screen playback', () => {
 		expect(boards[0].querySelectorAll('[data-item-box]')).toHaveLength(equipped.length)
 	})
 
+	it('keeps the skill slots in the top bar, out of the avatar card', async () => {
+		gearUp()
+		await renderApp()
+		fireEvent.click(screen.getByText(/Đấu Thú Cưng/))
+
+		// The card is the picture frame: no icon row inside it (a row there covered the art).
+		expect(document.querySelector('[data-avatar-card] [data-skill-slots]')).toBeNull()
+		// The player's pet skill is drawn next to that side's health bar, charge bar included.
+		const slots = document.querySelectorAll('[data-skill-slots]')
+		expect(slots.length, 'one cluster per side that has skills').toBeGreaterThanOrEqual(1)
+		const skill = [...document.querySelectorAll<HTMLElement>('[title]')].find((el) =>
+			el.title.includes('Hỏa Khuyển Trảo'),
+		)
+		expect(skill, 'the pet skill slot must be on screen').toBeTruthy()
+		expect(skill?.closest('[data-avatar-card]'), 'and never inside an avatar card').toBeNull()
+	})
+
 	it('the summary popup has NO restart-from-scratch button', async () => {
 		// Restarting from scratch is an action of the **top bar** (it asks for confirmation). In the
 		// summary popup it would sit right next to the continue button, making it easy to hit by

@@ -9,6 +9,7 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AvatarCard } from '../AvatarCard'
+import { SkillSlots } from '../SkillSlots'
 
 afterEach(cleanup)
 
@@ -40,22 +41,12 @@ describe('the avatar frame', () => {
 		expect(document.body.textContent).toContain('Lv3')
 	})
 
-	it('draws the skill slots under the picture, never on top of it', () => {
-		render(
-			<AvatarCard
-				side="player"
-				name="Cẩu Hỏa Sài"
-				petId="fire-pup"
-				skills={[{ uid: 'skill', icon: <span>🔥</span>, label: 'Hỏa Khuyển Trảo', charge: 40 }]}
-			/>,
-		)
+	it('renders only the picture — the skill slots live outside the card', () => {
+		render(<AvatarCard side="player" name="Cẩu Hỏa Sài" petId="fire-pup" />)
 
-		const [chip] = [...document.querySelectorAll<HTMLElement>('[title="Hỏa Khuyển Trảo"]')]
-		expect(chip, 'the skill slot must carry a title').toBeTruthy()
-		expect(chip.querySelector<HTMLElement>('[style*="width"]')?.style.width).toBe('40%')
-		// The picture owns the frame; the slots sit **below** it, so the photo is never covered.
-		expect(holder().contains(chip), 'not inside the picture frame').toBe(false)
-		expect(document.body.textContent).toContain('🔥')
+		// ❌ No icon row inside the card: `SkillSlots` is drawn **below** it by `BattleScreen`.
+		expect(document.querySelector('[data-skill-slots]')).toBeNull()
+		expect(document.querySelectorAll('img')).toHaveLength(1)
 	})
 
 	it('fills the frame with the picture instead of letterboxing it', () => {
@@ -64,5 +55,20 @@ describe('the avatar frame', () => {
 		const img = holder().querySelector('img')
 		expect(img?.className, 'the square crop has to cover the tall frame').toContain('object-cover')
 		expect(holder().className, 'and the frame grows with the card').toContain('flex-1')
+	})
+})
+
+describe('the skill slots', () => {
+	it('draws each skill with its charge progress', () => {
+		render(<SkillSlots skills={[{ uid: 'skill', icon: <span>🔥</span>, label: 'Hỏa Khuyển Trảo', charge: 40 }]} />)
+
+		const [chip] = [...document.querySelectorAll<HTMLElement>('[title="Hỏa Khuyển Trảo"]')]
+		expect(chip).toBeTruthy()
+		expect(chip.querySelector<HTMLElement>('[style*="width"]')?.style.width).toBe('40%')
+	})
+
+	it('renders nothing when there is no skill', () => {
+		const { container } = render(<SkillSlots skills={[]} />)
+		expect(container.firstChild).toBeNull()
 	})
 })

@@ -1,19 +1,7 @@
-import type { ReactNode } from 'react'
 import { avatarArtSrc, petArtSrc } from '../game/art'
 import { getPet } from '../game/pets'
 import { ArtIcon } from './ArtIcon'
 import { cn } from './ui'
-
-/** One skill slot **under** the avatar picture (a pet skill, or an item with an active effect). */
-export interface AvatarSkill {
-	/** Key — matches `uid` in `SideState.cooldowns`, used to look up charge progress. */
-	uid: string
-	/** Icon to display; callers pass an `ItemIcon`/`SkillIcon`. */
-	icon: ReactNode
-	label: string
-	/** 0–100, 100 = ready to use. */
-	charge: number
-}
 
 export interface AvatarCardProps {
 	side: 'player' | 'enemy'
@@ -31,8 +19,6 @@ export interface AvatarCardProps {
 	 * battle draws. ❌ Not a second way to pick art.
 	 */
 	artSrc?: string | null
-	/** Skill slots, drawn **below** the picture — ❌ never on top of it. */
-	skills?: AvatarSkill[]
 	/** Flashes when the fighter just took a hit. */
 	hit?: boolean
 	/** Damage just taken — the number floating up inside the frame. */
@@ -54,7 +40,6 @@ export function AvatarCard({
 	petId,
 	emoji,
 	artSrc,
-	skills = [],
 	hit,
 	floater,
 }: AvatarCardProps) {
@@ -110,28 +95,6 @@ export function AvatarCard({
 					</span>
 				) : null}
 			</div>
-
-			{/*
-			 * Skill slots — **under** the picture, never on top of it: the frame above keeps `flex-1` so
-			 * the picture grows into whatever height is left, and these stay in a row below.
-			 */}
-			{skills.length > 0 ? (
-				<div className="flex flex-wrap justify-center gap-1.5">
-					{skills.map((skill) => (
-						<span
-							key={skill.uid}
-							title={skill.label}
-							className={cn(
-								'relative grid size-9 place-items-center overflow-hidden rounded-full border bg-ink-700',
-								skill.charge >= 100 ? 'border-gold-soft shadow-[0_0_10px_rgb(217_162_39/35%)]' : 'border-line',
-							)}
-						>
-							{skill.icon}
-							<span className="absolute bottom-0 left-0 h-1 bg-gold" style={{ width: `${skill.charge}%` }} />
-						</span>
-					))}
-				</div>
-			) : null}
 		</aside>
 	)
 }

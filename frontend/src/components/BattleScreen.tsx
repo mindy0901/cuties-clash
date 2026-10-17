@@ -7,10 +7,11 @@ import { GRID_MAX_ROWS, GRID_WIDTH, getPet } from '../game/pets'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import type { ItemBlueprint, ItemInstance, SideState, StatusKey } from '../game/types'
-import { AvatarCard, type AvatarSkill } from './AvatarCard'
+import { AvatarCard } from './AvatarCard'
 import { Pause, Play, Shield, SkipForward, Swords } from './icons'
 import { ItemIcon, PetIcon, SkillIcon } from './ItemIcon'
 import { LoadoutGrid } from './LoadoutGrid'
+import { SkillSlots, type SkillSlot } from './SkillSlots'
 import {
 	btnClass,
 	btnGoldClass,
@@ -65,7 +66,7 @@ function activeItemChips(items: ItemInstance[]): SkillChip[] {
 }
 
 /** Attaches each skill slot's cooldown progress (0–100) from that side's current state. */
-function withCharge(state: SideState, chips: SkillChip[]): AvatarSkill[] {
+function withCharge(state: SideState, chips: SkillChip[]): SkillSlot[] {
 	return chips.map((chip) => {
 		const cooldown = state.cooldowns.find((entry) => entry.uid === chip.uid)
 		const charge =
@@ -79,8 +80,20 @@ function withCharge(state: SideState, chips: SkillChip[]): AvatarSkill[] {
  *
  * The enemy side is mirrored (`items-end` + `ml-auto`) so both bars drain towards the badge in
  * the middle — like the reference art, and it is obvious which side is losing health.
+ *
+ * The side's **skill slots** (pet skill + items with an active effect) sit in the same row as the
+ * shield/status chips: the avatar card below is the picture frame, so a chip row inside it would
+ * cover the art or push it into a letterbox.
  */
-function HpPanel({ side, state }: { side: 'player' | 'enemy'; state: SideState }) {
+function HpPanel({
+	side,
+	state,
+	skills = [],
+}: {
+	side: 'player' | 'enemy'
+	state: SideState
+	skills?: SkillSlot[]
+}) {
 	const enemy = side === 'enemy'
 	const hpPercent = Math.max(0, Math.min(100, (state.hp / state.maxHp) * 100))
 	const sePercent = Math.max(0, Math.min(100, (state.se / state.maxSe) * 100))
@@ -118,6 +131,7 @@ function HpPanel({ side, state }: { side: 'player' | 'enemy'; state: SideState }
 				>
 					<Shield /> {Math.round(state.shield)}
 				</span>
+				<SkillSlots skills={skills} compact />
 				{state.statuses.map((status) => (
 					<span
 						className={cn(
@@ -346,9 +360,9 @@ export function BattleScreen() {
 					</div>
 				</div>
 
-				{/* ── Top bar: both sides' health + the versus badge ──────────────── */}
+				{/* ── Top bar: both sides' health (with their skill slots) + the versus badge ── */}
 				<div className="grid items-center gap-3 lg:grid-cols-[1fr_auto_1fr]">
-					<HpPanel side="player" state={current.player} />
+					<HpPanel side="player" state={current.player} skills={playerSkills} />
 					<VersusBadge
 						petId={pet.id}
 						opponentEmoji={opponentEmoji}
@@ -358,7 +372,7 @@ export function BattleScreen() {
 						time={current.t}
 						outcome={outcome}
 					/>
-					<HpPanel side="enemy" state={current.enemy} />
+					<HpPanel side="enemy" state={current.enemy} skills={enemySkills} />
 				</div>
 
 				{/* ── Arena: both avatars + the loadout grids (reusing `LoadoutGrid`) ── */}
@@ -368,7 +382,6 @@ export function BattleScreen() {
 						name={pet.name}
 						label={`Lv${level}`}
 						petId={pet.id}
-						skills={playerSkills}
 						hit={Boolean(playerFloater)}
 						floater={playerFloater}
 					/>
@@ -402,7 +415,6 @@ export function BattleScreen() {
 						name={battle.opponentName}
 						label={opponentLabel}
 						emoji={opponentEmoji}
-						skills={enemySkills}
 						hit={Boolean(enemyFloater)}
 						floater={enemyFloater}
 					/>

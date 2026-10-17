@@ -63,7 +63,7 @@ function createRun(seed = STARTING_SEED): RunState {
 		equipped: [],
 		inventory: [],
 		seed: runSeed,
-		shop: rollShop(1, runSeed),
+		shop: rollShop(1, 0, runSeed),
 		rerolls: 0,
 		wins: 0,
 		losses: 0,
@@ -196,7 +196,7 @@ export const useGameStore = create<GameStore>()(
 							currency: run.currency - REROLL_COST,
 							seed,
 							rerolls: run.rerolls + 1,
-							shop: rollShop(run.stage, seed),
+							shop: rollShop(run.stage, run.clearedStage, seed),
 						},
 					}
 				}),
@@ -364,7 +364,7 @@ export const useGameStore = create<GameStore>()(
 							clearedStage,
 							unlockedPets: [...run.unlockedPets, ...newlyUnlocked],
 							seed,
-							shop: rollShop(nextStage, seed),
+							shop: rollShop(nextStage, clearedStage, seed),
 							wins: run.wins + 1,
 						},
 					}

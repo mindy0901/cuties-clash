@@ -1,31 +1,39 @@
 import { itemTemplatesUpToTier, starPrice } from './items'
 import { createRng } from './rng'
-import { stageTier } from './stages'
+import { FINAL_STAGE, stageTier } from './stages'
 import type { ShopOffer, Star } from './types'
 
 export const SHOP_SIZE = 5
 export const REROLL_COST = 2
 export const STARTING_CURRENCY = 12
 
+/** Cleared stage from which the shop may already offer a 2★ item. */
+export const STAR_TWO_FROM_CLEARED = 40
+/** Chance of that upgrade, per offer. */
+export const STAR_TWO_CHANCE = 0.005
+/** Chance of an already 3★ item — only once the whole ladder is cleared. */
+export const STAR_THREE_CHANCE = 0.001
+
 /**
- * Chance that an offer already comes upgraded, by map tier.
+ * Chance that an offer already comes upgraded, from the stage the player has **cleared** — the shop
+ * is a reward for progress, not for the map being open:
+ * - cleared **40** → 0.5% of an offer is already 2★;
+ * - cleared **60** (the whole ladder) → those 2★ plus 0.1% of an offer already 3★.
  *
- * ⚠️ Deliberately tiny (0.5% / 0.1%) and capped at **3★ in the last map**: a shop item above 3★
- * would sell for a fraction of the sixteen copies a 5★ is made of, which breaks the economy.
- * Map 1 never rolls an upgrade — the shop starts plain.
+ * ⚠️ ❌ Never 4★–5★: a shop item above 3★ would sell for a fraction of the copies it is made of.
  */
-function starChances(stageIndex: number): { two: number; three: number } {
-	const tier = stageTier(stageIndex)
-	if (tier === 3) return { two: 0.005, three: 0.001 }
-	if (tier === 2) return { two: 0.005, three: 0 }
+function starChances(clearedStage: number): { two: number; three: number } {
+	if (clearedStage >= FINAL_STAGE) return { two: STAR_TWO_CHANCE, three: STAR_THREE_CHANCE }
+	if (clearedStage >= STAR_TWO_FROM_CLEARED) return { two: STAR_TWO_CHANCE, three: 0 }
 	return { two: 0, three: 0 }
 }
 
-export function rollShop(stageIndex: number, seed: number): ShopOffer[] {
+/** Roll the shop for `stageIndex`; `clearedStage` decides whether upgraded offers are allowed. */
+export function rollShop(stageIndex: number, clearedStage: number, seed: number): ShopOffer[] {
 	const tier = stageTier(stageIndex)
 	const pool = itemTemplatesUpToTier(tier)
 	const rng = createRng(seed >>> 0)
-	const chances = starChances(stageIndex)
+	const chances = starChances(clearedStage)
 	const offers: ShopOffer[] = []
 	for (let index = 0; index < SHOP_SIZE; index += 1) {
 		const template = rng.pick(pool)

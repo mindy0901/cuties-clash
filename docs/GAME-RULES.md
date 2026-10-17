@@ -49,13 +49,13 @@ result is one rank higher. **5★ is the cap** (`MAX_STAR` in `game/items.ts`).
 | Star | Price in the shop | Notes |
 | --- | --- | --- |
 | 1★ | `cost × 1` | Starting rank, what the shop almost always offers |
-| 2★ | `cost × 2` | Two copies' worth. Shop: **0.5%** per offer, from map 2 on |
-| 3★ | `cost × 4` | Four copies' worth. Shop: **0.1%** per offer, **last map only** |
+| 2★ | `cost × 2` | Two copies' worth. Shop: **0.5%** per offer once **màn 40** is cleared |
+| 3★ | `cost × 4` | Four copies' worth. Shop: **0.1%** per offer, only once **màn 60** (the whole ladder) is cleared |
 | 4★ | `cost × 8` | Merging only — ❌ never sold |
 | 5★ | `cost × 16` | Merging only (two 4★ copies) |
 
-⚠️ A shop item above 3★ would be sold for a fraction of the copies it is made of, which is why the
-chance is that small and stops at 3★.
+⚠️ The gate is the **cleared** stage, not the map currently open: an upgraded offer is a reward for
+progress, and a shop item above 3★ would be sold for a fraction of the copies it is made of.
 
 Every per-star value in `game/items.ts` is declared as an array with **one entry per star rank**
 (`pick(star, [1★, 2★, 3★, 4★, 5★])`), so a missing rank is a type error rather than a silent fallback.

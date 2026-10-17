@@ -81,7 +81,7 @@ describe('item catalogue', () => {
 
 describe('shop rolls', () => {
 	it('produces a full offer list whose cost matches the star price', () => {
-		const shop = rollShop(1, 4242)
+		const shop = rollShop(1, 0, 4242)
 		expect(shop).toHaveLength(SHOP_SIZE)
 		for (const offer of shop) {
 			expect(offer.cost).toBe(starPrice(getTemplate(offer.templateId).cost, offer.star))
@@ -90,32 +90,36 @@ describe('shop rolls', () => {
 	})
 
 	it('is deterministic for the same seed', () => {
-		expect(rollShop(25, 777)).toEqual(rollShop(25, 777))
+		expect(rollShop(25, 0, 777)).toEqual(rollShop(25, 0, 777))
 	})
 
 	it('only offers tier 1 items in the first map', () => {
-		for (const offer of rollShop(5, 99)) {
+		for (const offer of rollShop(5, 0, 99)) {
 			expect(getTemplate(offer.templateId).tier).toBe(1)
 		}
 	})
 
-	it('never sells above 3★, and only rolls an upgrade late in the run', () => {
-		const starsOf = (stageIndex: number, seeds: number) => {
+	it('never sells above 3★, and gates the upgrades on the cleared stage', () => {
+		const starsOf = (stageIndex: number, clearedStage: number, seeds: number) => {
 			const found: number[] = []
 			for (let seed = 0; seed < seeds; seed += 1) {
-				for (const offer of rollShop(stageIndex, seed * 7919)) found.push(offer.star)
+				for (const offer of rollShop(stageIndex, clearedStage, seed * 7919)) found.push(offer.star)
 			}
 			return found
 		}
 
-		// Map 1 starts plain: no upgraded offer at all.
-		expect(starsOf(5, 400).every((star) => star === 1)).toBe(true)
+		// Not cleared 40 yet: every offer is plain, however deep the map is.
+		expect(starsOf(35, 39, 400).every((star) => star === 1)).toBe(true)
 
-		// Last map: the rare upgrades do happen (0.5% / 0.1%), and 4★–5★ are never sold.
-		const lastMap = starsOf(60, 3000)
-		expect(lastMap.some((star) => star === 2)).toBe(true)
-		expect(lastMap.some((star) => star === 3)).toBe(true)
-		expect(Math.max(...lastMap)).toBe(3)
+		// Cleared 40 → 2★ shows up, 3★ still does not.
+		const afterForty = starsOf(60, 40, 3000)
+		expect(afterForty.some((star) => star === 2)).toBe(true)
+		expect(afterForty.some((star) => star === 3)).toBe(false)
+
+		// The whole ladder cleared → the 3★ roll exists at last, and nothing above it.
+		const afterSixty = starsOf(60, 60, 3000)
+		expect(afterSixty.some((star) => star === 3)).toBe(true)
+		expect(Math.max(...afterSixty)).toBe(3)
 	})
 })
 

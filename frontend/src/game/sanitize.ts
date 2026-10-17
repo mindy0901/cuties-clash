@@ -61,7 +61,7 @@ export function sanitizeRun(candidate: unknown): RunState {
 		equipped,
 		inventory,
 		seed,
-		shop: sanitizeShop(saved.shop, stage, seed),
+		shop: sanitizeShop(saved.shop, stage, clearedStage, seed),
 		rerolls: clampInt(saved.rerolls, 0, 100_000, 0),
 		wins: clampInt(saved.wins, 0, 1_000_000, 0),
 		losses: clampInt(saved.losses, 0, 1_000_000, 0),
@@ -114,13 +114,13 @@ function sanitizeItems(value: unknown, limit: number | null): ItemInstance[] {
 }
 
 /** Shop: keep the valid offers; when the list is broken, roll it again from the seed. */
-function sanitizeShop(value: unknown, stage: number, seed: number): ShopOffer[] {
-	if (!Array.isArray(value) || value.length === 0) return rollShop(stage, seed)
+function sanitizeShop(value: unknown, stage: number, clearedStage: number, seed: number): ShopOffer[] {
+	if (!Array.isArray(value) || value.length === 0) return rollShop(stage, clearedStage, seed)
 	const offers: ShopOffer[] = []
 	for (const entry of value) {
-		if (!entry || typeof entry !== 'object') return rollShop(stage, seed)
+		if (!entry || typeof entry !== 'object') return rollShop(stage, clearedStage, seed)
 		const offer = entry as Partial<ShopOffer>
-		if (!isKnownTemplate(offer.templateId)) return rollShop(stage, seed)
+		if (!isKnownTemplate(offer.templateId)) return rollShop(stage, clearedStage, seed)
 		offers.push({
 			templateId: offer.templateId,
 			star: clampInt(offer.star, 1, MAX_STAR, 1) as ShopOffer['star'],

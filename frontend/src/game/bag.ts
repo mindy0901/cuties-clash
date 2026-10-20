@@ -1,4 +1,4 @@
-import { MAX_STAR, getTemplate, starPrice } from './items'
+import { MAX_STAR, getTemplate, isBuffableWeapon, starPrice } from './items'
 import type { GridSpace, ItemInstance, Star } from './types'
 
 /** Cell ordering inside the grid: row first, then column. */
@@ -35,6 +35,56 @@ export function isMergeable(
 	b: { templateId: string; star: Star },
 ): boolean {
 	return a.templateId === b.templateId && a.star === b.star && a.star < MAX_STAR
+}
+
+/**
+ * The star a **shop offer** would merge up to, or `null` when the player owns no identical copy.
+ *
+ * Used by the shop to *suggest* a purchase: a tile whose twin is already in Trang bị or Kho đồ is
+ * drawn with a golden ring and an `↑N★` badge, because buying it is worth more than the item alone.
+ *
+ * ⚠️ Only the player's own items count — `bag` is `[...run.equipped, ...run.inventory]`, ❌ never the
+ * other shop tiles: those are not progress, and two offers of the same item could not merge anyway
+ * (they never meet in a bag).
+ */
+export function mergeUpStar(
+	bag: readonly { templateId: string; star: Star }[],
+	item: { templateId: string; star: Star },
+): Star | null {
+	if (item.star >= MAX_STAR) return null
+	const twin = bag.some((owned) => isMergeable(owned, item))
+	return twin ? ((item.star + 1) as Star) : null
+}
+
+/**
+ * Collapse **every** pair of identical copies in one list, repeating until nothing is left to merge —
+ * so `2+2 → 3`, then `3+3 → 4`, exactly like dragging them together one by one.
+ *
+ * ⚠️ The first copy in list order survives (it keeps its `uid`, cell and rotation) and `paid` is
+ * summed, so a merged item still sells back for half of everything that went into it. ❌ Never merges
+ * across star ranks: a 1★ and a 2★ are different items to the economy.
+ */
+export function mergeDuplicates(items: ItemInstance[]): ItemInstance[] {
+	let current = [...items]
+	for (;;) {
+		let mergedAt = -1
+		let eatenAt = -1
+		search: for (let a = 0; a < current.length && mergedAt < 0; a += 1) {
+			for (let b = a + 1; b < current.length; b += 1) {
+				if (!isMergeable(current[a], current[b])) continue
+				mergedAt = a
+				eatenAt = b
+				break search
+			}
+		}
+		if (mergedAt < 0) return current
+		const eaten = current[eatenAt]
+		current = current
+			.map((item, index) =>
+				index === mergedAt ? { ...item, star: (item.star + 1) as Star, paid: item.paid + eaten.paid } : item,
+			)
+			.filter((_item, index) => index !== eatenAt)
+	}
 }
 
 /** Every cell an item covers, counted from the anchor cell (top-left corner). */
@@ -93,6 +143,44 @@ export function occupantAt(
 	return undefined
 }
 
+/** The four edge directions, in the order every adjacency walk uses. */
+export type Direction = 'up' | 'down' | 'left' | 'right'
+
+export const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right']
+
+/**
+ * Bit of each direction inside a kit's `directions` parameter (one number, so a kit stays a table of
+ * numbers). `15` = all four directions, which is what an item without the parameter reads.
+ */
+export const DIRECTION_BITS: Record<Direction, number> = { up: 1, down: 2, left: 4, right: 8 }
+
+/** Every edge neighbour of `cells`, tagged with the direction it was found in. */
+function neighboursByDirection(
+	map: Map<number, { uid: string }>,
+	cells: number[],
+	width: number,
+	gridSize: number,
+	exceptUid: string,
+): { uid: string; direction: Direction }[] {
+	const rows = Math.ceil(gridSize / width)
+	const found: { uid: string; direction: Direction }[] = []
+	for (const cell of cells) {
+		const { row, col } = toCell(cell, width)
+		const candidates: { cell: Cell; direction: Direction }[] = [
+			{ cell: { row: row - 1, col }, direction: 'up' },
+			{ cell: { row: row + 1, col }, direction: 'down' },
+			{ cell: { row, col: col - 1 }, direction: 'left' },
+			{ cell: { row, col: col + 1 }, direction: 'right' },
+		]
+		for (const { cell: candidate, direction } of candidates) {
+			if (candidate.row < 0 || candidate.col < 0 || candidate.col >= width || candidate.row >= rows) continue
+			const neighbour = map.get(toSlot(candidate, width))
+			if (neighbour && neighbour.uid !== exceptUid) found.push({ uid: neighbour.uid, direction })
+		}
+	}
+	return found
+}
+
 /** Uids of the items with at least one cell edge-adjacent to `cells` (excluding `exceptUid`). */
 export function adjacentUids(
 	map: Map<number, { uid: string }>,
@@ -101,23 +189,76 @@ export function adjacentUids(
 	gridSize: number,
 	exceptUid: string,
 ): Set<string> {
-	const rows = Math.ceil(gridSize / width)
-	const found = new Set<string>()
-	for (const cell of cells) {
-		const { row, col } = toCell(cell, width)
-		const candidates: Cell[] = [
-			{ row: row - 1, col },
-			{ row: row + 1, col },
-			{ row, col: col - 1 },
-			{ row, col: col + 1 },
-		]
-		for (const candidate of candidates) {
-			if (candidate.row < 0 || candidate.col < 0 || candidate.col >= width || candidate.row >= rows) continue
-			const neighbour = map.get(toSlot(candidate, width))
-			if (neighbour && neighbour.uid !== exceptUid) found.add(neighbour.uid)
-		}
+	return new Set(
+		neighboursByDirection(map, cells, width, gridSize, exceptUid).map((found) => found.uid),
+	)
+}
+
+/**
+ * The same neighbours, grouped by the side they sit on — this is what a support gem's `directions`
+ * parameter selects (up / down / left / right, any combination).
+ */
+export function adjacentUidsByDirection(
+	map: Map<number, { uid: string }>,
+	cells: number[],
+	width: number,
+	gridSize: number,
+	exceptUid: string,
+): Record<Direction, Set<string>> {
+	const grouped: Record<Direction, Set<string>> = {
+		up: new Set(),
+		down: new Set(),
+		left: new Set(),
+		right: new Set(),
 	}
-	return found
+	for (const found of neighboursByDirection(map, cells, width, gridSize, exceptUid)) {
+		grouped[found.direction].add(found.uid)
+	}
+	return grouped
+}
+
+/**
+ * For each side of a block, is there a **matching item** edging it?
+ *
+ * This is what a support gem's direction overlay reads: a side turns gold when the neighbour on that
+ * side is a weapon (the buff will land there) and stays silver otherwise. `exceptUid` skips the item
+ * being moved — while dragging, it is still on the board at its old cell.
+ */
+export function occupiedSides(
+	items: { uid: string; slot: number; templateId: string; rotated?: boolean }[],
+	cells: number[],
+	exceptUid: string | undefined,
+	width: number,
+	gridSize: number,
+	matches: (templateId: string) => boolean,
+): Record<Direction, boolean> {
+	const placed = items.filter((item) => item.slot >= 0)
+	const map = occupancy(placed, width, (item) => templateFootprint(item.templateId, item.rotated))
+	const byUid = new Map(placed.map((item) => [item.uid, item]))
+	const grouped = adjacentUidsByDirection(map, cells, width, gridSize, exceptUid ?? '')
+	const sides: Record<Direction, boolean> = { up: false, down: false, left: false, right: false }
+	for (const side of DIRECTIONS) {
+		sides[side] = [...grouped[side]].some((uid) => {
+			const neighbour = byUid.get(uid)
+			return neighbour ? matches(neighbour.templateId) : false
+		})
+	}
+	return sides
+}
+
+/**
+ * Which sides of one **placed** item have a **weapon** on them — the input the direction overlay
+ * colours from. A side with a weapon is where that gem's direction buff will land (`build.ts` walks
+ * the same edges), so the overlay cannot promise a neighbour the engine would not take.
+ */
+export function directionSidesFor(
+	item: ItemInstance,
+	items: ItemInstance[],
+	width: number,
+	gridSize: number,
+): Record<Direction, boolean> {
+	const cells = cellsOf(item.slot, templateFootprint(item.templateId, item.rotated), width)
+	return occupiedSides(items, cells, item.uid, width, gridSize, isBuffableWeapon)
 }
 
 /**
@@ -199,7 +340,7 @@ export function canPlace(
 	gridSize: number,
 	/**
 	 * Number of **usable** cells (defaults to the whole grid). Cells past this limit are **locked**
-	 * — the pet level is not high enough yet, so they cannot be used.
+	 * — the cutie level is not high enough yet, so they cannot be used.
 	 */
 	usableCells: number = gridSize,
 ): boolean {
@@ -259,7 +400,7 @@ export function resolveDrop(
 	rotated?: boolean,
 	/**
 	 * Number of **usable** cells (defaults to the whole grid). Cells past this limit are **locked**
-	 * — the pet level is not high enough yet.
+	 * — the cutie level is not high enough yet.
 	 */
 	usableCells: number = gridSize,
 ): MoveResult {
@@ -399,7 +540,7 @@ export function planAutoArrange(
 	return moves
 }
 
-/** Selling refunds 50% of the Paw Tally actually paid. */
+/** Selling refunds 50% of the Vàng actually paid. */
 export function sellValue(item: ItemInstance): number {
 	return Math.max(1, Math.floor(item.paid / 2))
 }

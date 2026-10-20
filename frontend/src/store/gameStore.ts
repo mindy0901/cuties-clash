@@ -2,8 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { buildEnemyCombatant, buildPlayerCombatant, estimatePower } from '../game/build'
 import { REROLL_COST, STARTING_CURRENCY, rollShop } from '../game/economy'
-import { getTemplate } from '../game/items'
-import { dropInStorage as moveInStorage, rotateInStorage as rotateStorageItem, unequipIntoStorage } from '../game/storage'
+import { itemTemplateById } from '../game/items'
+import {
+	dropInStorage as moveInStorage,
+	rotateInStorage as rotateStorageItem,
+	sortStorage as sortStorageItems,
+	unequipIntoStorage,
+} from '../game/storage'
 import {
 	acquireItem,
 	dropEquipped,
@@ -16,10 +21,11 @@ import {
 	sellItem,
 	unequipToInventory,
 } from '../game/loadout'
-import { PETS, getPet, petList, petUpgradeCost } from '../game/pets'
-import { migrateV1ToV2, type PersistedV1 } from '../game/migrate'
+import { MAX_CUTIE_LEVEL, CUTIES, cutieList, cutieUpgradeCost } from '../game/cuties'
+import { migrateV1ToV2, migrateV2ToV3, type PersistedV1 } from '../game/migrate'
 import { sanitizeRun } from '../game/sanitize'
-import { FINAL_STAGE, getStage, makeRivalBlueprint } from '../game/stages'
+import { FINAL_STAGE, getStage, highestAccessibleStage, makeRivalBlueprint } from '../game/stages'
+import { TRAINING_HORIZON_MS, makeTrainingBlueprint } from '../game/training'
 import { simulateBattle } from '../game/battle'
 import type { BattleResult, ItemBlueprint, RunState } from '../game/types'
 
@@ -28,23 +34,21 @@ export type Phase = 'prep' | 'battle' | 'result' | 'victory'
 /** Where an item currently lives. Tells a drop target which action to call. */
 export type ItemHome = 'equipped' | 'inventory'
 
+/** `training` is the practice room: an immortal dummy, no reward, no stage change. */
+export type BattleMode = 'stage' | 'pvp' | 'training'
+
 export interface BattleState {
-	mode: 'stage' | 'pvp'
+	mode: BattleMode
 	opponentName: string
 	opponentItems: ItemBlueprint[]
 	stageIndex: number
 	result: BattleResult
 	committed: boolean
 	reward: number
+	/** Training only: the setting this session was started with, so "Đánh lại" repeats it exactly. */
+	trainingAttacks?: boolean
 }
 
-export interface Toast {
-	id: number
-	text: string
-	tone: 'info' | 'good' | 'bad'
-}
-
-let toastId = 0
 const STARTING_SEED = 20261016
 
 function advanceSeed(seed: number): number {
@@ -54,10 +58,10 @@ function advanceSeed(seed: number): number {
 function createRun(seed = STARTING_SEED): RunState {
 	const runSeed = advanceSeed(seed)
 	return {
-		petId: PETS[0].id,
-		pets: { [PETS[0].id]: 1 },
-		unlockedPets: [PETS[0].id],
-		currency: STARTING_CURRENCY,
+		cutieId: CUTIES[0].id,
+		cuties: { [CUTIES[0].id]: 1 },
+		unlockedCuties: [CUTIES[0].id],
+		gold: STARTING_CURRENCY,
 		stage: 1,
 		clearedStage: 0,
 		equipped: [],
@@ -74,10 +78,10 @@ interface GameStore {
 	run: RunState
 	phase: Phase
 	battle: BattleState | null
-	toasts: Toast[]
 	newRun: () => void
-	selectPet: (petId: string) => void
-	upgradePet: () => void
+	selectCutie: (cutieId: string) => void
+	selectStage: (stageIndex: number) => boolean
+	upgradeCutie: () => void
 	buyOffer: (index: number) => void
 	reroll: () => void
 	/** Sells an item, whether it is carried or in storage. */
@@ -86,6 +90,8 @@ interface GameStore {
 	dropItem: (uid: string, slot: number, rotated?: boolean) => void
 	/** Drag and drop inside the **storage** grid (a free grid, like the loadout). */
 	dropInStorage: (uid: string, slot: number | null, rotated?: boolean) => void
+	/** Repack the whole storage: strongest items first, no gaps. Only the player can trigger it. */
+	sortStorage: () => void
 	/**
 	 * Rotates a carried item 90° in place.
 	 * Returns `true` when it rotated — used to keep the hint honest while dragging.
@@ -103,11 +109,23 @@ interface GameStore {
 	unequipAt: (uid: string, slot: number | null, rotated: boolean) => void
 	/** Moves an item to the other side, whichever side it is on. */
 	transfer: (uid: string, from: ItemHome) => void
-	startBattle: (mode: 'stage' | 'pvp') => void
+	/**
+	 * Start a fight. `options.attacks` only matters for `training`: `false` makes the dummy hold its
+	 * one weapon without ever swinging.
+	 */
+	startBattle: (mode: BattleMode, options?: { attacks?: boolean }) => void
+	/**
+	 * Drop items / shop offers whose template no longer exists anywhere.
+	 *
+	 * Called once the content overlay is resolved: until then an unknown id may be an item whose row has
+	 * not arrived yet (see `contentResolved` in `game/content.ts`), so the run keeps it. ❌ Never call
+	 * this before the fetch settles — that is what used to delete a freshly bought created item.
+	 */
+	pruneUnknownItems: () => void
 	commitBattle: () => void
 	leaveBattle: () => void
-	pushToast: (text: string, tone?: Toast['tone']) => void
-	dismissToast: (id: number) => void
+	/** Closes the victory screen but keeps the finished run — see the action's own note. */
+	continueRun: () => void
 }
 
 type Persisted = { run: RunState }
@@ -118,62 +136,57 @@ export const useGameStore = create<GameStore>()(
 			run: createRun(),
 			phase: 'prep',
 			battle: null,
-			toasts: [],
-
-			pushToast: (text, tone = 'info') => {
-				toastId += 1
-				const id = toastId
-				set((state) => ({ toasts: [...state.toasts, { id, text, tone }] }))
-				setTimeout(() => get().dismissToast(id), 2800)
-			},
-
-			dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
 
 			newRun: () => set({ run: createRun(Date.now() % 100000), phase: 'prep', battle: null }),
 
-			selectPet: (petId) =>
-				set((state) => (state.run.unlockedPets.includes(petId) ? { run: { ...state.run, petId } } : state)),
+			selectCutie: (cutieId) =>
+				set((state) => (state.run.unlockedCuties.includes(cutieId) ? { run: { ...state.run, cutieId } } : state)),
 
-			upgradePet: () =>
-				set((state) => {
-					const run = state.run
-					const level = run.pets[run.petId] ?? 1
-					if (level >= 5) {
-						get().pushToast('Thú cưng đã đạt cấp tối đa', 'bad')
-						return state
-					}
-					const cost = petUpgradeCost(level)
-					if (run.currency < cost) {
-						get().pushToast(`Cần ${cost} Paw Tally để nâng cấp`, 'bad')
-						return state
-					}
-					return {
-						run: { ...run, currency: run.currency - cost, pets: { ...run.pets, [run.petId]: level + 1 } },
-					}
-				}),
+			selectStage: (stageIndex) => {
+				const state = get()
+				if (state.phase !== 'prep') return false
+				if (!Number.isInteger(stageIndex) || stageIndex < 1 || stageIndex > highestAccessibleStage(state.run.clearedStage)) {
+					return false
+				}
+				if (stageIndex === state.run.stage) return true
+
+				const seed = advanceSeed(state.run.seed)
+				set({
+					run: {
+						...state.run,
+						stage: stageIndex,
+						seed,
+						shop: rollShop(stageIndex, state.run.clearedStage, seed),
+					},
+				})
+				return true
+			},
+
+			// The refusals return before any `set`, so the run stays untouched.
+			upgradeCutie: () => {
+				const state = get()
+				const run = state.run
+				const level = run.cuties[run.cutieId] ?? 1
+				if (level >= MAX_CUTIE_LEVEL) return
+				const cost = cutieUpgradeCost(level)
+				if (run.gold < cost) return
+				set({
+					run: { ...run, gold: run.gold - cost, cuties: { ...run.cuties, [run.cutieId]: level + 1 } },
+				})
+			},
 
 			buyOffer: (index) =>
 				set((state) => {
 					const run = state.run
 					const offer = run.shop[index]
 					if (!offer || offer.sold) return state
-					if (run.currency < offer.cost) {
-						get().pushToast('Không đủ Paw Tally', 'bad')
-						return state
-					}
+					if (run.gold < offer.cost) return state
 					const seed = advanceSeed(run.seed)
-					const { run: next, wentToInventory } = acquireItem(run, offer.templateId, offer.star, seed)
-					const template = getTemplate(offer.templateId)
-					if (wentToInventory) {
-						get().pushToast(
-							`Trang bị hết chỗ — ${template.name} được cất vào kho`,
-							'info',
-						)
-					}
+					const { run: next } = acquireItem(run, offer.templateId, offer.star, seed)
 					return {
 						run: {
 							...next,
-							currency: run.currency - offer.cost,
+							gold: run.gold - offer.cost,
 							seed,
 							shop: run.shop.map((entry, entryIndex) =>
 								entryIndex === index ? { ...entry, sold: true } : entry,
@@ -185,15 +198,12 @@ export const useGameStore = create<GameStore>()(
 			reroll: () =>
 				set((state) => {
 					const run = state.run
-					if (run.currency < REROLL_COST) {
-						get().pushToast('Không đủ Paw Tally để đổi shop', 'bad')
-						return state
-					}
+					if (run.gold < REROLL_COST) return state
 					const seed = advanceSeed(run.seed)
 					return {
 						run: {
 							...run,
-							currency: run.currency - REROLL_COST,
+							gold: run.gold - REROLL_COST,
 							seed,
 							rerolls: run.rerolls + 1,
 							shop: rollShop(run.stage, run.clearedStage, seed),
@@ -207,33 +217,31 @@ export const useGameStore = create<GameStore>()(
 					const item = [...run.equipped, ...run.inventory].find((entry) => entry.uid === uid)
 					if (!item) return state
 					const refund = refundOf(item)
-					get().pushToast(`Đã bán ${getTemplate(item.templateId).name} +${refund} Paw Tally`, 'good')
 					return { run: sellItem(run, uid, refund) }
 				}),
 
 			dropItem: (uid, slot, rotated) =>
 				set((state) => {
-					const { run, merged, reason } = dropEquipped(state.run, uid, slot, rotated)
-					if (merged) get().pushToast('Nhập thành công — món đồ lên sao!', 'good')
-					else if (reason === 'blocked') get().pushToast('Chỗ đó không đủ chỗ cho món này', 'bad')
-					else if (reason === 'no-space') get().pushToast('Không đủ chỗ để hoán đổi hai món', 'bad')
+					const { run } = dropEquipped(state.run, uid, slot, rotated)
 					return { run }
 				}),
 
 			dropInStorage: (uid, slot, rotated) =>
 				set((state) => {
-					const { run, result } = moveInStorage(state.run, uid, slot, rotated)
-					if (result.merged) get().pushToast('Nhập thành công — món đồ lên sao!', 'good')
+					const { run } = moveInStorage(state.run, uid, slot, rotated)
 					return { run }
 				}),
+
+			sortStorage: () => {
+				const run = get().run
+				if (run.inventory.length < 2) return
+				set({ run: { ...run, inventory: sortStorageItems(run.inventory) } })
+			},
 
 			rotate: (uid) => {
 				const current = get().run
 				const next = rotateEquipped(current, uid)
-				if (next === current) {
-					get().pushToast('Xoay lại thì không vừa chỗ — hãy kéo món ra chỗ khác trước', 'bad')
-					return false
-				}
+				if (next === current) return false
 				set({ run: next })
 				return true
 			},
@@ -241,12 +249,7 @@ export const useGameStore = create<GameStore>()(
 			equip: (uid) =>
 				set((state) => {
 					const result = equipFromInventory(state.run, uid)
-					if (!result.ok) {
-						if (result.reason === 'no-space') {
-							get().pushToast('Trang bị không còn chỗ — hãy bán hoặc bỏ bớt đồ', 'bad')
-						}
-						return state
-					}
+					if (!result.ok) return state
 					return { run: result.run }
 				}),
 
@@ -273,10 +276,7 @@ export const useGameStore = create<GameStore>()(
 
 			rotateInStorage: (uid) => {
 				const next = rotateStorageItem(get().run, uid)
-				if (!next) {
-					get().pushToast('Xoay lại thì không vừa chỗ — hãy kéo món ra chỗ khác trước', 'bad')
-					return false
-				}
+				if (!next) return false
 				set({ run: next })
 				return true
 			},
@@ -286,19 +286,40 @@ export const useGameStore = create<GameStore>()(
 				else get().unequip(uid)
 			},
 
-			startBattle: (mode) =>
+			startBattle: (mode, options = {}) =>
 				set((state) => {
 					const run = state.run
-					const player = playerCombatantFor(run)
+					const training = mode === 'training'
+					// Training is a **mirror**: the player's bar stays full exactly like the dummy's, so a
+					// practice session reads as "what my build does", never as "am I about to die".
+					const builtPlayer = playerCombatantFor(run)
+					const player = training ? { ...builtPlayer, immortal: true } : builtPlayer
 					const power = estimatePower(player)
 					const seed = advanceSeed(run.seed)
-					const blueprint =
-						mode === 'stage'
+					const blueprint = training
+						? makeTrainingBlueprint()
+						: mode === 'stage'
 							? getStage(run.stage).enemy
 							: makeRivalBlueprint(power, run.stage, seed)
-					const opponent = buildEnemyCombatant(blueprint)
-					const reward = mode === 'stage' ? getStage(run.stage).reward : Math.round(12 + Math.min(45, power / 85))
-					const result = simulateBattle(player, opponent, seed)
+					const opponent = buildEnemyCombatant(
+						blueprint,
+						// Training: the dummy never dies, and it only swings when the toggle says so —
+						// its single weapon still sits on the board either way.
+						training ? { immortal: true, noSwings: options.attacks !== true } : {},
+					)
+					const reward = training
+						? 0
+						: mode === 'stage'
+							? getStage(run.stage).reward
+							: Math.round(12 + Math.min(45, power / 85))
+					const result = simulateBattle(
+						player,
+						opponent,
+						seed,
+						// A practice session has **no time limit**: the horizon is only how much the replay
+						// pre-computes, and the death zone is off so the clock cannot kill either side.
+						training ? { maxTime: TRAINING_HORIZON_MS, noDeathZone: true } : {},
+					)
 					return {
 						run: { ...run, seed },
 						phase: 'battle' as Phase,
@@ -310,8 +331,24 @@ export const useGameStore = create<GameStore>()(
 							result,
 							committed: false,
 							reward,
+							...(training ? { trainingAttacks: options.attacks === true } : {}),
 						},
 					}
+				}),
+
+			pruneUnknownItems: () =>
+				set((state) => {
+					const run = state.run
+					const known = (templateId: string) => Boolean(itemTemplateById(templateId))
+					const equipped = run.equipped.filter((item) => known(item.templateId))
+					const inventory = run.inventory.filter((item) => known(item.templateId))
+					const shop = run.shop.filter((offer) => known(offer.templateId))
+					const unchanged =
+						equipped.length === run.equipped.length &&
+						inventory.length === run.inventory.length &&
+						shop.length === run.shop.length
+					if (unchanged) return state
+					return { run: { ...run, equipped, inventory, shop } }
 				}),
 
 			commitBattle: () =>
@@ -322,14 +359,18 @@ export const useGameStore = create<GameStore>()(
 					const won = battle.result.winner === 'player'
 					const committed: BattleState = { ...battle, committed: true }
 
+					// Practice pays nothing and changes nothing: no Vàng, no win/loss, no stage.
+					if (battle.mode === 'training') {
+						return { battle: committed, phase: 'result' as Phase }
+					}
+
 					if (battle.mode === 'pvp') {
-						if (won) get().pushToast(`Thắng giao hữu +${battle.reward} Paw Tally`, 'good')
 						return {
 							battle: committed,
 							phase: 'result' as Phase,
 							run: {
 								...run,
-								currency: run.currency + (won ? battle.reward : 0),
+								gold: run.gold + (won ? battle.reward : 0),
 								wins: run.wins + (won ? 1 : 0),
 								losses: run.losses + (won ? 0 : 1),
 							},
@@ -337,7 +378,6 @@ export const useGameStore = create<GameStore>()(
 					}
 
 					if (!won) {
-						get().pushToast('Thất bại — sắp xếp lại trang bị rồi thử lại', 'bad')
 						return {
 							battle: committed,
 							phase: 'result' as Phase,
@@ -346,23 +386,26 @@ export const useGameStore = create<GameStore>()(
 					}
 
 					const clearedStage = Math.max(run.clearedStage, run.stage)
-					const unlocked = petList().filter((pet) => pet.unlockStage > 0 && clearedStage >= pet.unlockStage).map(
-						(pet) => pet.id,
+					const unlocked = cutieList().filter((cutie) => cutie.unlockStage > 0 && clearedStage >= cutie.unlockStage).map(
+						(cutie) => cutie.id,
 					)
-					const newlyUnlocked = unlocked.filter((id) => !run.unlockedPets.includes(id))
-					for (const id of newlyUnlocked) get().pushToast(`Mở khoá thú cưng: ${getPet(id).name}`, 'good')
+					const newlyUnlocked = unlocked.filter((id) => !run.unlockedCuties.includes(id))
 
 					const nextStage = Math.min(FINAL_STAGE, run.stage + 1)
 					const seed = advanceSeed(run.seed)
+					// The victory screen belongs to the **first** full clear only: replaying stage 60 for
+					// gold afterwards is an ordinary win and must land on the result panel, otherwise the
+					// player would have to dismiss the celebration after every single re-run.
+					const firstFullClear = clearedStage >= FINAL_STAGE && run.clearedStage < FINAL_STAGE
 					return {
 						battle: committed,
-						phase: (clearedStage >= FINAL_STAGE ? 'victory' : 'result') as Phase,
+						phase: (firstFullClear ? 'victory' : 'result') as Phase,
 						run: {
 							...run,
-							currency: run.currency + battle.reward,
+							gold: run.gold + battle.reward,
 							stage: nextStage,
 							clearedStage,
-							unlockedPets: [...run.unlockedPets, ...newlyUnlocked],
+							unlockedCuties: [...run.unlockedCuties, ...newlyUnlocked],
 							seed,
 							shop: rollShop(nextStage, clearedStage, seed),
 							wins: run.wins + 1,
@@ -371,21 +414,37 @@ export const useGameStore = create<GameStore>()(
 				}),
 
 			leaveBattle: () => set({ phase: 'prep', battle: null }),
+
+			/**
+			 * Dismisses the victory screen and **keeps the finished run**: every item, all the Vàng and
+			 * all 60 cleared stages stay, so the player can go back to the preparation room, re-fight a
+			 * cleared stage, farm, rearrange gear — or start over deliberately from the top bar.
+			 *
+			 * ❌ Never merge this with `newRun()`: "I am done with the campaign" and "throw everything
+			 * away" are different decisions, and the lone Start Over button forced the second one.
+			 */
+			continueRun: () => set((state) => (state.phase === 'victory' ? { phase: 'prep' as Phase } : state)),
 		}),
 		{
 			name: 'martial-cutie-save',
-			version: 2,
+			version: 3,
 			partialize: (state) => ({ run: state.run }),
 			/**
-			 * A v1 save only has `run.items` (one list, everything counts as carried).
-			 * Migrating to v2: keep the items that still fit the loadout grid, dump the rest into
-			 * storage.
+			 * v1 → v2: a v1 save only has `run.items` (one list, everything counts as carried), so the
+			 * items that still fit the loadout grid stay worn and the rest move into the storage.
+			 *
+			 * v2 → v3: the domain word `cutie` became **cutie**, and three saved fields were renamed
+			 * (`petId` / `pets` / `unlockedPets`). Skipping it would reset the player's Cutie, its level
+			 * and everything they unlocked — an old save is still on disk **and** on the server.
 			 */
-			migrate: (persisted, version) =>
-				version >= 2 ? (persisted as Persisted) : (migrateV1ToV2(persisted as PersistedV1) as Persisted),
+			migrate: (persisted, version) => {
+				if (version >= 3) return persisted as Persisted
+				const v2 = version >= 2 ? persisted : migrateV1ToV2(persisted as PersistedV1)
+				return migrateV2ToV3(v2 as never) as Persisted
+			},
 			/**
 			 * Normalizes the save after migrating. Required: a broken `RunState` (missing
-			 * `equipped`, unknown `petId`…) makes `run.equipped.filter` throw while rendering and
+			 * `equipped`, unknown `cutieId`…) makes `run.equipped.filter` throw while rendering and
 			 * **blanks the whole page**, leaving no UI for the player to press "Chơi lại".
 			 */
 			merge: (persisted, current) => ({
@@ -398,7 +457,7 @@ export const useGameStore = create<GameStore>()(
 
 /** The player's combatant — **only** carried items take part in the fight. */
 export function playerCombatantFor(run: RunState) {
-	return buildPlayerCombatant(run.petId, run.pets[run.petId] ?? 1, equippedItems(run))
+	return buildPlayerCombatant(run.cutieId, run.cuties[run.cutieId] ?? 1, equippedItems(run))
 }
 
 export function bagSizeFor(run: RunState): number {

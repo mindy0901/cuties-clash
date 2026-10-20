@@ -1,8 +1,9 @@
-import { itemArtSrc, petArtSrc, skillArtSrc } from '../game/art'
+import { itemArtSrc, cutieArtSrc, skillArtSrc } from '../game/art'
 import { uploadedArt } from '../game/content'
 import { getTemplate } from '../game/items'
-import { getPet } from '../game/pets'
+import { getCutie } from '../game/cuties'
 import { ArtIcon } from './ArtIcon'
+import { translate } from '../i18n'
 import { cn } from './ui'
 
 /**
@@ -23,67 +24,95 @@ export function ItemIcon({
 	artSrc,
 	emojiClass = 'text-[22px]',
 	className,
+	rotated = false,
 }: {
 	templateId: string
 	/** Explicit picture to draw instead of the item's own (`null` = no art, use the emoji). */
 	artSrc?: string | null
 	emojiClass?: string
 	className?: string
+	/** Rotate the item's art with its footprint on the inventory/loadout boards. */
+	rotated?: boolean
 }) {
 	const template = getTemplate(templateId)
 	const src = artSrc === undefined ? itemArtSrc(templateId) : artSrc
 	// `artSrc` is only passed by previews, which are generated in the item's shape as well.
 	const shaped = artSrc !== undefined || uploadedArt('item', templateId) !== null
-	return (
+	const icon = (
 		<ArtIcon
 			src={src}
 			emoji={template.icon}
 			emojiClass={emojiClass}
 			className={cn('pointer-events-none', className)}
-			alt={template.name}
+			alt={translate(template.name)}
 			fit={shaped ? 'contain' : 'fill'}
 		/>
 	)
+	if (!rotated) return icon
+
+	return (
+		<span
+			data-item-icon-rotated
+			className="pointer-events-none absolute left-1/2 top-1/2 flex items-center justify-center"
+			style={{
+				width: '100cqh',
+				height: '100cqw',
+				transform: 'translate(-50%, -50%) rotate(90deg)',
+			}}
+		>
+			{icon}
+		</span>
+	)
 }
 
-/** Pet icon. */
-export function PetIcon({
-	petId,
+/** Cutie icon. */
+export function CutieIcon({
+	cutieId,
 	artSrc,
 	emojiClass = 'text-[22px]',
 	className,
+	fit = 'contain',
 }: {
-	petId: string
-	/** Explicit picture to draw instead of the pet's own. */
+	cutieId: string
+	/** Explicit picture to draw instead of the cutie's own. */
 	artSrc?: string | null
 	emojiClass?: string
 	className?: string
+	/** `cover` fills the frame (round avatars); `contain` keeps the whole picture (cells). */
+	fit?: 'contain' | 'cover' | 'fill'
 }) {
-	const pet = getPet(petId)
+	const cutie = getCutie(cutieId)
 	return (
 		<ArtIcon
-			src={artSrc === undefined ? petArtSrc(petId) : artSrc}
-			emoji={pet.icon}
+			src={artSrc === undefined ? cutieArtSrc(cutieId) : artSrc}
+			emoji={cutie.icon}
 			emojiClass={emojiClass}
 			className={className}
-			alt={pet.name}
+			fit={fit}
+			alt={translate(cutie.name)}
 		/>
 	)
 }
 
-/** Pet skill icon. */
+/** Cutie skill icon. */
 export function SkillIcon({
-	petId,
+	cutieId,
 	emoji = '✨',
 	emojiClass = 'text-[22px]',
 	className,
 }: {
-	petId: string
+	cutieId: string
 	emoji?: string
 	emojiClass?: string
 	className?: string
 }) {
 	return (
-		<ArtIcon src={skillArtSrc(petId)} emoji={emoji} emojiClass={emojiClass} className={className} alt="Kỹ năng" />
+		<ArtIcon
+			src={skillArtSrc(cutieId)}
+			emoji={emoji}
+			emojiClass={emojiClass}
+			className={className}
+			alt={translate('Kỹ năng')}
+		/>
 	)
 }

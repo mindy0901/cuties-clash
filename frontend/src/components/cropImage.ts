@@ -18,20 +18,26 @@ export interface CropArea {
 }
 
 /**
- * Longest side of the stored picture, in px.
+ * Longest side of the stored picture, in px — **Full HD portrait**.
  *
- * ⚠️ Sized for the **worst case on a HiDPI screen**: a grid cell is ~60 CSS px (≈120 device px at
- * 2×), and a 4-wide item gets `ART_SIZE / 4` = 128 px per cell.
+ * The admin uploads photography (typically 1080×1920) and crops it here, so the stored PNG keeps that
+ * resolution instead of being flattened to 512 px: the art is shown on HiDPI screens and can be re-cropped
+ * later, and a 512 px file leaves no room. `ART_SHORT_SIDE` stops a square icon from becoming 1920×1920.
  */
-export const ART_SIZE = 512
+export const ART_LONG_SIDE = 1920
+/** Shortest side of the stored picture, in px — a square item comes out 1080×1080. */
+export const ART_SHORT_SIDE = 1080
 
 /**
  * Output size for a picture of an item that covers `w`×`h` cells: **the item's own aspect ratio**,
- * longest side `ART_SIZE` (1×3 → 171×512, 2×3 → 341×512, 1×1 → 512×512).
+ * long side `ART_LONG_SIDE`, short side never above `ART_SHORT_SIDE`
+ * (1×3 → 640×1920, 2×3 → 1080×1620, 1×1 → 1080×1080, 4×1 → 1920×480).
  */
 export function artOutputSize(space: { w: number; h: number }): { width: number; height: number } {
-	const scale = ART_SIZE / Math.max(space.w, space.h)
-	return { width: Math.max(1, Math.round(space.w * scale)), height: Math.max(1, Math.round(space.h * scale)) }
+	const long = Math.max(space.w, space.h)
+	const short = Math.min(space.w, space.h)
+	const unit = Math.min(ART_LONG_SIDE / long, ART_SHORT_SIDE / short)
+	return { width: Math.max(1, Math.round(space.w * unit)), height: Math.max(1, Math.round(space.h * unit)) }
 }
 
 /** Load an image element from an object URL (or a normal URL). */
@@ -52,6 +58,58 @@ function rotatedBounds(width: number, height: number, radians: number) {
 }
 
 /**
+ * Crop `source` and scale it into `width`×`height`, **halving in steps** when the source is much larger.
+ *
+ * ⚠️ A single `drawImage` from a 1080×1920 photo down to 640×1920 samples too few pixels and produces
+ * jaggies; two or three halvings keep the edges clean. `imageSmoothingQuality = 'high'` alone does not fix
+ * a 3× reduction in one go.
+ */
+function drawScaled(
+	context: CanvasRenderingContext2D,
+	source: CanvasImageSource,
+	sx: number,
+	sy: number,
+	sw: number,
+	sh: number,
+	width: number,
+	height: number,
+): void {
+	let current: CanvasImageSource = source
+	let currentWidth = sw
+	let currentHeight = sh
+	if (sw > width * 2 || sh > height * 2) {
+		let buffer = document.createElement('canvas')
+		buffer.width = Math.max(1, Math.round(sw))
+		buffer.height = Math.max(1, Math.round(sh))
+		const bufferContext = buffer.getContext('2d')
+		if (bufferContext) {
+			bufferContext.imageSmoothingEnabled = true
+			bufferContext.imageSmoothingQuality = 'high'
+			bufferContext.drawImage(source, sx, sy, sw, sh, 0, 0, buffer.width, buffer.height)
+			current = buffer
+			currentWidth = buffer.width
+			currentHeight = buffer.height
+			while (currentWidth / 2 >= width && currentHeight / 2 >= height) {
+				buffer = document.createElement('canvas')
+				buffer.width = Math.max(1, Math.floor(currentWidth / 2))
+				buffer.height = Math.max(1, Math.floor(currentHeight / 2))
+				const next = buffer.getContext('2d')
+				if (!next) break
+				next.imageSmoothingEnabled = true
+				next.imageSmoothingQuality = 'high'
+				next.drawImage(current, 0, 0, currentWidth, currentHeight, 0, 0, buffer.width, buffer.height)
+				current = buffer
+				currentWidth = buffer.width
+				currentHeight = buffer.height
+			}
+			context.drawImage(current, 0, 0, currentWidth, currentHeight, 0, 0, width, height)
+			return
+		}
+	}
+	context.drawImage(current, sx, sy, sw, sh, 0, 0, width, height)
+}
+
+/**
  * Draw `area` of `src` (optionally rotated) onto a transparent canvas of the given size → PNG blob.
  *
  * The canvas starts empty, so the picture's own transparency is kept: a PNG with an alpha channel
@@ -63,7 +121,7 @@ export async function croppedPng(
 	area: CropArea,
 	options: { rotation?: number; width?: number; height?: number } = {},
 ): Promise<Blob> {
-	const { rotation = 0, width = ART_SIZE, height = ART_SIZE } = options
+	const { rotation = 0, width = ART_SHORT_SIDE, height = ART_SHORT_SIDE } = options
 	const image = await loadImage(src)
 	const radians = (rotation * Math.PI) / 180
 
@@ -99,14 +157,13 @@ export async function croppedPng(
 	// letting the browser draw a transparent edge.
 	const clampedWidth = Math.min(area.width, sourceWidth)
 	const clampedHeight = Math.min(area.height, sourceHeight)
-	context.drawImage(
+	drawScaled(
+		context,
 		source,
 		Math.max(0, Math.min(area.x, sourceWidth - clampedWidth)),
 		Math.max(0, Math.min(area.y, sourceHeight - clampedHeight)),
 		clampedWidth,
 		clampedHeight,
-		0,
-		0,
 		width,
 		height,
 	)

@@ -1,13 +1,15 @@
-import { useMemo } from 'react'
-import { templateFootprint } from '../game/bag'
+import { useMemo, type CSSProperties } from 'react'
+import { directionSidesFor, templateFootprint } from '../game/bag'
 import { getTemplate } from '../game/items'
+import { buffDirectionMask } from '../game/kits'
+import { DirectionOverlay } from './DirectionOverlay'
 import { storageShape, repairStorageSlots } from '../game/storage'
 import type { ItemInstance } from '../game/types'
-import { GridBoard, type ItemBoxProps } from './GridBoard'
-import { RotateCcw, X } from './icons'
+import { CELL_SIZE, GridBoard, type ItemBoxProps, type PointerPosition } from './GridBoard'
 import { ItemTile } from './ItemTile'
 import type { HeldItem } from './useHeldItem'
-import { iconButtonClass, cn } from './ui'
+import { cn } from './ui'
+import { translate } from '../i18n'
 
 export interface InventoryGridProps {
 	items: ItemInstance[]
@@ -15,12 +17,12 @@ export interface InventoryGridProps {
 	/** Clicking an item → opens the detail dialog. */
 	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
-	onDragEnd?: (moved: boolean) => void
+	onDragEnd?: (moved: boolean, releasePosition: PointerPosition | null) => void
 	/** Anchor cell the hint is drawn from — placement on pointer release uses exactly this cell. */
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
-	onRotate?: (uid: string) => void
-	onSell?: (uid: string) => void
 	className?: string
+	/** Measured size for the scroll viewport (e.g. `maxHeight: boardHeight(8)`). */
+	style?: CSSProperties
 }
 
 /**
@@ -47,9 +49,8 @@ export function InventoryGrid({
 	onDragStart,
 	onDragEnd,
 	onAnchorSlot,
-	onRotate,
-	onSell,
 	className,
+	style,
 }: InventoryGridProps) {
 	// Items missing a cell (older saves used `slot: -1`) must still be **shown**: they are laid out
 	// temporarily so nothing becomes invisible. Items with a valid position are kept as-is, so
@@ -61,48 +62,25 @@ export function InventoryGrid({
 	const renderItem = (item: ItemInstance, box: ItemBoxProps) => {
 		const size = templateFootprint(item.templateId, item.rotated)
 		const template = getTemplate(item.templateId)
+		// Same overlay as the loadout: a gem in storage still shows which sides its buff covers.
+		const directionMask = buffDirectionMask(template.kits, item.star)
 		return (
-			<div {...box.boxProps} className="group/inv relative" style={{ ...box.boxProps.style, gridColumn: box.grid.column, gridRow: box.grid.row }}>
+			<div key={item.uid} {...box.boxProps} className="relative" style={{ ...box.boxProps.style, gridColumn: box.grid.column, gridRow: box.grid.row }}>
 				<button
 					type="button"
 					draggable={false}
 					data-inv-tile={item.uid}
 					{...box.buttonProps}
-					className="relative block size-full cursor-pointer"
-					title={`${template.name} ${size.w}×${size.h}`}
+					className="relative block size-full"
+					title={`${translate(template.name)} ${size.w}×${size.h}`}
 				>
-					<ItemTile templateId={item.templateId} star={item.star} />
-					{onRotate || onSell ? (
-						<span className="absolute right-0.5 bottom-0.5 flex gap-1 opacity-0 transition-opacity duration-100 group-hover/inv:opacity-100">
-							{onRotate ? (
-								<button
-									type="button"
-									data-no-drop
-									className={iconButtonClass}
-									title="Xoay 90°"
-									onClick={(event) => {
-										event.stopPropagation()
-										onRotate(item.uid)
-									}}
-								>
-									<RotateCcw />
-								</button>
-							) : null}
-							{onSell ? (
-								<button
-									type="button"
-									data-no-drop
-									className={iconButtonClass}
-									title="Bán món này (hoàn 50%)"
-									onClick={(event) => {
-										event.stopPropagation()
-										onSell(item.uid)
-									}}
-								>
-									<X />
-								</button>
-							) : null}
-						</span>
+					<ItemTile templateId={item.templateId} star={item.star} rotated={item.rotated} />
+					{directionMask !== 0 ? (
+						<DirectionOverlay
+							mask={directionMask}
+							sides={directionSidesFor(item, placed, width, width * rows)}
+							cellSize={CELL_SIZE}
+						/>
 					) : null}
 				</button>
 			</div>
@@ -110,7 +88,9 @@ export function InventoryGrid({
 	}
 
 	return (
-		<div className={cn('flex justify-center overflow-y-auto scroll-hidden', className)}>
+		// `overflow-auto`, not `-y`: at CELL_SIZE = 90 the 8 columns are wider than the middle column on
+		// a normal screen, and the board must scroll instead of being clipped.
+		<div className={cn('flex justify-center overflow-auto scroll-hidden', className)} style={style}>
 			<GridBoard
 				width={width}
 				rows={rows}

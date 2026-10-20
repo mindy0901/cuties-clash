@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { translate } from '../i18n'
 
 interface Props {
 	children: ReactNode
@@ -43,20 +44,21 @@ export class AppErrorBoundary extends Component<Props, State> {
 
 		return (
 			<div className="mx-auto flex min-h-screen w-full max-w-[720px] flex-col items-start justify-center gap-4 px-6 py-10">
-				<h1 className="text-xl font-bold text-danger-soft">Đã xảy ra lỗi khi hiển thị game</h1>
+				<h1 className="text-xl font-bold text-danger-soft">{translate('Đã xảy ra lỗi khi hiển thị game')}</h1>
 				<p className="m-0 text-[13px] text-muted">
-					Bản lưu trong trình duyệt có thể bị hỏng. Bấm nút bên dưới để xoá bản lưu và chơi lại từ đầu —
-					tiến trình đang đồng bộ trên máy chủ (nếu bạn đã đăng nhập) sẽ không bị ảnh hưởng.
+					{translate(
+						'Bản lưu trong trình duyệt có thể bị hỏng. Bấm nút bên dưới để xoá bản lưu và chơi lại từ đầu — tiến trình đang đồng bộ trên máy chủ (nếu bạn đã đăng nhập) sẽ không bị ảnh hưởng.',
+					)}
 				</p>
 				<button
 					type="button"
 					className="inline-flex items-center gap-2 rounded-[10px] border border-line bg-ink-700 px-4 py-2 font-semibold hover:border-gold"
 					onClick={this.reset}
 				>
-					Xoá bản lưu và chơi lại
+					{translate('Xoá bản lưu và chơi lại')}
 				</button>
 				<details className="w-full">
-					<summary className="cursor-pointer text-[12.5px] text-muted">Chi tiết kỹ thuật</summary>
+					<summary className="text-[12.5px] text-muted">{translate('Chi tiết kỹ thuật')}</summary>
 					<pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-black/40 p-3 text-[11.5px] whitespace-pre-wrap text-muted">
 						{error.message}
 						{'\n'}

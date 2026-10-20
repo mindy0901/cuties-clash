@@ -43,7 +43,7 @@ const files = Object.keys(RAW).map((key) => [key.replace(/^.*\/icons\//, ''), ke
 
 describe('art has an alpha channel', () => {
 	it('has enough images to check', () => {
-		// One art per item (27) plus pet and skill art — the count dropped when the per-star item
+		// One art per item (27) plus cutie and skill art — the count dropped when the per-star item
 		// variants were removed on purpose.
 		expect(files.length).toBeGreaterThan(20)
 	})

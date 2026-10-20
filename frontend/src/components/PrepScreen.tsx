@@ -1,49 +1,27 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ActionBar } from './ActionBar'
 import { HeldGhost } from './HeldGhost'
 import { InventoryPanel } from './InventoryPanel'
-import { PetIcon } from './ItemIcon'
-import { PetLoadoutPanel } from './PetLoadoutPanel'
-import { PetPanel } from './PetPanel'
+import { CutieLoadoutPanel } from './CutieLoadoutPanel'
+import { CutiePanel } from './CutiePanel'
 import { useHeldItem } from './useHeldItem'
-import { estimatePower } from '../game/build'
 import { templateFootprint } from '../game/bag'
 import { loadoutCellLocked } from '../game/loadout'
-import { MAX_PET_LEVEL, getPet } from '../game/pets'
-import { FINAL_STAGE, MAPS, getStage } from '../game/stages'
-import { playerCombatantFor, useGameStore } from '../store/gameStore'
+import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import type { ItemInstance } from '../game/types'
-import { Paw } from './icons'
-import { PetPortrait } from './PetPortrait'
-import { cn, panelClass } from './ui'
-
-function StatRow({ label, value, tone }: { label: string; value: string; tone?: 'gold' | 'jade' }) {
-	return (
-		<div className="flex items-center justify-between gap-3 border-b border-line/60 px-3 py-1.5 last:border-b-0">
-			<span className="text-[12.5px] text-muted">{label}</span>
-			<span className={cn('font-semibold tabular-nums', tone === 'gold' && 'text-gold-soft', tone === 'jade' && 'text-jade')}>
-				{value}
-			</span>
-		</div>
-	)
-}
+import type { ShopDropTarget } from './ui'
+import { useLanguageStore } from '../i18n'
+import type { PointerPosition } from './GridBoard'
 
 /**
- * Preparation room — layout mirrors the original:
- * left is the pet plus stat table, middle is the pet stage, right is the loadout panel;
- * at the bottom is the action button bar. The inventory (editable) sits in the middle column
- * below the stage.
+ * Preparation room — three columns (cutie + stats · storage · loadout) with the action bar as the
+ * page footer.
  */
 export function PrepScreen() {
+	useLanguageStore((state) => state.language)
+	const [activeShopTarget, setActiveShopTarget] = useState<ShopDropTarget | null>(null)
 	const run = useGameStore((state) => state.run)
-	const pet = getPet(run.petId)
-	const level = run.pets[run.petId] ?? 1
-	const combatant = playerCombatantFor(run)
-	const power = estimatePower(combatant)
-	const stage = getStage(run.stage)
-	const map = MAPS[Math.min(MAPS.length - 1, Math.floor((run.stage - 1) / 20))]
-	const totalMatches = run.wins + run.losses
 
 	// Dragging items between inventory and loadout — the state has to live here because the two
 	// panels are siblings.
@@ -67,6 +45,7 @@ export function PrepScreen() {
 	 */
 	const cancelDrag = useCallback(() => {
 		dragRef.current = null
+		setActiveShopTarget(null)
 	}, [])
 
 	const { held, hold, clear, pointerRef } = useHeldItem(run.equipped, run.inventory, cancelDrag)
@@ -74,8 +53,7 @@ export function PrepScreen() {
 	const unequipAt = useGameStore((state) => state.unequipAt)
 	const dropItem = useGameStore((state) => state.dropItem)
 	const dropInStorage = useGameStore((state) => state.dropInStorage)
-	const rotateInStorage = useGameStore((state) => state.rotateInStorage)
-	const pushToast = useGameStore((state) => state.pushToast)
+	const sell = useGameStore((state) => state.sell)
 	const openItem = useUiStore((state) => state.openItem)
 
 	const hoverSlotRef = useRef<number | null>(null)
@@ -94,6 +72,18 @@ export function PrepScreen() {
 	const gridBlockedRef = useRef(false)
 	const inventoryBlockedRef = useRef(false)
 	const inventoryRef = useRef<HTMLElement | null>(null)
+	const suppressShopClickRef = useRef(false)
+	const suppressShopClickTimerRef = useRef<number | null>(null)
+
+	const suppressShopClick = useCallback(() => {
+		if (!suppressShopClickRef.current) return false
+		suppressShopClickRef.current = false
+		if (suppressShopClickTimerRef.current !== null) {
+			window.clearTimeout(suppressShopClickTimerRef.current)
+			suppressShopClickTimerRef.current = null
+		}
+		return true
+	}, [])
 
 	/** Whether the cursor is inside the inventory area. */
 	const isOverInventory = () => {
@@ -119,7 +109,8 @@ export function PrepScreen() {
 	 * `moved = false` (a plain press without movement) → places **nothing**: the `click` that
 	 * follows opens the detail dialog, and the "dragging" state was never created.
 	 */
-	const onDragEnd = (moved: boolean) => {
+	const onDragEnd = (moved: boolean, releasePosition: PointerPosition | null) => {
+		setActiveShopTarget(null)
 		if (!moved) return
 		const dragging = dragRef.current
 		dragRef.current = null
@@ -127,6 +118,31 @@ export function PrepScreen() {
 
 		// The rotation is read from `held` **on release** — the player may have pressed `R` midway.
 		const rotated = held?.rotated ?? false
+		const droppedOnShop =
+			releasePosition !== null &&
+			Array.from(document.querySelectorAll<HTMLElement>('[data-shop-drop-target]')).some((target) => {
+				const rect = target.getBoundingClientRect()
+				if (rect.width === 0 || rect.height === 0) return false
+				return (
+					releasePosition.x >= rect.left &&
+					releasePosition.x <= rect.right &&
+					releasePosition.y >= rect.top &&
+					releasePosition.y <= rect.bottom
+				)
+			})
+		if (droppedOnShop) {
+			suppressShopClickRef.current = true
+			if (suppressShopClickTimerRef.current !== null) {
+				window.clearTimeout(suppressShopClickTimerRef.current)
+			}
+			suppressShopClickTimerRef.current = window.setTimeout(() => {
+				suppressShopClickRef.current = false
+				suppressShopClickTimerRef.current = null
+			}, 0)
+			sell(dragging.uid)
+			clear()
+			return
+		}
 
 		// Released **inside the inventory**: it is a free grid, so the item lands on the hovered cell.
 		// - An item from the loadout → stored in the inventory (on the hovered cell; with no hovered
@@ -137,7 +153,6 @@ export function PrepScreen() {
 			// The inventory hint reports **blocked** (clashing with another item) → place nothing,
 			// the item returns to where it was.
 			if (inventoryBlockedRef.current) {
-				pushToast('Chỗ đó đã có món — chọn chỗ trống khác', 'bad')
 				clear()
 				return
 			}
@@ -165,14 +180,10 @@ export function PrepScreen() {
 		// The hint reports **blocked** → dropping **places nothing**, the item returns to where it
 		// was. That is exactly what the red outline promised; ❌ it must not silently go elsewhere.
 		//
-		// ⚠️ A long item (1×4) that does not fit the open loadout (low pet level) also falls here —
+		// ⚠️ A long item (1×4) that does not fit the open loadout (low cutie level) also falls here —
 		// by design: rotate with `R` and drop again, instead of letting the game auto-rotate and place
 		// it on a cell the player never pointed at.
 		if (gridBlockedRef.current) {
-			pushToast(
-				'Chỗ đó không vừa món — bấm R để xoay, hoặc chọn ô khác',
-				'bad',
-			)
 			clear()
 			return
 		}
@@ -186,14 +197,13 @@ export function PrepScreen() {
 		// Inventory → loadout. A **locked** cell cannot take the item, and it must not fall back to
 		// searching for a spot either — that would defeat the very purpose of locked cells.
 		if (loadoutCellLocked(run, slot)) {
-			pushToast('Ô đó còn khoá — nâng cấp thú cưng để mở thêm ô', 'bad')
 			clear()
 			return
 		}
 		// The hint and the placement share **one anchor cell**, so getting here means it fits; if it
-		// still does not, report it, ❌ do not look elsewhere (the item would land off the outline the
-		// player is looking at).
-		if (!equipAt(dragging.uid, slot, rotated)) pushToast('Không đặt được món vào ô đó', 'bad')
+		// still does not, place nothing, ❌ do not look elsewhere (the item would land off the outline
+		// the player is looking at).
+		equipAt(dragging.uid, slot, rotated)
 		clear()
 	}
 
@@ -233,9 +243,15 @@ export function PrepScreen() {
 	const heldInfo = held
 
 	return (
-		<div className="flex flex-col gap-3.5">
+		<>
 			{/*
-			 * Three columns in a **1 : 2 : 1 flex ratio** — pet stats · stage + inventory · loadout.
+			 * ── Main content: the three panels ──
+			 * `flex-1` makes this block take the remaining height of the page column, so the two footer
+			 * sections below it ride the bottom edge of the viewport.
+			 */}
+			<div className="flex flex-1 flex-col gap-3.5">
+			{/*
+			 * Three columns in a **1 : 2.25 : 1.2 flex ratio** — cutie stats · storage · loadout.
 			 * The columns take the full width and split it, and every panel inside a column stretches
 			 * to that column's width (`items-stretch`), so the three panels line up edge to edge.
 			 *
@@ -244,52 +260,18 @@ export function PrepScreen() {
 			 * fixed px either — that overflowed horizontally on narrow screens.
 			 */}
 			<div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch">
-				{/* ── Left: stat table + pet panel ───────────────────────────────── */}
+				{/* ── Left: combined cutie profile, stats, and skill ────────────── */}
 				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-1">
-					<section className={cn(panelClass, 'gap-2.5')}>
-						<div className="flex items-center gap-3">
-							<div className="surface-pet grid size-16 shrink-0 place-items-center rounded-[16px] border border-line p-1.5">
-								<PetIcon petId={pet.id} emojiClass="text-4xl" />
-							</div>
-							<div>
-								<div className="flex items-baseline gap-2">
-									<span className="text-3xl leading-none font-bold text-gold-soft">{level}</span>
-									<span className="font-semibold">{pet.name}</span>
-								</div>
-								<div className="text-[12px] text-muted">
-									{level >= MAX_PET_LEVEL ? 'Đã đạt cấp tối đa' : `Cấp ${level}/${MAX_PET_LEVEL}`}
-								</div>
-							</div>
-						</div>
-
-						<div className="overflow-hidden rounded-[10px] border border-line bg-black/25">
-							<StatRow label="Sức mạnh" value={power.toLocaleString('vi-VN')} tone="gold" />
-							<StatRow label="Máu tối đa" value={String(Math.round(combatant.maxHp))} />
-							<StatRow
-								label="Lịch sử đấu"
-								value={totalMatches === 0 ? 'chưa đấu' : `${run.wins} thắng, ${run.losses} thua`}
-								tone={run.losses === 0 && run.wins > 0 ? 'jade' : undefined}
-							/>
-							<StatRow label="Tiến trình" value={`${Math.round((run.clearedStage / FINAL_STAGE) * 100)}%`} />
-							<StatRow label="Kiếm Thế" value={`${combatant.maxSe} (+${Math.round(combatant.seRegen)}/s)`} />
-						</div>
-					</section>
-
-					<PetPanel />
+					<CutiePanel className="flex-1" />
 				</div>
 
-				{/* ── Middle: pet stage + inventory (twice as wide as the sides) ── */}
-				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-[2]">
-					<section className="surface-stage relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-panel border border-line px-4 py-8">
-						<PetPortrait petId={pet.id} />
-						<div className="relative text-center">
-							<div className="text-lg font-bold tracking-[0.02em] text-gold-soft">{pet.name}</div>
-							<div className="text-[12px] text-muted">
-								{map.name} · Màn {stage.index} · {pet.skill.name}
-							</div>
-						</div>
-					</section>
-
+				{/*
+				 * ── Middle: inventory ──
+				 *
+				 * The widest column on purpose: the storage board is **8 cells** of `CELL_SIZE` (90 px) and
+				 * has to fit without a horizontal scrollbar, while the loadout column only holds 4.
+				 */}
+				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-[2.25]">
 					<InventoryPanel
 						onRef={(node) => {
 							inventoryRef.current = node
@@ -299,41 +281,33 @@ export function PrepScreen() {
 						onDragStart={(item) => startDrag(item, 'inventory')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromInventory}
-						onRotate={rotateInStorage}
 					/>
 				</div>
 
-				{/* ── Right: loadout + next opponent ─────────────────────────────── */}
-				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-1">
-					<PetLoadoutPanel
+				{/* ── Right: loadout ─────────────────────────────────────────────── */}
+				<div className="flex min-w-0 flex-col gap-2.5 lg:flex-[1.2]">
+					<CutieLoadoutPanel
+						className="flex-1"
+						onShopClick={suppressShopClick}
+						shopDropActive={activeShopTarget === 'equipment'}
+						isDraggingItem={held !== null}
+						onShopHover={setActiveShopTarget}
 						held={heldInfo}
 						onItemClick={(item) => openItem(item.uid)}
 						onDragStart={(item) => startDrag(item, 'loadout')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromGrid}
 					/>
-
-					<section className={cn(panelClass, 'gap-2.5')}>
-						<div className="flex items-center gap-3">
-							<div className="grid size-14 shrink-0 place-items-center rounded-[14px] border border-line bg-ink-700 text-3xl">
-								{stage.enemy.icon}
-							</div>
-							<div className="min-w-0">
-								<div className="font-semibold">{stage.enemy.name}</div>
-								<div className="text-[12px] text-muted">
-									Màn {stage.index} · {stage.enemy.items.length} món · thưởng {stage.reward} <Paw />
-								</div>
-							</div>
-						</div>
-						<div className="overflow-hidden rounded-[10px] border border-line bg-black/25">
-							<StatRow label="Máu đối thủ" value={String(stage.enemy.maxHp)} />
-							<StatRow label="Sát thương" value={String(stage.enemy.attackDamage)} />
-							<StatRow label="Tỉ lệ Chấn Đao" value={`${Math.round(stage.enemy.counterChance * 100)}%`} />
-						</div>
-					</section>
 				</div>
 			</div>
+			</div>
 
+			{/*
+			 * ⚠️ The footer is **not inside the main content block**: `PrepScreen` renders the panels block
+			 * and this footer as two siblings of the page column, so "main content" means the three panels
+			 * and nothing else. ❌ Do not wrap it back inside — the page column's `flex-1` on the panels
+			 * already pushes the footer down.
+			 */}
 			<ActionBar />
 
 			{/* The item image following the cursor while an item is held. */}
@@ -347,6 +321,6 @@ export function PrepScreen() {
 					y={held.y}
 				/>
 			) : null}
-		</div>
+		</>
 	)
 }

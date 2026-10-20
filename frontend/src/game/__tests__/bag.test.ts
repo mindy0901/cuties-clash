@@ -8,6 +8,7 @@ import {
 	findFreePlacement,
 	isMergeable,
 	itemCells,
+	mergeUpStar,
 	occupancyOf,
 	planAutoArrange,
 	resolveDrop,
@@ -18,7 +19,12 @@ import {
 	toSlot,
 } from '../bag'
 import { getTemplate } from '../items'
+import { installRetiredItems } from '../../test/retiredItems'
 import type { ItemInstance } from '../types'
+
+// The grid tests use the retired catalogue as fixtures (a 2×3 axe, 1×1 gems); they are registered as
+// a content overlay, so nothing here ships with the game.
+installRetiredItems()
 
 /** 4 columns × 3 rows = 12 cells, used by most tests. */
 const WIDTH = 4
@@ -203,6 +209,22 @@ describe('drag and drop', () => {
 
 	it('only merges when the star ranks match', () => {
 		expect(isMergeable(createItemInstance('wooden-blade', 2, 'a'), createItemInstance('wooden-blade', 1, 'b'))).toBe(false)
+	})
+
+	it('suggests the star a shop purchase would merge up to', () => {
+		const bag = [
+			createItemInstance('wooden-blade', 1, 'a'),
+			createItemInstance('jade-fury', 2, 'b'),
+		]
+		// Same template + same star → the purchase lands a 2★.
+		expect(mergeUpStar(bag, { templateId: 'wooden-blade', star: 1 })).toBe(2)
+		expect(mergeUpStar(bag, { templateId: 'jade-fury', star: 2 })).toBe(3)
+		// A different star rank, a different item, or an empty bag → nothing to merge with.
+		expect(mergeUpStar(bag, { templateId: 'wooden-blade', star: 2 })).toBeNull()
+		expect(mergeUpStar(bag, { templateId: 'heal-dew', star: 1 })).toBeNull()
+		expect(mergeUpStar([], { templateId: 'wooden-blade', star: 1 })).toBeNull()
+		// A 5★ copy can never merge again, even with a twin.
+		expect(mergeUpStar([createItemInstance('wooden-blade', 5, 'a')], { templateId: 'wooden-blade', star: 5 })).toBeNull()
 	})
 
 	it('rejects a cell outside the grid', () => {

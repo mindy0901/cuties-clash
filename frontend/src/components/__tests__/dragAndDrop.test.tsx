@@ -9,7 +9,10 @@
  * and dropped. Now every click has exactly one meaning: picking up requires **holding the mouse and
  * moving**.
  */
-import { act, cleanup, fireEvent, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent } from '@testing-library/react'
+import { installRetiredItems } from '../../test/retiredItems'
+
+installRetiredItems()
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PrepScreen } from '../PrepScreen'
 import { itemCells, templateFootprint } from '../../game/bag'
@@ -93,6 +96,26 @@ function boardOf(title: string): HTMLElement {
 	return board
 }
 
+function stubBoardRect(title: string, left: number, top: number, width: number, height: number) {
+	const board = boardOf(title)
+	board.getBoundingClientRect = () =>
+		({
+			x: left,
+			y: top,
+			left,
+			top,
+			right: left + width,
+			bottom: top + height,
+			width,
+			height,
+			toJSON: () => ({}),
+		}) as DOMRect
+	Object.defineProperties(board, {
+		clientLeft: { configurable: true, value: 1 },
+		clientTop: { configurable: true, value: 1 },
+	})
+}
+
 /** Hint cells currently filled (both boards). */
 function previewSlots(): number[] {
 	return Array.from(document.querySelectorAll<HTMLElement>('[data-preview]')).map((node) =>
@@ -117,19 +140,6 @@ function outlineClass(): string {
 	const outline = document.querySelector<HTMLElement>('[data-preview-outline]')
 	if (!outline) throw new Error('no hint outline')
 	return outline.className
-}
-
-/**
- * The text of the toasts currently shown.
- *
- * ⚠️ Read from the store: `Toasts` sits in the root layout, while these tests only render
- * `PrepScreen`.
- */
-function toastText(): string {
-	return useGameStore
-		.getState()
-		.toasts.map((toast) => toast.text)
-		.join(' | ')
 }
 
 function pressKey(key: string) {
@@ -201,10 +211,28 @@ function startDrag(target: HTMLElement) {
  * another panel), so it does not go through `fireEvent` — without `act` the state has changed but
  * the DOM has not re-rendered.
  */
-function releaseMouse() {
+function releaseMouse(clientX = 0, clientY = 0) {
 	act(() => {
-		document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 0, clientY: 0 }))
+		document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX, clientY }))
 	})
+}
+
+function stubShopDropTarget(target: HTMLElement) {
+	const left = 500
+	const top = 500
+	target.getBoundingClientRect = () =>
+		({
+			x: left,
+			y: top,
+			left,
+			top,
+			right: left + 120,
+			bottom: top + 48,
+			width: 120,
+			height: 48,
+			toJSON: () => ({}),
+		}) as DOMRect
+	return { x: left + 60, y: top + 24 }
 }
 
 beforeEach(() => reset([blade('sword', 0)]))
@@ -241,6 +269,50 @@ describe('dragging an item to pick it up', () => {
 		fireEvent.click(buttonOf('sword'))
 
 		expect(useUiStore.getState().itemUid, 'a click accompanying a drag is ignored').toBeNull()
+	})
+
+	it('selling a carried item by dropping it on the Shop button does not navigate to the shop', () => {
+		renderPrep()
+		const shop = document.querySelector<HTMLElement>('[data-shop-drop-target]')!
+		const point = stubShopDropTarget(shop)
+		const gold = useGameStore.getState().run.gold
+
+		startDrag(buttonOf('sword'))
+		fireEvent.pointerMove(document, { clientX: point.x, clientY: point.y })
+		fireEvent.pointerEnter(shop)
+		// The drop target is a `<Button variant="destructive">`; hovering marks it with a pulse + ring.
+		expect(shop.className).toContain('animate-pulse')
+		expect(shop.className).toContain('ring-2')
+		expect(shop.textContent).toContain('Thả để bán')
+		fireEvent.pointerLeave(shop)
+		expect(shop.className).not.toContain('ring-2')
+		expect(shop.textContent).not.toContain('Thả để bán')
+		fireEvent.pointerEnter(shop)
+		releaseMouse(point.x, point.y)
+		fireEvent.click(shop)
+
+		const run = useGameStore.getState().run
+		expect(run.equipped, 'the dragged item is sold').toHaveLength(0)
+		expect(run.gold, 'selling refunds gold').toBeGreaterThan(gold)
+		expect(window.location.pathname, 'the click following the drag must not navigate').toBe('/')
+	})
+
+	it('selling an inventory item by dropping it on the Shop button', () => {
+		reset([], [stored('stored-gem')])
+		renderPrep()
+		const shop = document.querySelector<HTMLElement>('[data-shop-drop-target]')!
+		const point = stubShopDropTarget(shop)
+		const gold = useGameStore.getState().run.gold
+
+		startDrag(invTileOf('stored-gem'))
+		fireEvent.pointerMove(document, { clientX: point.x, clientY: point.y })
+		fireEvent.pointerEnter(shop)
+		expect(shop.className).toContain('ring-2')
+		expect(shop.textContent).toContain('Thả để bán')
+		releaseMouse(point.x, point.y)
+
+		expect(useGameStore.getState().run.inventory, 'the dragged reserve item is sold').toHaveLength(0)
+		expect(useGameStore.getState().run.gold).toBeGreaterThan(gold)
 	})
 
 	it('the item image follows the cursor', () => {
@@ -318,6 +390,24 @@ describe('the placement hint', () => {
 
 		expect(outline.style.gridColumn).toBe(`${minCol + 1} / span ${Math.max(...cols) - minCol + 1}`)
 		expect(outline.style.gridRow).toBe(`${minRow + 1} / span ${Math.max(...rowIdx) - minRow + 1}`)
+	})
+
+	it('tracks the cursor against the actual cell spacing and clears the hint outside the board', () => {
+		reset([jade('gem', 0)])
+		renderPrep()
+		stubBoardRect('Trang bị', 0, 0, 266, 202)
+
+		const button = buttonOf('gem')
+		fireEvent.pointerDown(button, { button: 0, clientX: 10, clientY: 10 })
+		fireEvent.pointerMove(button, { clientX: 300, clientY: 300 })
+		// This point is just left of the midpoint of the gaps after row/column 0.
+		// The cursor is nearest cell 0; scaling the padded board picks a different row and column.
+		fireEvent.pointerMove(button, { clientX: 68, clientY: 68 })
+		expect(previewSlotsIn('Trang bị')).toEqual([0])
+
+		// Pointer capture can keep events targeted at the dragged item after the cursor leaves.
+		fireEvent.pointerMove(button, { clientX: 300, clientY: 300 })
+		expect(previewSlotsIn('Trang bị')).toEqual([])
 	})
 })
 
@@ -493,7 +583,6 @@ describe('dropping an item', () => {
 			useGameStore.getState().run.equipped.find((item) => item.uid === 'sword')?.slot,
 			'the item must stay where it was',
 		).toBe(0)
-		expect(toastText(), 'the player must be told').toMatch(/không vừa món/)
 	})
 
 	it('a hint block spilling into LOCKED cells is red, even with the cursor on an item', () => {
@@ -518,7 +607,6 @@ describe('dropping an item', () => {
 		expect(run.inventory.map((item) => item.uid), 'when it cannot be placed it stays in the inventory').toEqual([
 			'spear',
 		])
-		expect(toastText(), 'the player must be shown how to rotate').toMatch(/bấm R để xoay/)
 	})
 
 	it('hint cells sit ABOVE the item layer — items must not cover the hint', () => {
@@ -613,11 +701,13 @@ describe('dropping an item', () => {
 		inventoryFarAway()
 
 		startDrag(invTileOf('stored'))
-		hoverCell(14) // a locked cell (a level 1 pet only uses the first 12 cells)
+		hoverCell(14) // a locked cell (a level 1 cutie only uses the first 12 cells)
 		releaseMouse()
 
 		expect(useGameStore.getState().run.equipped, 'must not be placed on a locked cell').toHaveLength(0)
-		expect(screen.getByText(/khoá/)).toBeTruthy()
+		// The cell is still drawn as locked (dimmed) — that is the only "why not" the player gets now
+		// that the header counter is gone.
+		expect(cellOf(14).className).toContain('opacity-25')
 	})
 
 	it('clicking a cell without dragging anything changes nothing', () => {
@@ -658,7 +748,6 @@ describe('inventory ↔ loadout', () => {
 
 		const run = useGameStore.getState().run
 		expect(run.inventory, 'when it cannot be placed the item stays in the inventory').toHaveLength(1)
-		expect(toastText(), 'the player must be shown how to rotate').toMatch(/bấm R để xoay/)
 	})
 
 	it('rotating with R mid-drag lets a 1×4 inventory item fit the 3-row board', () => {
@@ -695,10 +784,14 @@ describe('inventory ↔ loadout', () => {
 	})
 })
 
-describe('the ⟳ button still works', () => {
-	it('clicking the rotate button flips the item orientation', () => {
+describe('keyboard rotation', () => {
+	it('pressing R while dragging flips the item orientation', () => {
 		renderPrep()
-		fireEvent.click(screen.getByTitle('Xoay 90°'))
+		inventoryFarAway()
+		startDrag(buttonOf('sword'))
+		pressKey('r')
+		hoverCell(0)
+		releaseMouse()
 
 		expect(useGameStore.getState().run.equipped[0].rotated).toBe(true)
 		expect(templateFootprint('wooden-blade', true)).toEqual({ w: 3, h: 1 })

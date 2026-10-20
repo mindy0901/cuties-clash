@@ -26,6 +26,8 @@ import type { ReactNode } from 'react'
 import App from '../App'
 import { createQueryClient } from '../api/queryClient'
 import { routeTree } from '../routeTree.gen'
+import type { Language } from '../i18n'
+import { useLanguageStore } from '../i18n'
 
 // jsdom does not install `window.scrollTo`, while TanStack Router calls it on every route change →
 // jsdom prints a "Not implemented" warning for each navigation. Stubbed here because this module is
@@ -41,7 +43,8 @@ window.scrollTo = () => {}
  *
  * Each call creates a fresh router and query client so state does not leak into the next test.
  */
-export async function renderApp(path = '/'): Promise<RenderResult> {
+export async function renderApp(path = '/', language: Language = 'vi'): Promise<RenderResult> {
+	useLanguageStore.setState({ language })
 	window.history.replaceState({}, '', path)
 	const router = createRouter({ routeTree, history: createBrowserHistory(), scrollRestoration: false })
 	await router.load()
@@ -50,6 +53,7 @@ export async function renderApp(path = '/'): Promise<RenderResult> {
 
 /** Renders one component inside a router context — synchronous, only so it has `useNavigate`. */
 export function renderInRouter(ui: ReactNode): RenderResult {
+	useLanguageStore.setState({ language: 'vi' })
 	const rootRoute = createRootRoute()
 	const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => null })
 	const router = createRouter({

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { itemArtSrc, petArtSrc, skillArtSrc } from '../art'
+import { installRetiredItems } from '../../test/retiredItems'
+
+installRetiredItems()
+import { itemArtSrc, cutieArtSrc, skillArtSrc } from '../art'
 import { ITEM_TEMPLATES } from '../items'
-import { PETS } from '../pets'
+import { RETIRED_ITEM_TEMPLATES } from '../../test/retiredCatalogue'
+import { CUTIES } from '../cuties'
 
 /**
- * Art declared in `items.ts`/`pets.ts` **must have a real file behind it**.
+ * Art declared in `items.ts`/`cuties.ts` **must have a real file behind it**.
  *
  * When one is missing the UI still does not break (it falls back to the emoji), but the player sees
  * an inconsistent mix: one item has an image and the next one is an emoji. This test catches that
@@ -21,7 +25,7 @@ function toKey(publicPath: string): string {
 }
 
 describe('item art', () => {
-	const withArt = ITEM_TEMPLATES.filter((template) => template.art)
+	const withArt = [...ITEM_TEMPLATES, ...RETIRED_ITEM_TEMPLATES].filter((template) => template.art)
 
 	it('has at least one template that uses art', () => {
 		expect(withArt.length).toBeGreaterThan(0)
@@ -46,40 +50,45 @@ describe('item art', () => {
 	})
 
 	it('every item file in public/ has a matching template', () => {
-		// Catches extra files or typos in the name — a sign of a wrong mapping.
+		// Catches extra files or typos in the name — a sign of a wrong mapping. Art for a **retired**
+		// template is allowed to stay: the catalogue is owned by the admin page now, and a re-created
+		// item usually reuses its picture.
+		const known = new Set(
+			[...ITEM_TEMPLATES, ...RETIRED_ITEM_TEMPLATES].map((template) => template.id),
+		)
 		const orphans = [...FILES]
 			.filter((key) => key.includes('/icons/items/'))
 			.map((key) => key.replace(/^.*\/icons\/items\//, '').replace(/\.png$/, ''))
-			.filter((id) => !ITEM_TEMPLATES.some((template) => template.id === id))
+			.filter((id) => !known.has(id))
 		expect([...new Set(orphans)]).toEqual([])
 	})
 })
 
-describe('pet and skill art', () => {
-	it.each(PETS.map((pet) => [pet.id, pet] as const))('%s has art and skill art when declared', (_id, pet) => {
-		if (pet.art) {
-			const src = petArtSrc(pet.id)
+describe('cutie and skill art', () => {
+	it.each(CUTIES.map((cutie) => [cutie.id, cutie] as const))('%s has art and skill art when declared', (_id, cutie) => {
+		if (cutie.art) {
+			const src = cutieArtSrc(cutie.id)
 			expect(src).not.toBeNull()
 			expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
 		}
-		if (pet.skillArt) {
-			const src = skillArtSrc(pet.id)
+		if (cutie.skillArt) {
+			const src = skillArtSrc(cutie.id)
 			expect(src).not.toBeNull()
 			expect(FILES.has(toKey(src!)), `missing file ${src}`).toBe(true)
 		}
 	})
 
-	it('every pet/skill file in public/ has a matching pet', () => {
+	it('every cutie/skill file in public/ has a matching cutie', () => {
 		const orphanPets = [...FILES]
-			.filter((key) => key.includes('/icons/pets/'))
-			.map((key) => key.replace(/^.*\/icons\/pets\//, '').replace(/\.png$/, ''))
-			.filter((id) => !PETS.some((pet) => pet.id === id))
+			.filter((key) => key.includes('/icons/cuties/'))
+			.map((key) => key.replace(/^.*\/icons\/cuties\//, '').replace(/\.png$/, ''))
+			.filter((id) => !CUTIES.some((cutie) => cutie.id === id))
 		expect(orphanPets).toEqual([])
 
 		const orphanSkills = [...FILES]
 			.filter((key) => key.includes('/icons/skills/'))
 			.map((key) => key.replace(/^.*\/icons\/skills\//, '').replace(/-skill\.png$/, ''))
-			.filter((id) => !PETS.some((pet) => pet.id === id))
+			.filter((id) => !CUTIES.some((cutie) => cutie.id === id))
 		expect(orphanSkills).toEqual([])
 	})
 })

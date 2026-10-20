@@ -6,7 +6,7 @@ export const STATUS_TEXT: Record<StatusKey, string> = {
 	poison: 'Độc',
 	burn: 'Cháy',
 	regen: 'Hồi phục',
-	haste: 'Cuồng phong',
+	cdr: 'Giảm hồi chiêu',
 	brittle: 'Giòn',
 }
 
@@ -16,6 +16,6 @@ export const STATUS_ICON: Record<StatusKey, string> = {
 	poison: '☠️',
 	burn: '🔥',
 	regen: '💚',
-	haste: '🌪️',
+	cdr: '⏱️',
 	brittle: '💔',
 }

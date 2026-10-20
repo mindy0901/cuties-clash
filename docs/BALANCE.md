@@ -15,8 +15,9 @@ optimise the Trang bị).
 
 ⚠️ **Enemy stars are the sharpest knob in the game.** A whole loadout going up one star rank is worth
 far more than several stages of `maxHp` / `attackDamage` growth, and it snaps from "always winnable" to
-"never winnable" instead of sliding. Measured at stages 49-60 with a maxed player (pet level 5, every
-item 5★, full grid, 16-24 seeds):
+"never winnable" instead of sliding. Measured at stages 49-60 with a maxed player (every item 5★, full
+grid, 16-24 seeds) — that player was at **pet level 5**, which was the cap when the numbers were
+recorded (the cap is **10** now, so the late stages are a little easier than the table below):
 
 | Enemy loadout | Player win rate |
 | --- | --- |

@@ -45,7 +45,7 @@ export function useAdminContent(enabled: boolean) {
 export function useSaveContent() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (input: { kind: 'item' | 'pet'; id: string; payload: Record<string, unknown> }) =>
+		mutationFn: (input: { kind: 'item' | 'cutie'; id: string; payload: Record<string, unknown> }) =>
 			api.putContent(input.kind, input.id, input.payload),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: adminContentKey })
@@ -58,7 +58,7 @@ export function useSaveContent() {
 export function useResetContent() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (input: { kind: 'item' | 'pet'; id: string }) => api.deleteContent(input.kind, input.id),
+		mutationFn: (input: { kind: 'item' | 'cutie'; id: string }) => api.deleteContent(input.kind, input.id),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: adminContentKey })
 			await queryClient.invalidateQueries({ queryKey: contentKey })
@@ -67,7 +67,57 @@ export function useResetContent() {
 }
 
 /**
- * Upload a picture for one item/pet.
+ * The kit catalogue: delete a kit from the game, bring it back, create one, edit one (which is also how
+ * a kit **moves to another catalogue**), and create / rename / delete the catalogues themselves.
+ *
+ * All of them invalidate the same two queries as any other admin write: the overlay has to reach
+ * **every** screen (and every player) at once, otherwise a deleted kit keeps swinging until a reload.
+ */
+function useKitMutation<TArgs>(mutationFn: (args: TArgs) => Promise<unknown>) {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn,
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: adminContentKey })
+			await queryClient.invalidateQueries({ queryKey: contentKey })
+		},
+	})
+}
+
+export function useRemoveKit() {
+	return useKitMutation((id: string) => api.removeKit(id))
+}
+
+export function useDeleteKit() {
+	return useKitMutation((id: string) => api.deleteKit(id))
+}
+
+export function useCreateKit() {
+	return useKitMutation((payload: Record<string, unknown>) => api.createKit(payload))
+}
+
+export function useSaveKit() {
+	return useKitMutation((input: { id: string; payload: Record<string, unknown> }) =>
+		api.saveKit(input.id, input.payload),
+	)
+}
+
+export function useCreateKitCategory() {
+	return useKitMutation((payload: { label: string }) => api.createKitCategory(payload))
+}
+
+export function useSaveKitCategory() {
+	return useKitMutation((input: { id: string; payload: Record<string, unknown> }) =>
+		api.saveKitCategory(input.id, input.payload),
+	)
+}
+
+export function useDeleteKitCategory() {
+	return useKitMutation((id: string) => api.deleteKitCategory(id))
+}
+
+/**
+ * Upload a picture for one item/cutie.
  *
  * The overlay is refetched right after, so the new URL (with its version) reaches every screen —
  * and every player — without a reload.
@@ -75,7 +125,7 @@ export function useResetContent() {
 export function useUploadArt() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (input: { kind: 'item' | 'pet'; id: string; png: Blob }) =>
+		mutationFn: (input: { kind: 'item' | 'cutie'; id: string; png: Blob }) =>
 			api.uploadArt(input.kind, input.id, input.png),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: adminContentKey })
@@ -88,7 +138,7 @@ export function useUploadArt() {
 export function useDeleteArt() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (input: { kind: 'item' | 'pet'; id: string }) => api.deleteArt(input.kind, input.id),
+		mutationFn: (input: { kind: 'item' | 'cutie'; id: string }) => api.deleteArt(input.kind, input.id),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: adminContentKey })
 			await queryClient.invalidateQueries({ queryKey: contentKey })

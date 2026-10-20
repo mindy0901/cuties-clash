@@ -97,6 +97,36 @@ export function repairStorageSlots(items: ItemInstance[]): ItemInstance[] {
 }
 
 /**
+ * Rearrange the whole storage into a tidy, gap-free grid: the strongest items first (star rank, then
+ * footprint, then name), each laid out at the first free spot.
+ *
+ * This is the **only** place that repacks the storage — ❌ the grid never arranges items by itself
+ * (see `docs/GAME-RULES.md`: Kho đồ is a free grid, a drop is rejected rather than slid). The player
+ * asks for it explicitly with the **Sắp xếp** button.
+ */
+export function sortStorage(items: ItemInstance[]): ItemInstance[] {
+	const order = [...items].sort((a, b) => {
+		if (a.star !== b.star) return b.star - a.star
+		const sizeA = footprintOf(getTemplate(a.templateId).space, a.rotated)
+		const sizeB = footprintOf(getTemplate(b.templateId).space, b.rotated)
+		const areaA = sizeA.w * sizeA.h
+		const areaB = sizeB.w * sizeB.h
+		if (areaA !== areaB) return areaB - areaA
+		if (a.templateId !== b.templateId) return a.templateId < b.templateId ? -1 : 1
+		return a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0
+	})
+
+	const gridSize = searchGridSize(items.length + 1)
+	const placed: ItemInstance[] = []
+	for (const item of order) {
+		// `findFreePlacement` walks the grid row by row, so items fill it from the top-left corner.
+		const placement = findFreePlacement(placed, item.templateId, STORAGE_WIDTH, gridSize)
+		placed.push(placement ? { ...item, slot: placement.slot, rotated: placement.rotated } : { ...item })
+	}
+	return placed
+}
+
+/**
  * Put an item that is **not in the storage yet** into it: prefer the hovered cell (`slot`), and when
  * that does not fit, search for a free spot (the storage is unbounded, so a spot always exists).
  */

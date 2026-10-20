@@ -1,12 +1,12 @@
 import { getTemplate } from './items'
-import { getPet } from './pets'
+import { getCutie } from './cuties'
 import { uploadedArt } from './content'
 
 /**
  * Resolve an art path inside `public/`.
  *
  * Rule: **only return a path when the asset is declared** (`art`/`skillArt`/`avatar` in
- * `items.ts`/`pets.ts`) or the admin has uploaded one, so nothing is guessed — a wrong guess would
+ * `items.ts`/`cuties.ts`) or the admin has uploaded one, so nothing is guessed — a wrong guess would
  * render a broken icon.
  *
  * With no art this returns `null` and the component falls back to the emoji.
@@ -28,30 +28,30 @@ export function itemArtSrc(templateId: string): string | null {
 	return `/icons/items/${templateId}.png`
 }
 
-/** Art for a pet: uploaded picture first, then the bundled file. */
-export function petArtSrc(petId: string): string | null {
-	const uploaded = uploadedArt('pet', petId)
+/** Art for a cutie: uploaded picture first, then the bundled file. */
+export function cutieArtSrc(cutieId: string): string | null {
+	const uploaded = uploadedArt('cutie', cutieId)
 	if (uploaded) return uploaded
-	const pet = getPet(petId)
-	if (!pet.art) return null
-	return `/icons/pets/${petId}.png`
+	const cutie = getCutie(cutieId)
+	if (!cutie.art) return null
+	return `/icons/cuties/${cutieId}.png`
 }
 
-/** Art for the pet's skill. */
-export function skillArtSrc(petId: string): string | null {
-	const pet = getPet(petId)
-	if (!pet.skillArt) return null
-	return `/icons/skills/${petId}-skill.png`
+/** Art for the cutie's skill. */
+export function skillArtSrc(cutieId: string): string | null {
+	const cutie = getCutie(cutieId)
+	if (!cutie.skillArt) return null
+	return `/icons/skills/${cutieId}-skill.png`
 }
 
 /**
- * Art for the pet's **avatar** frame (`/icons/pets/<id>-avatar.png`).
+ * Art for the cutie's **avatar** frame (`/icons/cuties/<id>-avatar.png`).
  *
- * ⚠️ Falls back to the **uploaded** pet picture so the arena shows an imported image straight away
+ * ⚠️ Falls back to the **uploaded** cutie picture so the arena shows an imported image straight away
  * instead of waiting for a dedicated `-avatar` file. `null` = nothing at all, caller uses the emoji.
  */
-export function avatarArtSrc(petId: string): string | null {
-	const pet = getPet(petId)
-	if (pet.avatar) return `/icons/pets/${petId}-avatar.png`
-	return uploadedArt('pet', petId)
+export function avatarArtSrc(cutieId: string): string | null {
+	const cutie = getCutie(cutieId)
+	if (cutie.avatar) return `/icons/cuties/${cutieId}-avatar.png`
+	return uploadedArt('cutie', cutieId)
 }

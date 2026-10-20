@@ -10,12 +10,15 @@ the licences, where files go, and the attribution obligations.
 ## Rules for adding art
 
 - ✅ **Only declare a path when you are sure the file exists** (`art` in `items.ts`,
-  `art`/`skillArt` in `pets.ts`). ❌ Do not guess file names.
+  `art`/`skillArt` in `cuties.ts`). ❌ Do not guess file names.
 - ✅ **Always keep the emoji fallback** in `icon`; `ArtIcon` falls back to the emoji when an image
   fails — that way art can be added gradually and there is never an empty cell.
 - ⚠️ **Emoji are content, not UI icons.** Item / pet / stage / status glyphs stay emoji (they are the
   picture fallback). Every **control** in the interface — buttons, menus, playback, money, dialogs —
-  uses a [Lucide](https://lucide.dev/guide/react/) icon through `components/icons.tsx`, ❌ not emoji.
+  uses a [Lucide](https://lucide.dev/guide/react/) icon through `components/icons.tsx`, ❌ not emoji,
+  ❌ not a second icon package and ❌ not a Unicode glyph (`»`, `✓`, `↑`). Lucide is the icon library
+  shadcn/ui ships with, and it is the **only** one in this app — see
+  [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) §8 and `AGENTS.md` §4.6.
 - ⚠️ **Check for a real alpha channel** before using an image (see the ORHstudio trap below): read the
   PNG bytes, `colorType` must be **6 = RGBA**. `game/__tests__/artAlpha.test.ts` guards this.
 - ⚠️ **CC BY** sources must have an **attribution** section reachable from the menu. CC0 does not
@@ -29,10 +32,10 @@ the licences, where files go, and the attribution obligations.
 
 The avatar frame on the arena floor (`components/AvatarCard.tsx`) picks an image in this order:
 
-1. **A dedicated avatar image** — `public/icons/pets/<petId>-avatar.png`, enabled with
-   `avatar: true` in `game/pets.ts`. Lookup function: `avatarArtSrc`.
-2. **Pet art** — `public/icons/pets/<petId>.png` (`art: true`), already present.
-3. **Emoji fallback** — `icon` in `pets.ts`.
+1. **A dedicated avatar image** — `public/icons/cuties/<cutieId>-avatar.png`, enabled with
+   `avatar: true` in `game/cuties.ts`. Lookup function: `avatarArtSrc`.
+2. **Cutie art** — `public/icons/cuties/<cutieId>.png` (`art: true`), already present.
+3. **Emoji fallback** — `icon` in `cuties.ts`.
 
 ⇒ Adding avatar images **does not require touching the component**: put the file under the right name
 and switch the flag on. The frame already draws a dashed border around the image area, so with no
@@ -40,10 +43,15 @@ image yet it still looks like "space reserved for an image" rather than a bug.
 
 ⚠️ Both pet destinations are **square and filled** (`object-cover`): the avatar frame here, and the
 ring (`PetPortrait`) in the middle of the preparation room. A square picture therefore **covers** them
-— a public-uploaded picture is cropped 1:1 (512×512) by the admin page, and the crop dialog previews
+— a public-uploaded picture is cropped 1:1 (1080×1080) by the admin page, and the crop dialog previews
 both frames before saving.
 
 ## In use
+
+### Procedural battle sound effects
+
+Battle projectile sweeps and impacts are synthesized with the Web Audio API at runtime. They do not
+use external audio recordings or add licensed audio files to the repository.
 
 ### ORHstudio — Wuxia Icon Series (CC0)
 
@@ -123,7 +131,7 @@ its long axis to cover every cell it occupies; square items look unchanged.
 
 ⇒ Art for a specific item should be drawn **at the item's own proportions** (a 1×3 canvas for a 1×3
 weapon) to avoid any stretch. Pictures imported from the admin page already are: the cropper's frame
-follows the footprint and saves e.g. 171×512 for a 1×3 item (`artOutputSize`), so nothing is stretched.
+follows the footprint and saves e.g. 640×1920 for a 1×3 item (`artOutputSize`), so nothing is stretched.
 Such a picture is drawn with `object-contain` (the tile and the picture already share a shape), while
 bundled square art must be stretched with `object-fill` to reach every cell.
 
@@ -159,7 +167,7 @@ bundled square art must be stretched with `object-fill` to reach every cell.
 | `tiger-tonic` | medicines | `orange_medicine` |
 | `iron-brew` | medicines | `gold_medicine` |
 
-**Pets** (masks, tier ★★★): `fire-pup`→`tiger_mask` · `white-rabbit`→`fox_mask` ·
+**Cuties** (masks, tier ★★★): `fire-pup`→`tiger_mask` · `white-rabbit`→`fox_mask` ·
 `spirit-cat`→`skull_mask`
 
 **Skills** (weapons, tier ★★★): `fire-pup`→`monk_spade` · `white-rabbit`→`ji_halberd` ·
@@ -200,8 +208,8 @@ suited to **UI icons** (buttons, stats) than to wuxia items.
 ```
 public/icons/
 ├─ items/   <templateId>.png            e.g. wooden-blade.png, great-axe.png
-├─ pets/    <petId>.png                 e.g. fire-pup.png
-├─ skills/  <petId>-skill.png           e.g. fire-pup-skill.png
+├─ cuties/  <cutieId>.png               e.g. fire-pup.png
+├─ skills/  <cutieId>-skill.png           e.g. fire-pup-skill.png
 └─ ui/      (interface icons, optional)
 ```
 
@@ -213,7 +221,7 @@ Every bundled icon is a `.png` — the extension is fixed, so there is nothing t
 (`ItemIcon`, `PetIcon`, `SkillIcon`), built on `ArtIcon`.
 
 **Important principle:** only return a path when the asset is **declared**, based on `art: true` in
-`items.ts` and `art`/`skillArt`/`avatar` in `pets.ts`. Do not guess file names — a wrong guess shows a
+`items.ts` and `art`/`skillArt`/`avatar` in `cuties.ts`. Do not guess file names — a wrong guess shows a
 broken icon.
 
 When there is no art, or the image fails to load → it **falls back to the emoji**. That way art can be
@@ -227,11 +235,11 @@ added little by little, and the game has never shown an empty cell.
   art: true,                    // public/icons/items/wooden-blade.png exists
 }
 
-// pets.ts
+// cuties.ts
 {
   id: 'fire-pup',
   icon: '🐶',                    // fallback, always keep
-  art: true,                    // public/icons/pets/fire-pup.png exists
+  art: true,                    // public/icons/cuties/fire-pup.png exists
   skillArt: true,               // public/icons/skills/fire-pup-skill.png exists
 }
 ```

@@ -1,8 +1,14 @@
 import { useGameStore } from '../store/gameStore'
 import { InventoryGrid } from './InventoryGrid'
+import { boardHeight } from './GridBoard'
+import { STORAGE_MIN_ROWS } from '../game/storage'
+import type { PointerPosition } from './GridBoard'
 import { cn, panelClass, panelHeadClass, panelTitleClass } from './ui'
+import { Button } from './ui/button'
+import { ArrowUpDown } from './icons'
 import type { HeldItem } from './useHeldItem'
 import type { ItemInstance } from '../game/types'
+import { translate } from '../i18n'
 
 interface InventoryPanelProps {
 	/** Receives the root element so the parent knows the "store into the inventory" drop area. */
@@ -14,11 +20,9 @@ interface InventoryPanelProps {
 	/** Starts holding an item (beginning of the drag). */
 	onDragStart?: (item: ItemInstance) => void
 	/** Pointer release: `moved` tells whether it was dragged or merely clicked. */
-	onDragEnd?: (moved: boolean) => void
+	onDragEnd?: (moved: boolean, releasePosition: PointerPosition | null) => void
 	/** Anchor cell the hint is drawn from inside the inventory (placement on release). */
 	onAnchorSlot?: (slot: number | null, blocked: boolean) => void
-	onRotate?: (uid: string) => void
-	onSell?: (uid: string) => void
 }
 
 /**
@@ -35,17 +39,27 @@ export function InventoryPanel({
 	onDragStart,
 	onDragEnd,
 	onAnchorSlot,
-	onRotate,
-	onSell,
 }: InventoryPanelProps) {
 	const run = useGameStore((state) => state.run)
-	const sell = useGameStore((state) => state.sell)
+	const sortStorage = useGameStore((state) => state.sortStorage)
 
 	return (
 		<section ref={onRef} className={cn(panelClass, 'gap-2.5')}>
 			<div className={panelHeadClass}>
-				<h2 className={panelTitleClass}>Kho đồ</h2>
-				<span className="text-[11px] text-muted">{run.inventory.length} món · không giới hạn</span>
+				<div aria-hidden />
+				<h2 className={panelTitleClass}>{translate('Kho đồ')}</h2>
+				<div className="flex items-center justify-end gap-2 justify-self-end">
+					<Button
+						type="button"
+						data-storage-sort
+						size="sm"
+						title={translate('Xếp lại kho: món mạnh trước, không còn ô trống')}
+						disabled={run.inventory.length < 2}
+						onClick={() => sortStorage()}
+					>
+						<ArrowUpDown /> {translate('Sắp xếp')}
+					</Button>
+				</div>
 			</div>
 
 			<InventoryGrid
@@ -55,9 +69,9 @@ export function InventoryPanel({
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
 				onAnchorSlot={onAnchorSlot}
-				onRotate={onRotate}
-				onSell={onSell ?? sell}
-				className="max-h-[520px]"
+				// The viewport is **exactly `STORAGE_MIN_ROWS` rows tall** (8×8 by default), so the whole
+				// default board is visible; a deeper stack scrolls instead of growing the panel.
+				style={{ maxHeight: boardHeight(STORAGE_MIN_ROWS) }}
 			/>
 		</section>
 	)

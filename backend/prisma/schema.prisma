@@ -5,78 +5,257 @@
 // database and has been rewritten to be idempotent (see the SQL file).
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native"]
+    provider      = "prisma-client-js"
+    binaryTargets = ["native"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String?  @unique(map: "ix_users_email") @db.VarChar(320)
-  displayName  String   @map("display_name") @db.VarChar(120)
-  avatarUrl    String?  @map("avatar_url") @db.Text
-  // Incremented on every logout so all old tokens of the account are revoked.
-  sessionEpoch Int      @default(0) @map("session_epoch")
-  createdAt    DateTime @map("created_at") @db.Timestamptz(6)
-  lastLoginAt  DateTime @map("last_login_at") @db.Timestamptz(6)
+    id           Int      @id @default(autoincrement())
+    email        String?  @unique(map: "ix_users_email") @db.VarChar(320)
+    displayName  String   @map("display_name") @db.VarChar(120)
+    avatarUrl    String?  @map("avatar_url") @db.Text
+    // Incremented on every logout so all old tokens of the account are revoked.
+    sessionEpoch Int      @default(0) @map("session_epoch")
+    createdAt    DateTime @map("created_at") @db.Timestamptz(6)
+    lastLoginAt  DateTime @map("last_login_at") @db.Timestamptz(6)
 
-  identities OAuthIdentity[]
-  saves      GameSave[]
+    identities OAuthIdentity[]
+    saves      GameSave[]
 
-  @@map("users")
+    @@map("users")
 }
 
 model OAuthIdentity {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  provider  String   @db.VarChar(32)
-  // Identifier on the provider's side (for Google this is `sub`).
-  subject   String   @db.VarChar(255)
-  email     String?  @db.VarChar(320)
-  createdAt DateTime @map("created_at") @db.Timestamptz(6)
+    id        Int      @id @default(autoincrement())
+    userId    Int      @map("user_id")
+    provider  String   @db.VarChar(32)
+    // Identifier on the provider's side (for Google this is `sub`).
+    subject   String   @db.VarChar(255)
+    email     String?  @db.VarChar(320)
+    createdAt DateTime @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "oauth_identities_user_id_fkey")
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "oauth_identities_user_id_fkey")
 
-  @@unique([provider, subject], map: "uq_oauth_provider_subject")
-  @@index([userId], map: "ix_oauth_identities_user_id")
-  @@map("oauth_identities")
+    @@unique([provider, subject], map: "uq_oauth_provider_subject")
+    @@index([userId], map: "ix_oauth_identities_user_id")
+    @@map("oauth_identities")
 }
 
 model GameSave {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique(map: "game_saves_user_id_key") @map("user_id")
-  // The frontend's `RunState`, stored as raw JSON.
-  payload   String   @db.Text
-  // Write counter, so the client can detect an overwrite.
-  revision  Int
-  updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
+    id        Int      @id @default(autoincrement())
+    userId    Int      @unique(map: "game_saves_user_id_key") @map("user_id")
+    // The frontend's `RunState`, stored as raw JSON.
+    payload   String   @db.Text
+    // Write counter, so the client can detect an overwrite.
+    revision  Int
+    updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "game_saves_user_id_fkey")
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "game_saves_user_id_fkey")
 
-  @@index([userId, updatedAt], map: "ix_game_saves_user_updated")
-  @@map("game_saves")
+    @@index([userId, updatedAt], map: "ix_game_saves_user_updated")
+    @@map("game_saves")
 }
 
-// Content edited from the admin page: **whitelisted fields only**, stored as JSON.
+// ── Game content: items and Cuties ───────────────────────────────────────────
 //
-// This table does NOT hold whole templates — the originals stay in code (`game/items.ts`,
-// `game/pets.ts`) and the client layers the override on top. Deleting a row returns the
-// entity to its default, and adding a field to code needs no migration.
-model ContentOverride {
-  // `item:<templateId>` or `pet:<petId>`.
-  id        String   @id @db.VarChar(120)
-  kind      String   @db.VarChar(16)
-  payload   String   @db.Text
-  updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
-  // Email of the last editor, so we know who changed the content.
-  updatedBy String?  @map("updated_by") @db.VarChar(320)
+// 🔴 **A real schema, not a JSON blob.** Until this change both entities lived in one
+// `content_overrides` row per entity with the whole definition inside a `payload TEXT` — nothing was
+// typed, nothing could be queried (`select count(*) from items where tier = 3` was impossible) and a
+// kit was a string inside a string. Now an item is a row with columns, and its mechanics are child
+// rows a query can join.
+//
+// ⚠️ What stays `Json` on purpose: `params` / `stats` / `aura` / `onHit` / `charge` of **one kit**.
+// The *keys* of those tables are the kit catalogue (`frontend/src/game/kits.ts`), which changes with
+// the game, not with the content — normalising them would put game rules in SQL and turn every new
+// kit parameter into a migration. The shape of a kit row is still checked on write
+// (`validateContentPayload` in `content.ts`).
+//
+// ⚠️ Items are **DB-only** (`ITEM_TEMPLATES` is empty on the client). Cuties keep their definition in
+// code because the game must be playable with no backend at all, so a **NULL column means "keep the
+// code value"** — that is why the `pets` columns are nullable and `items` are not.
 
-  @@index([kind], map: "ix_content_overrides_kind")
-  @@map("content_overrides")
+model Item {
+    id        String   @id @db.VarChar(120)
+    name      String   @db.VarChar(80)
+    /**
+     * Emoji fallback shown until a picture is uploaded (`ArtRow`), not the picture itself.
+     */
+    icon      String?  @db.VarChar(8)
+    /**
+     * `melee` · `ranged` · `artifact` · `jade` · `accessory` · `armor` · `potion`.
+     */
+    cls       String   @db.VarChar(16)
+    tier      Int      @db.SmallInt
+    /**
+     * 1 = silver … 5 = gold-orange; only colours the tile.
+     */
+    quality   Int      @db.SmallInt
+    cost      Int
+    spaceW    Int      @map("space_w") @db.SmallInt
+    spaceH    Int      @map("space_h") @db.SmallInt
+    art       Boolean  @default(false)
+    /**
+     * Soft delete kept for the API contract: the row stays readable, the client drops it.
+     */
+    removed   Boolean  @default(false)
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+    updatedBy String?  @map("updated_by") @db.VarChar(320)
+
+    kits ItemKit[]
+
+    @@index([tier], map: "ix_items_tier")
+    @@map("items")
+}
+
+model ItemKit {
+    id       Int    @id @default(autoincrement())
+    itemId   String @map("item_id") @db.VarChar(120)
+    /**
+     * `basic-attack`, `stats`, `aura`, `freeze-haste`… — must exist in the client's kit catalogue.
+     */
+    kitId    String @map("kit_id") @db.VarChar(40)
+    /**
+     * Draw order of the cards on the admin page; also what makes one item's kits unique.
+     */
+    position Int    @db.SmallInt
+    /**
+     * Parameter tables, one array of five values per key (one per star rank).
+     */
+    params   Json   @default("{}")
+    /**
+     * `stats` kit only: five bonus-stat tables.
+     */
+    stats    Json?
+    /**
+     * `aura` kit only: five adjacency auras.
+     */
+    aura     Json?
+    /**
+     * Sub-kits rolled when the hit lands.
+     */
+    onHit    Json?  @map("on_hit")
+    /**
+     * Sub-kit of `basic-attack` that turns one swing into the charged hit.
+     */
+    charge   Json?
+
+    item Item @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "item_kits_item_id_fkey")
+
+    @@unique([itemId, position], map: "uq_item_kits_position")
+    @@map("item_kits")
+}
+
+model Cutie {
+    id          String   @id @db.VarChar(120)
+    name        String?  @db.VarChar(80)
+    icon        String?  @db.VarChar(8)
+    blurb       String?  @db.VarChar(400)
+    unlockStage Int?     @map("unlock_stage") @db.SmallInt
+    /**
+     * The number every attack kit of the Cutie scales — the Cutie levels up, it has no star ranks.
+     */
+    attack      Int?
+    maxHp       Int?     @map("max_hp")
+    maxSe       Int?     @map("max_se")
+    seRegen     Float?   @map("se_regen")
+    art         Boolean?
+    skillArt    Boolean? @map("skill_art")
+    avatar      Boolean?
+    /**
+     * 🔴 Separates "the admin never touched the kit list" from "the admin removed every kit". Without
+     * it an empty child list means both, and a Cutie that must **not** attack would quietly get its
+     * code kit back on the next read.
+     */
+    kitsSynced  Boolean  @default(false) @map("kits_synced")
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+    updatedBy   String?  @map("updated_by") @db.VarChar(320)
+
+    kits CutieKit[]
+
+    @@map("cuties")
+}
+
+model CutieKit {
+    id       Int    @id @default(autoincrement())
+    cutieId  String @map("cutie_id") @db.VarChar(120)
+    kitId    String @map("kit_id") @db.VarChar(40)
+    position Int    @db.SmallInt
+    params   Json   @default("{}")
+    stats    Json?
+    aura     Json?
+    onHit    Json?  @map("on_hit")
+    charge   Json?
+
+    cutie Cutie @relation(fields: [cutieId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cutie_kits_cutie_id_fkey")
+
+    @@unique([cutieId, position], map: "uq_cutie_kits_position")
+    @@map("cutie_kits")
+}
+
+// ── Kit catalogue ────────────────────────────────────────────────────────────
+//
+// 🔴 **A kit is a mechanic of the engine** — `basic-attack`, `burn-on-hit`, … — and the engine lives
+// in the client, so those 30 mechanics must ship in code: the game has to play with no backend at all.
+// What the database owns is the **catalogue**: how those mechanics are grouped and named, and every
+// extra kit the admin builds out of one of them.
+//
+// ⚠️ So the catalogue is an **overlay over the code list**, exactly like a Cutie: a row is written only
+// for a kit that was renamed, moved, retuned, created or deleted, and a missing row means "keep the
+// code value". That is also why fixing the code numbers still reaches a kit nobody touched.
+
+/** One catalogue (= a heading on the Kits tab): `attack`, `control`, `support`, `defense`, `stats`, … */
+model KitCategory {
+    id        String   @id @db.VarChar(40)
+    label     String   @db.VarChar(60)
+    position  Int      @db.SmallInt
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+    updatedBy String?  @map("updated_by") @db.VarChar(320)
+
+    entries KitEntry[]
+
+    @@map("kit_categories")
+}
+
+/**
+ * One kit of the catalogue.
+ *
+ * ⚠️ `mechanic` is the **engine** half and never changes after creation: `build.ts` compares kit ids
+ * against the mechanics it knows, so a created kit (`burn-on-hit-2`) is resolved back to its mechanic
+ * (`burn-on-hit`) before any rule runs. Changing it on an existing kit would silently turn one
+ * mechanic into another everywhere it is attached, so the server refuses.
+ */
+model KitEntry {
+    id         String   @id @db.VarChar(40)
+    /** Must exist in the client's `KIT_DEFS`; for a code kit this is its own id. */
+    mechanic   String   @db.VarChar(40)
+    /** `NULL` = keep the label from code (a kit created here always has one). */
+    label      String?  @db.VarChar(80)
+    /** `NULL` = keep the category from code. */
+    categoryId String?  @map("category_id") @db.VarChar(40)
+    /** `both` (item + Cutie) or `item`; `NULL` = keep the code value. */
+    appliesTo  String?  @map("applies_to") @db.VarChar(8)
+    /** Default numbers per parameter key, five entries (1★ → 5★). `NULL` = keep the code seeds. */
+    params     Json?
+    /** Order inside its category; `NULL` = after every ordered kit. */
+    position   Int?     @db.SmallInt
+    /** 🔴 The kit does not exist in the game (see `removeKit`); the row stays so code cannot revive it. */
+    removed    Boolean  @default(false)
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+    updatedBy  String?  @map("updated_by") @db.VarChar(320)
+
+    category KitCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "kit_entries_category_id_fkey")
+
+    @@index([categoryId], map: "ix_kit_entries_category")
+    @@map("kit_entries")
 }
 
 // Art uploaded from the admin page (one picture per entity), stored as PNG bytes.
@@ -88,17 +267,17 @@ model ContentOverride {
 // `version` is bumped on every upload and goes into the public URL (`?v=3`), which lets the
 // response be cached forever: a new picture always gets a new URL.
 model ContentArt {
-  // `item:<templateId>` or `pet:<petId>` — same key shape as `ContentOverride`.
-  id        String   @id @db.VarChar(120)
-  kind      String   @db.VarChar(16)
-  bytes     Bytes
-  mime      String   @db.VarChar(32)
-  version   Int
-  width     Int
-  height    Int
-  updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
-  updatedBy String?  @map("updated_by") @db.VarChar(320)
+    // `item:<templateId>` or `cutie:<cutieId>` — the same key shape the admin routes use.
+    id        String   @id @db.VarChar(120)
+    kind      String   @db.VarChar(16)
+    bytes     Bytes
+    mime      String   @db.VarChar(32)
+    version   Int
+    width     Int
+    height    Int
+    updatedAt DateTime @map("updated_at") @db.Timestamptz(6)
+    updatedBy String?  @map("updated_by") @db.VarChar(320)
 
-  @@index([kind], map: "ix_content_art_kind")
-  @@map("content_art")
+    @@index([kind], map: "ix_content_art_kind")
+    @@map("content_art")
 }

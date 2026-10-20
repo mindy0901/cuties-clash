@@ -1,10 +1,12 @@
 import { templateFootprint } from '../game/bag'
 import type { Star } from '../game/types'
-import { CELL_SIZE } from './GridBoard'
 import { ItemTile } from './ItemTile'
 import { LoadoutGrid } from './LoadoutGrid'
-import { PetPortrait } from './PetPortrait'
+import { CutiePortrait } from './CutiePortrait'
 import { cn } from './ui'
+
+/** Previews keep the old 60 px cell so a dialog stays compact next to its text. */
+const PREVIEW_CELL_SIZE = 60
 
 /**
  * Preview a picture **where it will actually appear**: the same tile the bag draws (quality
@@ -21,7 +23,11 @@ export function ItemGridPreview({
 	templateId,
 	star,
 	artSrc,
-	cellSize = CELL_SIZE,
+	/**
+	 * Preview cells stay **60 px** even though the real boards are 90 px: a dialog/admin preview has to
+	 * fit beside text, and its job is the tile's shape, not its size on the board.
+	 */
+	cellSize = PREVIEW_CELL_SIZE,
 	bare = false,
 	className,
 }: {
@@ -62,6 +68,7 @@ export function ItemGridPreview({
 			rows={h}
 			items={[{ uid: 'preview', templateId, star, slot: 0, rotated: false, paid: 0 }]}
 			artSrc={artSrc}
+			cellSize={cellSize}
 			className={className}
 		/>
 	)
@@ -73,13 +80,13 @@ export function ArtPreview({
 	star,
 	artSrc,
 }: {
-	kind: 'item' | 'pet'
+	kind: 'item' | 'cutie'
 	id: string
 	star: Star
 	artSrc?: string | null
 }) {
-	// A pet is shown as the **round portrait** wherever it represents the pet itself (its identity),
-	// the square pet cell being the small list tile.
+	// A cutie is shown as the **round portrait** wherever it represents the cutie itself (its identity),
+	// the square cutie cell being the small list tile.
 	if (kind === 'item') return <ItemGridPreview templateId={id} star={star} artSrc={artSrc} />
-	return <PetPortrait petId={id} artSrc={artSrc} className="size-[72px]" iconClass="text-[38px]" />
+	return <CutiePortrait cutieId={id} artSrc={artSrc} className="size-[72px]" iconClass="text-[38px]" />
 }

@@ -27,8 +27,13 @@ function DropdownMenuContent({
 			<DropdownMenuPrimitive.Content
 				data-slot="dropdown-menu-content"
 				sideOffset={sideOffset}
+				// 🔴 A menu can be **longer than the screen** (the admin's "Add kit" lists every kit in the
+				// catalogue) and Radix gives no height of its own: without `--radix-dropdown-menu-content-
+				// available-height` + a scroll container the list ran past the bottom edge and the last
+				// entries could not be reached at all. `collisionPadding` keeps it off the window edge.
+				collisionPadding={8}
 				className={cn(
-					'z-50 min-w-[200px] overflow-hidden rounded-lg border border-line bg-ink-800 p-1 text-paper shadow-panel',
+					'z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[200px] overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border border-line bg-ink-800 p-1 text-paper shadow-panel',
 					className,
 				)}
 				{...props}
@@ -45,7 +50,7 @@ function DropdownMenuItem({
 		<DropdownMenuPrimitive.Item
 			data-slot="dropdown-menu-item"
 			className={cn(
-				'flex cursor-pointer flex-col gap-0.5 rounded-md px-2 py-1.5 text-[13px] outline-none select-none',
+				'flex flex-col gap-0.5 rounded-md px-2 py-1.5 text-[13px] outline-none select-none',
 				'data-[highlighted]:bg-ink-600 data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
 				className,
 			)}

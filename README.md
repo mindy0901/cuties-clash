@@ -1,8 +1,8 @@
-# Martial Cutie — Đấu Trường Thú Cưng
+# Cuties Clash
 
-A browser pet-raising auto-battler (**React 19 + Vite + TypeScript + Tailwind CSS v4**, routed with **TanStack Router**, server data with **TanStack Query**), with a **Fastify + Prisma backend** for Google sign-in and progress sync. The repo is a **pnpm workspace** with two packages, `frontend/` and `backend/`. Inspired by the **Martial Cutie (武林萌主) event** in *NARAKA: BLADEPOINT*.
+A browser auto-battler where players choose a Cutie, build a loadout, and fight monsters, evil spirits, and zombies (**React 19 + Vite + TypeScript + Tailwind CSS v4**, routed with **TanStack Router**, server data with **TanStack Query**), with a **Fastify + Prisma backend** for Google sign-in and progress sync. The repo is a **pnpm workspace** with two packages, `frontend/` and `backend/`. The game re-implements publicly described mechanics from the Martial Cutie (武林萌主) event in *NARAKA: BLADEPOINT* without copying its content.
 
-This project **rewrites every game rule from scratch** based on the event's public description — it copies no assets, source code, images, audio or text from NetEase. Item/pet art is **CC0 icons from [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** (see [`docs/ASSETS.md`](docs/ASSETS.md)); emoji are kept as the fallback. Item/pet names and all copy are original content.
+This project **rewrites every game rule from scratch** based on the event's public description — it copies no assets, source code, images, audio or text from NetEase. Item/Cutie art is **CC0 icons from [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** (see [`docs/ASSETS.md`](docs/ASSETS.md)); emoji are kept as the fallback. Item/Cutie names and all copy are original content.
 
 ## Quick start
 
@@ -124,16 +124,15 @@ The game has **two screens**, navigated with real paths (the browser Back button
 
 | Screen | Path | Contents |
 | -------- | --------- | -------- |
-| **Phòng chuẩn bị** | `/` | Pet + stat panel (Sức mạnh, Máu, Lịch sử đấu) · pet stage · **Kho đồ** (storage) · **Trang bị** (what is carried) · action button bar |
-| **Cửa hàng** | `/shop` | Buy items with Paw Tally, reroll the shop list. Opened from the **Mua Vật Phẩm »** button |
-
+| **Phòng chuẩn bị** | `/` | Cutie panel — Power and the Cutie level on one row, then **one full-width row per stat** (Health · Armor · Attack · Speed · Crit · Critical damage · Lifesteal · Damage reduction, plus Sword Energy): the **total** in gold, with `(base + gear)` in brackets whenever Trang bị adds something (`Attack 21 (20 + 1)`) · Cutie stage · **Kho đồ** (storage) · **Trang bị** (what is carried, with **Shop** + **Tháo hết** on its floor) · **shared footer** under the three panels: `Arena · Adventure · Training Room · Leader Board` on one row, then `Quests · Collection · Maps · Cutie Battle · progress` |
+| **Cửa hàng** | `/shop` | Buy items with Gold, reroll the shop list. Opened from the **Shop** button at the bottom of the equipment panel |
 ### How Trang bị and Kho đồ differ
 
 | | **Trang bị** | **Kho đồ** |
 | --- | --- | --- |
-| What it is | Items the pet is **carrying** | **Stored** items, not in use |
-| Capacity | **4-column** grid, rows grow with pet level (12–20 cells) | **8-column** grid, **unlimited** (grows taller by itself) |
-| Locked cells | Yes — cells above the pet level are dimmed and cannot be used | No — every cell is usable |
+| What it is | Items the Cutie is **carrying** | **Stored** items, not in use |
+| Capacity | **4-column** grid, rows grow with the Cutie level by themselves (3 rows, 4 at level 3, 5 from level 5 — 12–20 cells) | **8-column** grid, **unlimited** (grows taller by itself) |
+| Locked cells | Yes — cells above the Cutie level are dimmed and cannot be used | No — every cell is usable |
 | Takes part in battle? | ✅ Yes — passive, aura and weapon all count | ❌ No, sitting unused does nothing |
 | When items land here | Buying in the shop while Trang bị **has room** | Buying while Trang bị is **full**, or when you unequip |
 | Placement | You place them yourself — items sit in the exact cell | **The same** — items sit in the exact cell, Kho đồ does not arrange for you |
@@ -145,24 +144,25 @@ While dragging, press **R** or **right click** to rotate 90°, **Esc** to cancel
 **Both panels are free grids**: drop where you want and the item stays there, drag inside Kho đồ to rearrange it freely.
 Drag down into **Kho đồ** to store it; drag up from Kho đồ onto the grid to carry it. The **↑** and **↓ Tháo hết** buttons are still available.
 
-1. **Buy items** on the Cửa hàng screen with **Paw Tally (萌主币)** earned from each stage — items go onto Trang bị automatically if there is room.
+1. **Buy items** on the Cửa hàng screen with **Gold (萌主币)** earned from each stage — items go onto Trang bị automatically if there is room.
 2. **Arrange Trang bị**: each item occupies a **rectangular block of cells** (sword 1×3, great sabre 2×3, blade shaft 1×4, jade/pill 1×1).
 3. **Rotate 90°** with **right click** or the **⟳** button when space is tight — **even while holding the mouse button and dragging**. Rotation only works when the new orientation fits. A long item (**1×4**) that does not fit the open Trang bị grid **must be rotated** before it can be dropped — the game does not rotate it for you.
-4. **Merge 2 identical items** (drop one on top of the other) → `+1★` (up to **5★**). Selling back returns **50%** of the Paw Tally.
-5. **Đấu Thú Cưng** — pets fight automatically. Replay the whole sequence at ×1/×2/×4/×8 speed.
+4. **Merge 2 identical items** (drop one on top of the other) → `+1★` (up to **5★**). Selling back returns **50%** of the Gold.
+5. **Đấu Cutie** — Cuties fight monsters automatically. Replay the whole sequence at ×1/×2/×4/×8 speed.
 6. **60 stages / 3 maps** (Tụ Khốt Châu → Hỏa La Quốc → Stormchant), stages 10/20/30… are **bosses**.
 7. **PvP friendly matches** against a rival generated from your own power (does not affect stage progression).
 
-Progress is saved automatically into `localStorage` (key `martial-cutie-save`) and synced to the server once signed in. The **Nhiệm Vụ** and **Bộ Sưu Tập** buttons already have a place in the layout but no content yet — clicking them reports "sẽ có ở bản sau".
+Progress is saved automatically into `localStorage` (key `martial-cutie-save`) and synced to the server once signed in. There is **no toast/notification system**: an action that cannot happen leaves the state untouched and says so where the action is (the red drop outline, the dimmed shop cell, the disabled **Nâng cấp**/**Đổi danh sách** buttons). The **Nhiệm Vụ** and **Bộ Sưu Tập** buttons keep their place in the layout but are **disabled**, with a "… sẽ có ở bản sau" tooltip.
 
 ## Combat mechanics
 
 Simulated in 50 ms steps, **fully deterministic** by seed → the same battle always plays out identically and can be replayed.
 
 - **Máu (HP)** + **starting shield** absorb damage first.
-- **Kiếm Thế (Sword Energy)**: regenerates over time, and **+4 every time you are hit**.
-    - **Chấn Đao (Counter)** — costs **65 Kiếm Thế**, chance based on `counterChance`: breaks the attack, counters with `referenceAtk × counterPower` and **pushes the opponent's attack bar back 350 ms**.
-    - **Trọng kích (Charged Attack)** — costs **24–40 Kiếm Thế** (depending on weapon speed), damage **×2.2**.
+- **Kiếm Thế (Sword Energy)**: regenerates over time, and **+4 every time you are hit**. It is spent **only** by two kits, never at random.
+    - **Chấn Đao (Counter)** — the `parry` **kit** on an item: its `chance` %, its `cost` Kiếm Thế, and a counter for `referenceAtk × power`; also **pushes the opponent's attack bar back 350 ms**. An item without the kit cannot parry.
+    - **Trọng kích (Charged attack)** — a **sub-kit of the basic attack** (`kit.charge`): once the owner holds its `seNeed` (**% of the bar**), the **next basic attack** becomes the charged attack and lands `Cutie attack × multiplier`. That number **replaces** the basic damage (no stacking) and it never gets a timer of its own.
+- 🔴 **Attack belongs to the Cutie; an item only carries multipliers.** A weapon's `basic-attack.multiplier` (default `1`) scales the Cutie's attack, and its `speed` is a **delta added** to the Cutie's own base speed — `0` swings at exactly the Cutie's cadence, `+0.1` on a 0.3 Cutie gives 0.4 attacks a second, and a heavy blade carries `-0.1`. Every other item number is a share of the owner too — `stats` / `aura` tables are percentages of its max HP / attack / regen, a burn is a % of its attack per second, a shield a % of its max HP, and Sword Energy amounts a % of its bar. `sword-energy` is the only kit allowed to change SE regeneration.
 - **Status effects**: Chậm, Đóng Băng, Độc, Cháy, Hồi phục, Cuồng phong, Giòn.
 - **Adjacency**: an aura such as *Trống Trận* only triggers when there is an **adjacent weapon**; *Cờ Lụa* needs **one adjacent non-weapon item** — computed from **every cell** an item occupies, which is why where you place items matters.
 
@@ -175,7 +175,7 @@ frontend/                     # The `frontend` package
 ├─ src/game/                  # Pure-logic game core (no React dependency)
 │  ├─ types.ts                # Domain types
 │  ├─ items.ts                # 27 items, 5 star ranks, 5 quality bands (Vũ khí / Hộ giáp / Hồn Ngọc / Pháp Bảo / Đan Dược)
-│  ├─ pets.ts                 # 3 pets, 5 levels, number of storage rows per level (4 columns)
+│  ├─ pets.ts                 # 3 selectable Cuties, 10 levels, bag rows from `petBag()` (4 columns)
 │  ├─ stages.ts               # 60 stages / 3 maps + PvP blueprint
 │  ├─ build.ts                # Merge passive + aura → combat stats
 │  ├─ battle.ts               # Deterministic auto-battle simulation
@@ -196,7 +196,7 @@ frontend/                     # The `frontend` package
 ├─ src/router.tsx             # createRouter(routeTree)
 ├─ src/routeTree.gen.ts       # Route tree generated by the plugin — do not edit by hand
 ├─ src/routes/                # One file per screen
-│  ├─ __root.tsx              # Shared frame (TopBar, dialogs, Toasts)
+│  ├─ __root.tsx              # Shared frame (TopBar, dialogs)
 │  ├─ index.tsx               # Phòng chuẩn bị (/)
 │  └─ shop.tsx            # Cửa hàng (/shop)
 ├─ src/components/            # React UI
@@ -205,12 +205,12 @@ frontend/                     # The `frontend` package
 │  ├─ GridBoard.tsx           # Shared multi-cell grid (Kho đồ + Trang bị panel)
 │  ├─ PrepScreen.tsx          # Phòng chuẩn bị (path /)
 │  ├─ ShopScreen.tsx          # Separate Cửa hàng screen (/shop)
-│  ├─ ActionBar.tsx           # Bottom button bar: Mua Vật Phẩm · Nhiệm Vụ · Bộ Sưu Tập · Bản đồ · Đấu
-│  ├─ PetLoadoutPanel.tsx     # Trang bị (currently carried) + shop button
+│  ├─ ActionBar.tsx           # Shared footer: 4 modes + Quests · Collection · Maps · Đấu Cutie
+│  ├─ CutieLoadoutPanel.tsx   # Trang bị (carried items) + the Shop / Tháo hết buttons on its floor
 │  └─ …                       # TopBar, InventoryPanel, PetPanel, BattleScreen, dialogs…
 ├─ src/styles/app.css         # @theme (design tokens) + project @utility rules
 ├─ src/test/router.tsx        # Router-aware render helper for tests
-├─ public/icons/              # Item/pet/skill art (see docs/ASSETS.md)
+├─ public/icons/              # Item/Cutie/skill art (see docs/ASSETS.md)
 ├─ Dockerfile                 # The `fr` image (build context = repo root)
 └─ nginx.conf                 # SPA fallback + /api proxy → be:8000
 
@@ -244,11 +244,11 @@ pnpm test                      # 312 frontend tests
 pnpm test:be                   # backend tests (Vitest, run inside a rolling-back transaction)
 ```
 
-Frontend coverage: multi-cell Trang bị grids & star-merge rules, item shape/rotation, **splitting Trang bị ↔ Kho đồ** (buying puts items on Trang bị automatically, going to Kho đồ when full, unequipping/equipping back and forth), the 50% sell price, the item catalogue, shop rolls, the 60-stage ladder, pet stats, merging passives/auras, battle determinism, Chấn Đao, status effects, the whole store loop, battle playback, **navigating Phòng chuẩn bị ↔ Cửa hàng**, the **v1 → v2 migration**, **normalising a broken save + the recovery screen**, and **art with a real transparent background** (`artAlpha.test.ts`).
+Frontend coverage: multi-cell Trang bị grids & star-merge rules, item shape/rotation, **splitting Trang bị ↔ Kho đồ** (buying puts items on Trang bị automatically, going to Kho đồ when full, unequipping/equipping back and forth), the 50% sell price, the item catalogue, shop rolls, the 60-stage ladder, Cutie stats, merging passives/auras, battle determinism, Chấn Đao, status effects, the whole store loop, battle playback, **navigating Phòng chuẩn bị ↔ Cửa hàng**, the **v1 → v2 migration**, **normalising a broken save + the recovery screen**, and **art with a real transparent background** (`artAlpha.test.ts`).
 
 ### Art
 
-Item/pet icons are **CC0 from [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** — attribution not required. For sources, licences, the mapping table and one trap that was hit (the pack says "transparent background" but 31 files are solid black): see [`docs/ASSETS.md`](docs/ASSETS.md).
+Item/Cutie icons are **CC0 from [ORHstudio](https://itch.io/c/7530014/wuxia-icon-series)** — attribution not required. For sources, licences, the mapping table and one trap that was hit (the pack says "transparent background" but 31 files are solid black): see [`docs/ASSETS.md`](docs/ASSETS.md).
 
 ![Item icon sheet](docs/images/icon-sheet.png)
 
@@ -256,14 +256,19 @@ Backend coverage: sign-in sessions, anonymous play still working, logging out re
 
 ## Things still worth doing
 
-- **Audio / hit effects** — currently only a `shake` animation and a damage floater.
-- **Detailed item tooltips** — currently the `title` attribute.
+- **More battle feel** — comets, damage/critical floaters, freeze and haste overlays and the `shake`
+  animation already exist (`components/BattleScreen.tsx`, `HasteStreaks.tsx`, `battleAudio.ts`); what is
+  missing is variety per element (fire/poison/burn currently share one floater style).
+- **A hover card outside the shop** — Cửa hàng has one (`ShopOfferCard`); Kho đồ and Trang bị are
+  click-to-open only (`ItemDetailDialog`).
 - **Real PvP** — leaderboards, or rival seeds that can be shared between players.
-- **More pet sets**, and filtering/searching items once Kho đồ is crowded.
-- **Localisation** — Vietnamese is currently hardcoded in `items.ts`/`pets.ts`/components.
+- **More Cutie sets**, and filtering/searching items once Kho đồ is crowded.
+- **Localisation coverage** — `i18n.ts` holds the EN dictionary and every string goes through
+  `translate()`; the gap is **missing keys**, which silently fall back to Vietnamese (add the pair,
+  `i18n.test.ts` guards the mechanism).
 - **Backend** — OAuth refresh tokens, rate limiting, cleaning up expired sessions. The `oauth_identities`
   table is ready for linking multiple providers but only Google is used today.
-- **`autoCodeSplitting` for TanStack Router** — the bundle is currently ~422 KB (134 KB gzip).
+- **`autoCodeSplitting` for TanStack Router** — one chunk today: ~861 KB (278 KB gzip).
 - **Swagger/OpenAPI for Fastify** — FastAPI's `/api/docs` was lost when moving to Fastify.
 
 ## For AI agents / the next session

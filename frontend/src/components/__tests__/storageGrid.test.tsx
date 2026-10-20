@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PrepScreen } from '../PrepScreen'
 import { useGameStore } from '../../store/gameStore'
 import { renderInRouter } from '../../test/router'
+import { installRetiredItems } from '../../test/retiredItems'
 import type { ItemInstance } from '../../game/types'
 
 function item(uid: string, templateId: string, slot: number, rotated = false): ItemInstance {
@@ -61,8 +62,6 @@ function boxOf(uid: string): HTMLElement {
 	return found
 }
 
-function toastText(): string { return useGameStore.getState().toasts.map((toast) => toast.text).join(' | ') }
-
 function slotOf(uid: string): number | undefined {
 	return useGameStore.getState().run.inventory.find((entry) => entry.uid === uid)?.slot
 }
@@ -76,9 +75,9 @@ function hoverInventoryCell(slot: number) {
  * Releases the mouse after a drag. Must be wrapped in `act` because `pointerup` is listened for on
  * `document` (the cursor may be over another panel), so it does not go through `fireEvent`.
  */
-function releaseMouse() {
+function releaseMouse(clientX = 0, clientY = 0) {
 	act(() => {
-		document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 0, clientY: 0 }))
+		document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX, clientY }))
 	})
 }
 
@@ -89,7 +88,25 @@ function startDrag(uid: string) {
 	fireEvent.pointerMove(button, { clientX: 300, clientY: 300 })
 }
 
-beforeEach(() => reset([], []))
+function stubRect(element: HTMLElement, left: number, top: number, width: number, height: number) {
+	element.getBoundingClientRect = () =>
+		({
+			x: left,
+			y: top,
+			left,
+			top,
+			right: left + width,
+			bottom: top + height,
+			width,
+			height,
+			toJSON: () => ({}),
+		}) as DOMRect
+}
+
+beforeEach(() => {
+	installRetiredItems()
+	reset([], [])
+})
 afterEach(cleanup)
 
 describe('the inventory keeps the position the player chose', () => {
@@ -102,6 +119,15 @@ describe('the inventory keeps the position the player chose', () => {
 		expect(boxOf('near').style.gridRow).toBe('1 / span 1')
 		expect(boxOf('far').style.gridColumn).toBe('1 / span 1')
 		expect(boxOf('far').style.gridRow).toBe('6 / span 1')
+	})
+
+	it('keeps the full board surface around rows below the scroll viewport', () => {
+		reset([], [item('low', 'jade-fury', 64)])
+		renderPrep()
+
+		const board = panel('Kho đồ').querySelector('[data-grid-board]')
+		expect(board?.className).toContain('shrink-0')
+		expect(board?.className).toContain('self-start')
 	})
 
 	it('dragging an inventory item to another cell puts it on that cell', () => {
@@ -135,7 +161,6 @@ describe('the inventory keeps the position the player chose', () => {
 
 		expect(slotOf('wide'), 'must not be dropped on top — the item stays where it was').toBe(8)
 		expect(slotOf('block')).toBe(2)
-		expect(toastText()).toMatch(/đã có món/)
 	})
 
 	/**
@@ -161,7 +186,6 @@ describe('the inventory keeps the position the player chose', () => {
 
 		expect(slotOf('spear'), 'the dragged item must stay where it was').toBe(24)
 		expect(slotOf('vest'), 'the covered item must NOT be pushed away').toBe(0)
-		expect(toastText()).toMatch(/đã có món/)
 	})
 
 	it('dropping onto an IDENTICAL item still merges stars (golden outline)', () => {
@@ -197,23 +221,35 @@ describe('the inventory keeps the position the player chose', () => {
 		reset([], [item('sold', 'jade-fury', 3), item('kept', 'great-axe', 20)])
 		renderPrep()
 
-		const sellButton = boxOf('sold').querySelector<HTMLElement>('[title="Bán món này (hoàn 50%)"]')!
-		fireEvent.click(sellButton)
+		const shopButton = document.querySelector<HTMLElement>('[data-shop-drop-target]')!
+		stubRect(shopButton, 500, 500, 120, 48)
+		startDrag('sold')
+		fireEvent.pointerMove(document, { clientX: 560, clientY: 524 })
+		releaseMouse(560, 524)
 
 		expect(slotOf('sold')).toBeUndefined()
 		expect(slotOf('kept'), 'the remaining item must keep its cell').toBe(20)
 	})
 
-	it('rotating an inventory item with the ⟳ button', () => {
+	it('rotating an inventory item with R while dragging', () => {
 		reset([], [item('blade', 'wooden-blade', 0)])
 		renderPrep()
 
-		const rotateButton = panel('Kho đồ').querySelector<HTMLElement>('[title="Xoay 90°"]')!
-		fireEvent.click(rotateButton)
+		stubRect(panel('Kho đồ'), 0, 0, 1000, 1000)
+		startDrag('blade')
+		fireEvent.keyDown(document, { key: 'r' })
+		hoverInventoryCell(0)
+		releaseMouse()
 
 		expect(useGameStore.getState().run.inventory[0].rotated).toBe(true)
 		// Đao Gỗ 1×3 rotated to 3×1 — still anchored on cell 0.
 		expect(boxOf('blade').style.gridColumn).toBe('1 / span 3')
+		expect(boxOf('blade').querySelector('[data-item-icon-layer]')?.className).toContain('inset-1')
+		const rotatedIcon = boxOf('blade').querySelector<HTMLElement>('[data-item-icon-rotated]')
+		expect(rotatedIcon?.style.transform).toBe('translate(-50%, -50%) rotate(90deg)')
+		expect(rotatedIcon?.style.width).toBe('100cqh')
+		expect(rotatedIcon?.style.height).toBe('100cqw')
+		expect(boxOf('blade').querySelector('[data-item-stars]')?.className).toContain('absolute')
 	})
 })
 
@@ -266,12 +302,15 @@ describe('the tile background follows the item quality', () => {
 		reset([item('starter', 'jade-haste', 0)], [item('late', 'great-axe', 20)])
 		renderPrep()
 
+		// The plate itself is painted from `data-item-quality` in `styles/app.css` (a stack of
+		// gradients + cloud engraving), so the attribute is the contract — ❌ no flat `bg-rank-*`
+		// class, which would flatten the plate back into one tint.
 		expect(anyTile('starter').dataset.itemQuality).toBe('1')
-		expect(anyTile('starter').className, 'quality 1 = silver').toContain('bg-rank-1')
-		expect(anyTile('starter').className).not.toContain('bg-rank-5')
+		expect(anyTile('starter').className).toContain('surface-item')
+		expect(anyTile('starter').className).not.toContain('bg-rank')
 
 		expect(anyTile('late').dataset.itemQuality).toBe('5')
-		expect(anyTile('late').className, 'quality 5 = gold-orange').toContain('bg-rank-5')
+		expect(anyTile('late').className).toContain('surface-item')
 	})
 
 	it('still borders the tile by item class, and never changes it by star rank', () => {
@@ -279,7 +318,7 @@ describe('the tile background follows the item quality', () => {
 		renderPrep()
 
 		// Border = item class, background = quality: the two never replace each other.
-		// A Hồn Ngọc is class `jewelry`, so its border is the gold one.
+		// A Hồn Ngọc is class `jade`, so its border is the gold one.
 		expect(anyTile('maxed').className).toContain('border-[#8c7a3d]')
 		expect(anyTile('jade').className).toContain('border-[#8c7a3d]')
 		// Upgrading a star must **only** add stars and recolour them — ❌ no glow, no extra frame.
@@ -297,11 +336,14 @@ describe('the tile background follows the item quality', () => {
 
 		const stars = (uid: string) =>
 			document.querySelector<HTMLElement>(`[data-item-box="${uid}"] [data-item-stars]`)
+		// One **lucide star icon** per rank (not the `★` character), filled in the rank's colour.
+		const icons = (uid: string) => stars(uid)?.querySelectorAll('svg') ?? []
 		expect(stars('one')?.className, '1★ = silver').toContain('text-rank-1')
-		expect(stars('one')?.textContent).toBe('★')
+		expect(icons('one')).toHaveLength(1)
 		expect(stars('three')?.className, '3★ = blue').toContain('text-rank-3')
-		expect(stars('three')?.textContent).toBe('★★★')
+		expect(icons('three')).toHaveLength(3)
 		expect(stars('five')?.className, '5★ = gold-orange').toContain('text-rank-5')
-		expect(stars('five')?.textContent).toBe('★★★★★')
+		expect(icons('five')).toHaveLength(5)
+		expect(icons('five')[0]?.getAttribute('fill'), 'filled, not an outline').toBe('currentColor')
 	})
 })

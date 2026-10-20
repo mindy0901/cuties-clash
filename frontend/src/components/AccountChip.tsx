@@ -1,7 +1,9 @@
 import { useLogout, usePushRun, useSessionState } from '../api/queries'
 import { useUiStore } from '../store/uiStore'
 import { LogIn } from './icons'
-import { btnClass, btnGhostClass, btnSmClass, cn } from './ui'
+import { cn } from './ui'
+import { Button } from './ui/button'
+import { translate } from '../i18n'
 
 const SYNC_TEXT = {
 	idle: '',
@@ -27,19 +29,19 @@ export function AccountChip() {
 	const openLogin = useUiStore((state) => state.openLogin)
 
 	if (loading) {
-		return <span className="text-xs text-muted">Đang kiểm tra…</span>
+		return <span className="text-xs text-muted">{translate('Đang kiểm tra…')}</span>
 	}
 
 	if (!user) {
 		return (
-			<button
+			<Button
 				type="button"
-				className={cn(btnClass, btnSmClass)}
+				size="sm"
 				onClick={openLogin}
-				title={unavailable ? 'Không kết nối được máy chủ đăng nhập' : undefined}
+				title={unavailable ? translate('Không kết nối được máy chủ đăng nhập') : undefined}
 			>
-				<LogIn /> Đăng nhập
-			</button>
+				<LogIn /> {translate('Đăng nhập')}
+			</Button>
 		)
 	}
 
@@ -59,17 +61,17 @@ export function AccountChip() {
 			<span className="flex flex-col leading-tight">
 				<span className="max-w-[160px] truncate text-[13px] font-semibold">{user.display_name}</span>
 				<span className={cn('text-[11px]', SYNC_TONE[tone])} title={syncError ?? undefined}>
-					{SYNC_TEXT[tone]}
+					{translate(SYNC_TEXT[tone])}
 				</span>
 			</span>
-			<button
+			<Button
 				type="button"
-				className={cn(btnClass, btnSmClass, btnGhostClass)}
+				variant="ghost" size="sm"
 				onClick={() => logout.mutate()}
-				title="Đăng xuất khỏi tài khoản này"
+				title={translate('Đăng xuất khỏi tài khoản này')}
 			>
-				Thoát
-			</button>
+				{translate('Thoát')}
+			</Button>
 		</div>
 	)
 }

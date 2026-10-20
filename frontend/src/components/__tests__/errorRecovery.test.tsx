@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppErrorBoundary } from '../AppErrorBoundary'
 import { useGameStore } from '../../store/gameStore'
+import { useLanguageStore } from '../../i18n'
 
 function Boom(): ReactNode {
 	throw new Error('assumed error in test')
@@ -19,6 +20,7 @@ function Fine() {
 
 beforeEach(() => {
 	window.localStorage.clear()
+	useLanguageStore.setState({ language: 'vi' })
 	// React prints the error to the console when the boundary catches it; keep the test log clean.
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -65,10 +67,10 @@ describe('the store protects against broken saves', () => {
 			JSON.stringify({
 				state: {
 					run: {
-						petId: 'fire-pup',
-						pets: { 'fire-pup': 2 },
-						unlockedPets: ['fire-pup'],
-						currency: 40,
+						cutieId: 'fire-pup',
+						cuties: { 'fire-pup': 2 },
+						unlockedCuties: ['fire-pup'],
+						gold: 40,
 						stage: 3,
 						clearedStage: 2,
 						seed: 999,
@@ -86,7 +88,7 @@ describe('the store protects against broken saves', () => {
 		const run = useGameStore.getState().run
 		expect(Array.isArray(run.equipped)).toBe(true)
 		expect(Array.isArray(run.inventory)).toBe(true)
-		expect(run.currency).toBe(40)
+		expect(run.gold).toBe(40)
 		// Combat stats can be derived → rendering does not throw.
 		expect(() => useGameStore.getState().run.equipped.filter(() => true)).not.toThrow()
 	})
@@ -97,10 +99,10 @@ describe('the store protects against broken saves', () => {
 			JSON.stringify({
 				state: {
 					run: {
-						petId: 'fire-pup',
-						pets: { 'fire-pup': 2 },
-						unlockedPets: ['fire-pup'],
-						currency: 40,
+						cutieId: 'fire-pup',
+						cuties: { 'fire-pup': 2 },
+						unlockedCuties: ['fire-pup'],
+						gold: 40,
 						stage: 3,
 						clearedStage: 2,
 						items: [{ uid: 'a', templateId: 'wooden-blade', star: 1, slot: 0, paid: 3 }],
@@ -121,16 +123,16 @@ describe('the store protects against broken saves', () => {
 		expect(run.inventory).toEqual([])
 	})
 
-	it('an unknown petId in the save does not crash the state', async () => {
+	it('an unknown cutieId in the save does not crash the state', async () => {
 		window.localStorage.setItem(
 			'martial-cutie-save',
 			JSON.stringify({
-				state: { run: { petId: 'khong-co', pets: {}, equipped: [], inventory: [] } },
+				state: { run: { cutieId: 'khong-co', cuties: {}, equipped: [], inventory: [] } },
 				version: 2,
 			}),
 		)
 		await useGameStore.persist.rehydrate()
-		expect(() => useGameStore.getState().run.petId).not.toThrow()
-		expect(useGameStore.getState().run.petId).toBeTruthy()
+		expect(() => useGameStore.getState().run.cutieId).not.toThrow()
+		expect(useGameStore.getState().run.cutieId).toBeTruthy()
 	})
 })

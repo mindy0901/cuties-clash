@@ -8,7 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ItemDetailDialog } from '../ItemDetailDialog'
 import { useGameStore } from '../../store/gameStore'
 import { renderApp } from '../../test/router'
+import { installRetiredItems } from '../../test/retiredItems'
 import type { ItemInstance } from '../../game/types'
+import { useLanguageStore } from '../../i18n'
+import { applyContentOverrides } from '../../game/content'
 
 function item(uid: string, templateId: string, star: ItemInstance['star'] = 1, paid = 3, slot = 0): ItemInstance {
 	return { uid, templateId, star, slot, rotated: false, paid }
@@ -19,38 +22,47 @@ function reset(equipped: ItemInstance[], inventory: ItemInstance[]) {
 	useGameStore.setState((state) => ({ run: { ...state.run, equipped, inventory } }))
 }
 
-beforeEach(() => reset([], []))
-afterEach(cleanup)
+beforeEach(() => {
+	installRetiredItems()
+	useLanguageStore.setState({ language: 'vi' })
+	reset([], [])
+})
+afterEach(() => {
+	cleanup()
+	applyContentOverrides(null)
+})
 
 describe('ItemDetailDialog', () => {
-	it('shows the name, class, size and where the item currently sits', () => {
+	it('shows the name, class and size', () => {
 		reset([], [item('spear', 'fire-spear')])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
 		expect(screen.getByText('Thương Lửa')).toBeTruthy()
 		expect(screen.getByText('Vũ khí cận chiến')).toBeTruthy()
 		expect(screen.getByText('1×4 ô')).toBeTruthy()
-		expect(screen.getByText('Trong kho')).toBeTruthy()
+		// Where the item sits is not restated here — the bag already shows it worn or stored.
+		expect(screen.queryByText('Trong kho')).toBeNull()
+		expect(screen.queryByText('Đang mang')).toBeNull()
 	})
 
-	it('says so clearly when the item is being carried', () => {
+	it('looks the item up whether it is worn or stored', () => {
 		reset([item('worn', 'jade-fury')], [])
 		render(<ItemDetailDialog uid="worn" onClose={() => {}} />)
 
-		expect(screen.getByText('Đang mang')).toBeTruthy()
+		expect(screen.getByText('Hồn Ngọc Phẫn Nộ')).toBeTruthy()
 	})
 
-	it('shows the damage, attack speed and resale value per star, and no description line', () => {
+	it('shows the damage, Cooldown Time and resale value per star, and no description line', () => {
 		reset([], [item('spear', 'fire-spear', 2, 8)])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
 		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
 		// The rank is drawn on the tile, the same way the bag draws it — no separate "2★" label.
 		expect(document.querySelector('[data-item-quality] [data-item-stars="2"]')).toBeTruthy()
-		// Speed is the design value (attacks per second), so the player also gets the swing time.
-		expect(screen.getByText('Tốc độ đánh')).toBeTruthy()
-		expect(screen.getByText('0.76 đòn/giây')).toBeTruthy()
-		expect(screen.getByText('1.3s')).toBeTruthy()
+		// One rhythm row, in the unit the admin page edits: seconds between two swings. The 2★ rank
+		// carries a 1.5 s Cooldown Time — the player reads exactly the stored number.
+		expect(screen.getByText('Hồi chiêu')).toBeTruthy()
+		expect(screen.getByText('1.5s')).toBeTruthy()
 		// Paid 8 → resells for 4. The paw glyph is an icon now, so the number and the note are separate.
 		const resale = screen.getByText('Bán được (hoàn 50%)').closest('div')
 		expect(resale?.textContent).toContain('4')
@@ -75,7 +87,141 @@ describe('ItemDetailDialog', () => {
 		render(<ItemDetailDialog uid="jade" onClose={() => {}} />)
 
 		expect(screen.getByText('Hồi Kiếm Thế')).toBeTruthy()
-		expect(screen.getByText('Tỉ lệ Chấn Đao')).toBeTruthy()
+	})
+
+	it('shows the parry kit of an item — Chấn Đao lives only in the kit', () => {
+		reset([], [item('sword', 'jade-sword', 4)])
+		render(<ItemDetailDialog uid="sword" onClose={() => {}} />)
+
+		expect(screen.getByText('Chấn Đao')).toBeTruthy()
+		// 4★: 18% chance, 65 Sword Energy, 135% of the owner's basic attack.
+		expect(screen.getByText('18%')).toBeTruthy()
+		expect(screen.getByText('Kiếm Thế tiêu hao')).toBeTruthy()
+		expect(screen.getByText('65')).toBeTruthy()
+		expect(screen.getByText('135%')).toBeTruthy()
+	})
+
+	it('draws the reaction kits from their own parameter tables', () => {
+		applyContentOverrides({
+			items: {
+				'jade-fury': {
+					kits: [
+						{
+							id: 'freeze-haste',
+							params: {
+								boost: [50, 60, 70, 80, 100],
+								duration: [4000, 4000, 4000, 4000, 4000],
+							},
+						},
+						{ id: 'regen', params: { value: [0.6, 0.9, 1.3, 1.8, 2.4] } },
+					],
+				},
+			},
+		})
+		reset([], [item('gem', 'jade-fury')])
+		render(<ItemDetailDialog uid="gem" onClose={() => {}} />)
+
+		expect(screen.getByText('Hỗ trợ Băng · Giảm hồi chiêu')).toBeTruthy()
+		// The gem's reduction is temporary — the label says so.
+		expect(screen.getByText('Giảm hồi chiêu tạm thời (Temporary cooldown reduction, %)')).toBeTruthy()
+		expect(screen.getByText('50')).toBeTruthy()
+		expect(screen.getByText('Thời gian buff (giây)')).toBeTruthy()
+		expect(screen.getByText('4s')).toBeTruthy()
+		expect(screen.getByText('Hồi máu theo giây')).toBeTruthy()
+		expect(screen.getByText('0.6')).toBeTruthy()
+	})
+
+	it('lists the on-hit effects and the adjacency aura the admin attached', () => {
+		// Thương Lửa carries a burn; the war drum buffs a neighbouring weapon.
+		reset([], [item('spear', 'fire-spear'), item('drum', 'war-drum')])
+		const { unmount } = render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
+		// The effect sits under the kit it was attached to, not in a merged list.
+		expect(screen.getByText('Đòn đánh cơ bản')).toBeTruthy()
+		expect(screen.getByText('Cháy khi trúng đòn · 25%')).toBeTruthy()
+		// 14 damage/second for 3s at 1★, a fixed number.
+		expect(screen.getByText('14%/s × ATK · 3s')).toBeTruthy()
+		unmount()
+
+		render(<ItemDetailDialog uid="drum" onClose={() => {}} />)
+		expect(screen.getByText('Hào khí liền kề')).toBeTruthy()
+		expect(screen.getByText('Cần một vũ khí liền kề')).toBeTruthy()
+		expect(screen.getByText(/Sát thương \+10%/)).toBeTruthy()
+	})
+
+	it('writes a shield and a scaled effect out with their real numbers', () => {
+		reset([], [item('blade', 'wooden-blade', 3)])
+		applyContentOverrides({
+			items: {
+				'wooden-blade': {
+					kits: [
+						{
+							id: 'basic-attack',
+							params: { multiplier: [1, 1, 1, 1, 1], cooldown: [1, 1, 1, 1, 1] },
+							onHit: [
+								{
+									id: 'shield-on-hit',
+									params: {
+										chance: [30, 30, 30, 30, 30],
+										amount: [10, 20, 30, 40, 50],
+									},
+								},
+								{
+									id: 'burn-on-hit',
+									params: {
+										chance: [25, 25, 25, 25, 25],
+										duration: [3000, 3000, 3000, 3000, 3000],
+										value: [10, 10, 10, 10, 10],
+									},
+								},
+							],
+						},
+					],
+				},
+			},
+		})
+		render(<ItemDetailDialog uid="blade" onClose={() => {}} />)
+
+		expect(screen.getByText('Tạo khiên khi trúng đòn · 30%')).toBeTruthy()
+		// 3★ amount 30, always read as 30% of the owner's max HP.
+		expect(screen.getByText('+30% máu tối đa')).toBeTruthy()
+		expect(screen.getByText('Cháy khi trúng đòn · 25%')).toBeTruthy()
+		expect(screen.getByText('10%/s × ATK · 3s')).toBeTruthy()
+	})
+
+	it('shows the charged attack inside its basic attack, not as a second block', () => {
+		reset([], [item('charger', 'wooden-blade')])
+		// No code weapon carries a charged variant yet, so the numbers come from a stored override.
+		applyContentOverrides({
+			items: {
+				'wooden-blade': {
+					kits: [
+						{
+							id: 'basic-attack',
+							params: { multiplier: [1, 1, 1, 1, 1], cooldown: [1.6, 1.6, 1.6, 1.6, 1.6] },
+							charge: { id: 'charge-attack', params: { seNeed: [100, 100, 100, 100, 100], multiplier: [2.2, 2.2, 2.2, 2.2, 2.2] } },
+						},
+					],
+				},
+			},
+		})
+		render(<ItemDetailDialog uid="charger" onClose={() => {}} />)
+
+		// One heading only: the charged attack is part of the basic attack.
+		expect(screen.getByText('Đòn đánh cơ bản')).toBeTruthy()
+		expect(screen.queryByText('Trọng kích nạp')).toBeNull()
+		// The plain swing keeps its own numbers…
+		expect(screen.getByText('Hồi chiêu')).toBeTruthy()
+		// The basic attack's own 1.6 s Cooldown Time.
+		expect(screen.getByText('1.6s')).toBeTruthy()
+		// …and the charged variant adds its threshold, multiplier and its own damage: 14 × 2.2 → 31.
+		// There is no cooldown row any more: the next basic attack is the charged one.
+		expect(screen.getByText('Kiếm Thế cần')).toBeTruthy()
+		expect(screen.getByText('100')).toBeTruthy()
+		expect(screen.getByText('Hệ số đòn nạp')).toBeTruthy()
+		expect(screen.getByText('×2.2')).toBeTruthy()
+		expect(screen.getByText('Sát thương đòn nạp')).toBeTruthy()
+		expect(screen.getByText('31')).toBeTruthy()
+		expect(screen.queryByText('Hồi đòn')).toBeNull()
 	})
 
 	it('renders nothing when the item is gone (already sold)', () => {
@@ -117,8 +263,7 @@ describe('the real flow inside the app', () => {
 		fireEvent.click(document.querySelector<HTMLElement>('button[data-inv-tile="gem"]')!)
 
 		expect(await screen.findByText('Chi tiết món')).toBeTruthy()
-		// These two rows only exist in the dialog (an inventory cell has neither).
-		expect(screen.getByText('Trong kho')).toBeTruthy()
+		// This row only exists in the dialog (an inventory cell does not have it).
 		expect(screen.getByText('Bán được (hoàn 50%)')).toBeTruthy()
 	})
 })

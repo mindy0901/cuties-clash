@@ -26,7 +26,6 @@ export function AuthSync() {
 	const pullRemoteSave = usePullRemoteSave()
 	const { mutate: push } = usePushRun()
 	const run = useGameStore((state) => state.run)
-	const pushToast = useGameStore((state) => state.pushToast)
 
 	// `push` is kept in a ref instead of becoming a dependency of the effect below: otherwise every
 	// mutation state change would reset the debounce timer and the push might never run.
@@ -51,16 +50,12 @@ export function AuthSync() {
 		const params = new URLSearchParams(window.location.search)
 		const outcome = params.get('login')
 		if (!outcome) return
-		if (outcome === 'ok') {
-			pushToast('Đăng nhập thành công — tiến trình sẽ được đồng bộ.', 'good')
-		} else {
-			pushToast(params.get('message') ?? 'Đăng nhập thất bại.', 'bad')
-		}
+		if (outcome !== 'ok') console.warn('[Martial Cutie] sign-in failed:', params.get('message') ?? outcome)
 		params.delete('login')
 		params.delete('message')
 		const query = params.toString()
 		window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
-	}, [pushToast])
+	}, [])
 
 	useEffect(() => {
 		if (loading || user || !autoLogin) return

@@ -6,22 +6,61 @@
  *   * an item deleted there stops dropping, but the code template is still there to restore from;
  *   * the code catalogue (`ITEM_TEMPLATES`) is never mutated — tests and docs talk about it.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { installRetiredItems } from '../../test/retiredItems'
+import { RETIRED_ITEM_TEMPLATES } from '../../test/retiredCatalogue'
+
+beforeEach(() => installRetiredItems())
 import { applyContentOverrides, putLocalOverride } from '../content'
-import { ITEM_BY_ID, ITEM_TEMPLATES, getTemplate, itemCatalogue, itemTemplateById, itemTemplatesUpToTier } from '../items'
+import {
+	ITEM_BY_ID,
+	getTemplate,
+	itemCatalogue,
+	itemCodeFromName,
+	itemTemplateById,
+	itemTemplatesUpToTier,
+	uniqueItemCode,
+} from '../items'
 
 /** Every test must clear the overlay, otherwise it leaks into the next one (module variable). */
 afterEach(() => applyContentOverrides(null))
 
 describe('item catalogue', () => {
-	it('is the code templates plus their overrides', () => {
-		applyContentOverrides({ items: { 'wooden-blade': { name: 'Kiếm Gỗ Mới', cost: 7 } } })
+	it('is built purely from the stored rows', () => {
+		installRetiredItems({ items: { 'wooden-blade': { name: 'Kiếm Gỗ Mới', cost: 7 } } })
 
 		const blade = getTemplate('wooden-blade')
 		expect(blade.name).toBe('Kiếm Gỗ Mới')
 		expect(blade.cost).toBe(7)
-		// Same ids, same order — only the edited fields moved.
-		expect(itemCatalogue().map((template) => template.id)).toEqual(ITEM_TEMPLATES.map((template) => template.id))
+		// Nothing ships in code any more: the catalogue is exactly the stored ids.
+		expect(itemCatalogue().map((template) => template.id).sort()).toEqual(
+			Object.keys(RETIRED_ITEM_TEMPLATES.reduce<Record<string, true>>((all, template) => {
+				all[template.id] = true
+				return all
+			}, {})).sort(),
+		)
+	})
+
+	it('generates the code of a new item from its name', () => {
+		// The admin types a name, never an id: every Vietnamese letter (including the ones Unicode does
+		// not decompose — đ, ơ, ư) is folded to ASCII and the gaps become dashes.
+		expect(itemCodeFromName('Kiếm Sắt')).toBe('kiem-sat')
+		expect(itemCodeFromName('Đao Gỗ')).toBe('dao-go')
+		expect(itemCodeFromName('Ưng Vũ')).toBe('ung-vu')
+		expect(itemCodeFromName('  Găng   tay 2  ')).toBe('gang-tay-2')
+		expect(itemCodeFromName('Kiếm (cấp 3)')).toBe('kiem-cap-3')
+		// Nothing to slug: the caller falls back to `mon`.
+		expect(itemCodeFromName('剑')).toBe('')
+		expect(uniqueItemCode('剑')).toBe('mon')
+	})
+
+	it('never reuses an id that is already taken', () => {
+		expect(uniqueItemCode('Kiếm Sắt')).toBe('kiem-sat')
+		// `wooden-blade` already exists in the catalogue, so the same name gets the next free code.
+		expect(uniqueItemCode('Wooden Blade')).toBe('wooden-blade-2')
+
+		installRetiredItems({ items: { 'kiem-sat': { name: 'Kiếm Sắt' } } })
+		expect(uniqueItemCode('Kiếm Sắt')).toBe('kiem-sat-2')
 	})
 
 	it('adds an item created on the admin page', () => {
@@ -38,17 +77,15 @@ describe('item catalogue', () => {
 		expect(ITEM_BY_ID['kiem-sat']).toBeUndefined()
 	})
 
-	it('drops an item deleted on the admin page', () => {
-		applyContentOverrides({ items: { 'wooden-blade': { removed: true } } })
+	it('drops an item as soon as its row is gone', () => {
+		// Deleting is deleting the row — there is no code template to fall back to.
+		installRetiredItems({ items: { 'wooden-blade': { removed: true } } })
 
 		expect(itemTemplateById('wooden-blade')).toBeUndefined()
 		expect(itemCatalogue().map((template) => template.id)).not.toContain('wooden-blade')
 		expect(itemTemplatesUpToTier(5).map((template) => template.id)).not.toContain('wooden-blade')
-		// The code template is still readable, so the editor can restore the row.
-		expect(ITEM_BY_ID['wooden-blade']).toBeDefined()
-		// …and a bag entry that still holds the deleted id keeps rendering with the code numbers
-		// instead of blanking the page on the first render after the delete.
-		expect(getTemplate('wooden-blade').name).toBe(ITEM_BY_ID['wooden-blade']!.name)
+		// A bag entry that still holds the id keeps rendering a placeholder, never a blank page.
+		expect(getTemplate('wooden-blade').kits).toBeUndefined()
 	})
 
 	it('takes a deleted item back as soon as the flag goes away', () => {

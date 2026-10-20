@@ -1,14 +1,26 @@
 import type { ReactNode } from 'react'
 import { sellValue } from '../game/bag'
-import { CLASS_LABELS, DEFAULT_SPEED, getTemplate, starPrice, swingMs } from '../game/items'
-import { STAT_KEYS, STAT_LABELS, formatStat } from '../game/stats'
+import { CLASS_LABELS, getTemplate, starPrice } from '../game/items'
+import { getCutie, cutieOwnerStats } from '../game/cuties'
+import { kitDef, kitValue } from '../game/kits'
+import { STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ItemGridPreview } from './ArtPreview'
 import { Cost } from './icons'
-import { btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
+import { cn, dialogClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
+import { Button } from './ui/button'
+import {
+	AURA_TARGET_LABELS,
+	itemFacts,
+	kitParamText,
+	onHitText,
+} from './itemFacts'
+import { translate } from '../i18n'
+import type { ItemInstance } from '../game/types'
 
 /**
- * **Item details** — opened by **clicking** an item in the inventory or the loadout.
+ * **Item details** — opened by **clicking** an item in the inventory, the loadout, or either grid in
+ * the arena (the opponent's gear included, so its kit can be read while the fight runs).
  *
  * Why a dialog instead of a tooltip: the browser's `title` does not show on touch devices,
  * disappears when the mouse moves away, and cannot hold a stat table. Clicking an item used to
@@ -16,25 +28,36 @@ import { btnClass, btnSmClass, cn, dialogClass, overlayClass, rowBetweenClass, s
  *
  * ⚠️ The dialog looks the item up by `uid` in `run` itself: the item may be **sold while the
  * dialog is open**, in which case `item` is `undefined` and the dialog closes itself (returns
- * `null`) instead of throwing.
+ * `null`) instead of throwing. `preview` covers the one tile that is not in `run` — the enemy's —
+ * and never overrides a bag item.
  */
-export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () => void }) {
+export function ItemDetailDialog({
+	uid,
+	preview,
+	onClose,
+}: {
+	uid: string
+	/** The item to show when it is **not in the player's bag** (the opponent's gear on the arena). */
+	preview?: ItemInstance | null
+	onClose: () => void
+}) {
 	const run = useGameStore((state) => state.run)
-	const equipped = run.equipped.some((item) => item.uid === uid)
-	const item = [...run.equipped, ...run.inventory].find((entry) => entry.uid === uid)
+	const carried = [...run.equipped, ...run.inventory].find((entry) => entry.uid === uid)
+	// A bag item always wins, so selling it while this dialog is open still closes the dialog; the
+	// preview is only the fallback for a tile that was never ours.
+	const item = carried ?? preview ?? undefined
 	if (!item) return null
+	/** Only our own items have a shop price, a paid amount and a resale value. */
+	const owned = carried !== undefined
 
 	const template = getTemplate(item.templateId)
 	// Default shape of the item, **not** the orientation it happens to have in the bag: the tile next
 	// to this line is drawn upright, so the numbers have to describe the same shape.
 	const size = template.space
-	const passive = template.passive?.(item.star)
-	const mods = passive ? STAT_KEYS.filter((key) => passive[key] !== undefined) : []
-	// 0 damage means the item has **no** attack (a weapon turned passive by the admin): no rows.
-	const damage = template.damage?.(item.star) || undefined
-	// Every item has a speed: the template's own, or the standard 0.625 attacks per second.
-	const speed = template.speed?.(item.star) ?? (damage !== undefined ? DEFAULT_SPEED : undefined)
-	const swing = speed !== undefined ? swingMs(speed) : undefined
+	// Every number the dialog prints comes from `itemFacts`, shared with the shop's hover card.
+	const owner = cutieOwnerStats(getCutie(run.cutieId), run.cuties[run.cutieId] ?? 1)
+	const { passive, mods, attackKits, baseAttack, hitOf, intervalOf, aura, auraMods, parry, extraOptionKits } =
+		itemFacts(template, item.star, owner)
 
 	return (
 		<div className={overlayClass} onClick={onClose}>
@@ -43,10 +66,10 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 				onClick={(event) => event.stopPropagation()}
 			>
 				<div className={rowBetweenClass}>
-					<h2 className="text-[22px]">Chi tiết món</h2>
-					<button type="button" className={cn(btnClass, btnSmClass)} onClick={onClose}>
-						Đóng
-					</button>
+					<h2 className="text-[22px]">{translate('Chi tiết món')}</h2>
+					<Button type="button" size="sm" onClick={onClose}>
+						{translate('Đóng')}
+					</Button>
 				</div>
 
 				<div className="flex items-start gap-3.5">
@@ -58,40 +81,147 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 					<ItemGridPreview templateId={item.templateId} star={item.star} cellSize={44} bare />
 					<div className="min-w-0">
 						{/* The tile beside it already shows the rank as stars — ❌ no second "2★" label. */}
-						<span className="text-[20px] font-semibold">{template.name}</span>
+						<span className="text-[20px] font-semibold">{translate(template.name)}</span>
 						<div className="mt-1 flex flex-wrap items-center gap-1.5">
-							<span className={tagClass}>{CLASS_LABELS[template.cls]}</span>
+							<span className={tagClass}>{translate(CLASS_LABELS[template.cls])}</span>
 							<span className={tagClass}>
-								{size.w}×{size.h} ô
-							</span>
-							<span className={cn(tagClass, equipped && 'border-gold/45 text-gold-soft')}>
-								{equipped ? 'Đang mang' : 'Trong kho'}
+								{size.w}×{size.h} {translate('ô')}
 							</span>
 						</div>
 					</div>
 				</div>
 
-				<div className={statGridClass}>
-					{damage !== undefined ? <Row label="Sát thương mỗi đòn" value={String(damage)} /> : null}
-					{speed !== undefined ? <Row label="Tốc độ đánh" value={`${Number(speed.toFixed(2))} đòn/giây`} /> : null}
-					{swing !== undefined ? <Row label="Nhịp đánh" value={`${(swing / 1000).toFixed(1)}s`} /> : null}
-					{damage !== undefined && swing ? (
-						<Row label="Sát thương mỗi giây" value={(damage / (swing / 1000)).toFixed(1)} />
-					) : null}
-					<Row label="Giá ở shop" value={<Cost amount={starPrice(template.cost, item.star)} />} />
-					<Row label="Đã trả" value={<Cost amount={item.paid} />} />
-					{/* The 50% rule belongs to the label, not to the number: the cell is too narrow for both. */}
-					<Row label="Bán được (hoàn 50%)" value={<Cost amount={sellValue(item)} />} />
-				</div>
+				{/* Economy of an item that is **ours**; the opponent's gear has no price and no refund. */}
+				{owned ? (
+					<div className={statGridClass}>
+						<Row
+							label={translate('Giá ở shop')}
+							value={<Cost amount={starPrice(template.cost, item.star)} />}
+						/>
+						<Row label={translate('Đã trả')} value={<Cost amount={item.paid} />} />
+						{/* The 50% rule belongs to the label, not to the number: the cell is too narrow for both. */}
+						<Row label={translate('Bán được (hoàn 50%)')} value={<Cost amount={sellValue(item)} />} />
+					</div>
+				) : null}
+				{attackKits.map((kit) => {
+					const def = kitDef(kit.id)
+					const hit = hitOf(kit)
+					const interval = intervalOf(kit)
+					const seconds = Number((interval / 1000).toFixed(1))
+					const charge = kit.charge
+					const chargedMultiplier = charge
+						? Number(kitValue(charge, 'multiplier', item.star).toFixed(2))
+						: 0
+					return (
+						<div key={kit.id} className="flex flex-col gap-2.5">
+							<h3 className="text-[15px]">{translate(def.label)}</h3>
+							<div className={statGridClass}>
+								{hit > 0 ? <Row label={translate('Sát thương mỗi đòn')} value={String(hit)} /> : null}
+								{interval > 0 ? (
+									<Row
+										label={translate('Hồi chiêu')}
+										value={translate('{seconds}s', { seconds })}
+									/>
+								) : null}
+								{hit > 0 && interval > 0 ? (
+									<Row
+										label={translate('Sát thương mỗi giây')}
+										value={(hit / (interval / 1000)).toFixed(1)}
+									/>
+								) : null}
+								{/* The charged attack rides on this swing: enough Sword Energy turns the **next**
+								    basic attack into it, and its damage **replaces** — never adds to — this one. */}
+								{charge ? (
+									<>
+										<Row
+											label={translate('Kiếm Thế cần')}
+											value={String(Math.round(kitValue(charge, 'seNeed', item.star)))}
+										/>
+										<Row label={translate('Hệ số đòn nạp')} value={`×${chargedMultiplier}`} />
+										<Row
+											label={translate('Sát thương đòn nạp')}
+											value={String(Math.round(baseAttack * chargedMultiplier))}
+										/>
+									</>
+								) : null}
+								{/* The on-hit effects belong to the kit they were attached to. */}
+								{(kit.onHit ?? []).map((effect) => (
+									<Row
+										key={effect.id}
+										label={`${translate(kitDef(effect.id).label)} · ${Math.round(kitValue(effect, 'chance', item.star))}%`}
+										value={onHitText(effect, item.star)}
+										tone="good"
+									/>
+								))}
+							</div>
+						</div>
+					)
+				})}
+
+				{parry ? (
+					<div className="flex flex-col gap-2.5">
+						<h3 className="text-[15px]">{translate('Chấn Đao')}</h3>
+						<div className={statGridClass}>
+							<Row
+								label={translate('Tỉ lệ Chấn Đao')}
+								value={`${Number(kitValue(parry, 'chance', item.star).toFixed(1))}%`}
+								tone="good"
+							/>
+							<Row
+								label={translate('Kiếm Thế tiêu hao')}
+								value={String(Math.round(kitValue(parry, 'cost', item.star)))}
+							/>
+							<Row
+								label={translate('Sát thương phản kích')}
+								value={`${Math.round(kitValue(parry, 'power', item.star))}%`}
+								tone="good"
+							/>
+						</div>
+					</div>
+				) : null}
+
+				{extraOptionKits.map((kit) => {
+					const def = kitDef(kit.id)
+					return (
+						<div key={kit.id} className="flex flex-col gap-2.5">
+							<h3 className="text-[15px]">{translate(def.label)}</h3>
+							<div className={statGridClass}>
+								{def.params.map((param) => (
+									<Row
+										key={param.key}
+										label={translate(param.label)}
+										value={kitParamText(kit, param.key, item.star)}
+										tone="good"
+									/>
+								))}
+							</div>
+						</div>
+					)
+				})}
+
+				{aura && auraMods.length > 0 ? (
+					<div className="flex flex-col gap-2.5">
+						<h3 className="text-[15px]">{translate('Hào khí liền kề')}</h3>
+						<div className={statGridClass}>
+							<Row
+								label={translate(AURA_TARGET_LABELS[aura.target])}
+								value={auraMods
+									.map((key) => `${translate(STAT_LABELS[key])} ${formatStat(key, aura.mods[key] ?? 0)}`)
+									.join(' · ')}
+								tone="good"
+							/>
+						</div>
+					</div>
+				) : null}
 
 				{mods.length > 0 ? (
 					<div className="flex flex-col gap-2.5">
-						<h3 className="text-[15px]">Chỉ số cộng thêm</h3>
+						<h3 className="text-[15px]">{translate('Chỉ số cộng thêm')}</h3>
 						<div className={statGridClass}>
 							{mods.map((key) => (
 								<Row
 									key={key}
-									label={STAT_LABELS[key]}
+									label={translate(STAT_LABELS[key])}
 									value={formatStat(key, passive?.[key] ?? 0)}
 									tone="good"
 								/>
@@ -99,16 +229,6 @@ export function ItemDetailDialog({ uid, onClose }: { uid: string; onClose: () =>
 						</div>
 					</div>
 				) : null}
-
-				{template.active && template.interval ? (
-					<p className="m-0 text-[13px] text-muted">
-						Tự kích hoạt mỗi {(template.interval(item.star) / 1000).toFixed(1)}s khi đang mang.
-					</p>
-				) : null}
-
-				<p className="m-0 text-[13px] text-muted">
-					Chỉ món trong <b className="text-paper/90">Trang bị</b> mới có hiệu lực — món trong kho không tính.
-				</p>
 			</div>
 		</div>
 	)

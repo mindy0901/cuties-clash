@@ -26,8 +26,12 @@ export interface BuildAppOptions {
 	logger?: FastifyServerOptions['logger']
 }
 
-/** Body size ceiling — saves are capped at 200 000 bytes, so this is generous. */
-const BODY_LIMIT_BYTES = 4 * 1024 * 1024
+/**
+ * Body size ceiling. Saves are capped at 200 000 bytes (`services.ts`), but the **admin art upload** sends
+ * a finished Full-HD PNG — up to `ART_MAX_BYTES` (8 MB) — so the transport limit has to sit above it or a
+ * large picture would die with `save_too_large` before the art check ever runs.
+ */
+const BODY_LIMIT_BYTES = 12 * 1024 * 1024
 
 const API_NOT_FOUND = { error: 'not_found', message: 'Không có API này.' } as const
 const VALIDATION_MESSAGE = 'Dữ liệu gửi lên không hợp lệ.'

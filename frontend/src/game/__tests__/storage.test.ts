@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { createItemInstance } from '../bag'
-import { dropInStorage, storageRows, storageShape, STORAGE_WIDTH, repairStorageSlots, rotateInStorage, unequipIntoStorage } from '../storage'
+import { installRetiredItems } from '../../test/retiredItems'
+
+installRetiredItems()
+import { createItemInstance, itemCells, templateFootprint, toCell } from '../bag'
+import { dropInStorage, storageRows, storageShape, STORAGE_WIDTH, repairStorageSlots, rotateInStorage, sortStorage, unequipIntoStorage } from '../storage'
 import type { ItemInstance, RunState } from '../types'
 
 /**
@@ -130,6 +133,44 @@ describe('equip → storage', () => {
 		const run = unequipIntoStorage(runWith([existing], [worn]), 'worn', null)
 		expect(run.inventory.find((item) => item.uid === 'existing')?.slot).toBe(0)
 		expect(run.inventory.find((item) => item.uid === 'worn')?.slot).toBe(1)
+	})
+})
+
+describe('the sort button', () => {
+	it('packs the storage from the top-left with no gaps, strongest items first', () => {
+		const scattered = [
+			createItemInstance('jade-fury', 1, 'weak-gem', 60),
+			createItemInstance('fire-spear', 3, 'strong-spear', 20),
+			createItemInstance('wooden-blade', 5, 'best-blade', 45),
+		]
+
+		const sorted = sortStorage(scattered)
+
+		expect(sorted.map((item) => item.uid)).toEqual(['best-blade', 'strong-spear', 'weak-gem'])
+		expect(sorted[0].slot, 'the strongest item takes the first cell').toBe(0)
+		// Every item sits somewhere valid and nothing overlaps.
+		const used = new Set<number>()
+		for (const item of sorted) {
+			expect(item.slot).toBeGreaterThanOrEqual(0)
+			const cells = itemCells(item, STORAGE_WIDTH)
+			expect(cells.length).toBeGreaterThan(0)
+			for (const cell of cells) {
+				expect(used.has(cell), `${item.uid} overlaps at ${cell}`).toBe(false)
+				used.add(cell)
+			}
+		}
+		// A tidy pack never leaves a hole row above the last item.
+		const bottom = Math.max(
+			...sorted.map((item) => toCell(item.slot, STORAGE_WIDTH).row + templateFootprint(item.templateId, item.rotated).h),
+		)
+		expect(bottom).toBeLessThanOrEqual(4)
+	})
+
+	it('puts a lone item in the first cell as well', () => {
+		const only = createItemInstance('jade-fury', 2, 'only', 33)
+		const [sorted] = sortStorage([only])
+		expect(sorted.slot).toBe(0)
+		expect(sorted.star, 'sorting never changes what an item is').toBe(2)
 	})
 })
 

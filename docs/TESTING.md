@@ -50,6 +50,21 @@ expect(await screen.findByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 expect(window.location.pathname).toBe('/')
 ```
 
+### Trap 3b — `history.back()` leaks into the **next** test
+
+`renderApp` uses the real jsdom history, and it is shared by every test in a file. A test that calls
+`window.history.back()` leaves a queued `popstate`; if the next test creates its router before that
+event is delivered, the router is navigated to the **old** entry mid-test and the screen silently
+changes (it cost a real debugging session: a `/shop` URL made the top bar disappear and an admin
+button "not exist"). ✅ Drain and reset the URL in `beforeEach`, **before** a router exists:
+
+```ts
+beforeEach(async () => {
+	await new Promise((resolve) => setTimeout(resolve, 5)) // let the old popstate drain
+	window.history.replaceState({}, '', '/')
+})
+```
+
 ### Trap 4 — test files cannot use `node:fs`
 
 `tsconfig.app.json` only declares `types: ["vite/client"]`. To check whether a file exists, use
@@ -77,6 +92,9 @@ act(() => document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
   (`PrepScreen.trongKho`) is always true for the point `(0,0)` ⇒ you have to define the Kho đồ rect
   yourself (`stubKhoRect`) and then move the cursor (`pointerMove` on `document`) if you want to
   exercise the "drop on the Trang bị grid" branch.
+- For pixel-to-cell drag tracking (when the event target is an item, not a background cell), stub
+  the grid board's rect and `clientLeft`/`clientTop`; the hit test accounts for the real cell size,
+  gaps, padding, and border instead of scaling the outer rectangle.
 - ✅ One invariant worth locking down with a test: **the preview block must match the block that was
   placed** (compare `[data-preview]` with `itemCells(item, width)` after the drop). This invariant
   already caught a bug where rotating mid-drag left the old anchor cell behind.
@@ -86,10 +104,48 @@ act(() => document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
 UI tests run when the backend does not exist, so `fetch` fails. That is **not** an error: the game
 must still be fully playable anonymously. Do not "fix" it by making tests require a backend.
 
+### Trap 6b — item fixtures come from the overlay, not from the shipped catalogue
+
+`game/items.ts` only holds what a fresh install ships, and the admin page owns the rest — so a test
+that needs a 2×3 axe, a jewel with a support kit or a parry gem cannot just `createItemInstance(...)` a
+template that is no longer in code. Those shapes live in [`src/test/retiredCatalogue.ts`](../frontend/src/test/retiredCatalogue.ts)
+and are registered as a **content overlay**:
+
+```ts
+import { installRetiredItems } from '../../test/retiredItems'
+beforeEach(() => installRetiredItems())          // ids -> templates, like an admin row
+```
+
+`installRetiredItems({ items: {...} })` merges a test's own overrides on top, so a test that changes one
+kit does not lose the rest. Never call `applyContentOverrides` directly in a file that needs fixtures —
+it **replaces** the whole overlay. And never import the fixture module from app code: nothing in it
+ships.
+
 ### Trap 7 — PNG images read with `?raw`
 
 The first byte of a PNG (`0x89`) is not valid UTF-8, so it is replaced by a replacement character.
 Only check the 3 bytes `PNG`.
+
+### Trap 8 — UI tests default to Vietnamese for legacy assertions
+
+The app defaults to English, but `renderInRouter()` and `renderApp()` set Vietnamese by default so
+existing UI tests keep their source-language assertions. Pass `'en'` to `renderApp('/', 'en')` when
+testing English UI, and cover new source strings in `frontend/src/i18n.ts`. The language preference
+is persisted in local storage; language tests should clear `martial-cutie-language` between cases.
+
+### Trap 9 — battle visuals must consume batched events
+
+Playback can cross several simulation events in one interval tick, especially at ×4/×8. Test slash,
+impact, and healing feedback with multiple same-time events; checking only the final event can hide
+missed combat visuals.
+
+### Trap 10 — the shop's hover card opens **late**, and dies with its offer
+
+`ShopScreen` waits `HOVER_DELAY_MS = 350` before drawing `[data-shop-offer-card]` (hover intent), so a
+test must fire `pointerOver` and then `await waitFor(...)` — ❌ never assert the card synchronously.
+The other half of the same feature: buying **replaces** the cell button with the sold placeholder, so
+the old element never fires `pointerleave`; `navigation.test.tsx` therefore asserts that a click leaves
+`shop[i].sold === true` **and no card** on screen. When touching either behaviour, keep both assertions.
 
 ## 2. Backend — Vitest
 

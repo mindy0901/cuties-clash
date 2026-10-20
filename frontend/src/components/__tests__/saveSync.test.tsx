@@ -119,7 +119,7 @@ describe('pushRun', () => {
 
 describe('pullRun', () => {
 	it('records the revision BEFORE writing localStorage so the next push does not conflict', async () => {
-		getSave.mockResolvedValue({ run: { currency: 123 }, revision: 42, updated_at: null })
+		getSave.mockResolvedValue({ run: { gold: 123 }, revision: 42, updated_at: null })
 		const order: string[] = []
 		const { box, holder } = fakeRevision(0, order)
 
@@ -185,7 +185,7 @@ describe('no repeated pushes', () => {
 			expect(putSave).toHaveBeenCalledTimes(1)
 
 			// A real progress change → exactly one more push.
-			useGameStore.setState((state) => ({ run: { ...state.run, currency: state.run.currency + 1 } }))
+			useGameStore.setState((state) => ({ run: { ...state.run, gold: state.run.gold + 1 } }))
 			await afterDebounce()
 			expect(putSave).toHaveBeenCalledTimes(2)
 

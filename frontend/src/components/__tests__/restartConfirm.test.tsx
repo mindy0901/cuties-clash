@@ -15,7 +15,7 @@ import { renderApp } from '../../test/router'
 function runWithProgress() {
 	useGameStore.getState().newRun()
 	useGameStore.setState((state) => ({
-		run: { ...state.run, currency: 99, stage: 7, clearedStage: 6 },
+		run: { ...state.run, gold: 99, stage: 7, clearedStage: 6 },
 	}))
 }
 
@@ -37,7 +37,7 @@ describe('restarting asks for confirmation', () => {
 		expect(screen.getByText(/bị xoá/)).toBeTruthy()
 		// Progress is untouched while the question is open.
 		expect(useGameStore.getState().run.clearedStage).toBe(6)
-		expect(useGameStore.getState().run.currency).toBe(99)
+		expect(useGameStore.getState().run.gold).toBe(99)
 	})
 
 	it('keeps the run when the player cancels', async () => {
@@ -49,7 +49,7 @@ describe('restarting asks for confirmation', () => {
 
 		expect(screen.queryByRole('dialog')).toBeNull()
 		expect(useGameStore.getState().run.clearedStage).toBe(6)
-		expect(useGameStore.getState().run.currency).toBe(99)
+		expect(useGameStore.getState().run.gold).toBe(99)
 	})
 
 	it('resets the run only after confirming', async () => {
@@ -63,7 +63,7 @@ describe('restarting asks for confirmation', () => {
 		expect(screen.queryByRole('dialog')).toBeNull()
 		expect(run.stage).toBe(1)
 		expect(run.clearedStage).toBe(0)
-		expect(run.currency).toBe(STARTING_CURRENCY)
+		expect(run.gold).toBe(STARTING_CURRENCY)
 		expect(run.equipped).toHaveLength(0)
 		expect(run.inventory).toHaveLength(0)
 	})

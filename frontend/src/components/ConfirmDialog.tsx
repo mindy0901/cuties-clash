@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { btnClass, btnGhostClass, btnGoldClass, btnPrimaryClass, cn, dialogClass, overlayClass } from './ui'
+import { cn, dialogClass, overlayClass } from './ui'
+import { Button } from './ui/button'
+import { translate } from '../i18n'
 
 export interface ConfirmDialogProps {
 	title: string
@@ -26,8 +28,8 @@ export interface ConfirmDialogProps {
 export function ConfirmDialog({
 	title,
 	message,
-	confirmLabel = 'Xác nhận',
-	cancelLabel = 'Huỷ',
+	confirmLabel = translate('Xác nhận'),
+	cancelLabel = translate('Huỷ'),
 	tone = 'danger',
 	onConfirm,
 	onCancel,
@@ -59,23 +61,23 @@ export function ConfirmDialog({
 				<h2 className="text-[20px]">{title}</h2>
 				<p className="m-0 text-[13.5px] text-muted">{message}</p>
 				<div className="flex flex-wrap items-center justify-end gap-2.5">
-					<button
+					<Button
 						ref={cancelRef}
 						type="button"
 						data-confirm-cancel
-						className={cn(btnClass, btnGhostClass)}
+						variant="outline"
 						onClick={onCancel}
 					>
 						{cancelLabel}
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						data-confirm-accept
-						className={cn(btnClass, tone === 'danger' ? btnPrimaryClass : btnGoldClass)}
+						variant={tone === 'danger' ? 'destructive' : 'primary'}
 						onClick={onConfirm}
 					>
 						{confirmLabel}
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

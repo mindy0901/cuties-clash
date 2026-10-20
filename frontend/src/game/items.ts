@@ -1,14 +1,10 @@
 import type { ItemTemplate, ItemClass, Quality, Star } from './types'
+import { kitDef } from './kits'
 import { currentContentOverrides, mergeItem, overridesVersion } from './content'
 
 /** Star-indexed values: `pick(star, [1★, 2★, 3★, 4★, 5★])`. */
 export function pick(star: Star, values: readonly [number, number, number, number, number]): number {
 	return values[star - 1]
-}
-
-/** Chill strength of Phiến Băng: 21% at 1★ and +3 points per star rank. */
-function slowValue(star: Star): number {
-	return 21 + (star - 1) * 3
 }
 
 const STAR_LABEL: Record<Star, string> = { 1: '1★', 2: '2★', 3: '3★', 4: '4★', 5: '5★' }
@@ -20,20 +16,36 @@ export function starLabel(star: Star): string {
 export const CLASS_LABELS: Record<ItemClass, string> = {
 	melee: 'Vũ khí cận chiến',
 	ranged: 'Vũ khí tầm xa',
-	focus: 'Pháp khí',
-	jewelry: 'Trang sức',
+	artifact: 'Pháp khí',
+	jade: 'Ngọc',
+	accessory: 'Phụ kiện',
 	armor: 'Giáp',
 	potion: 'Đan dược',
 }
 
 /**
- * Whether a class swings at the enemy — the two weapon types.
+ * Whether a class swings at the enemy — the **three** weapon types: melee, ranged and artifact.
  *
- * Used by the aura targets `adjacentWeapon` / `adjacentNonWeapon`, so splitting weapons into melee
- * and ranged never changes which neighbours count as weapons.
+ * Used by the aura targets `adjacentWeapon` / `adjacentNonWeapon` and by the support gems, so an
+ * artifact counts as a weapon exactly like a melee blade does — it swings; it just leans on debuffs
+ * (freeze / slow / poison) rather than on direct damage.
  */
 export function isWeaponClass(cls: ItemClass): boolean {
-	return cls === 'melee' || cls === 'ranged'
+	return cls === 'melee' || cls === 'ranged' || cls === 'artifact'
+}
+
+/**
+ * A neighbour a **support gem can actually buff**: a weapon class that also **swings**.
+ *
+ * ⚠️ `isWeaponClass` alone is not enough. An `artifact` with no attack kit — a pure trinket such as
+ * `the-icy-vow` (`freeze-reflect` only) — never produces a swing, so the engine never hands it a charge
+ * buff; the direction overlay used to turn that arrow gold anyway and promised something that could not
+ * happen. This mirrors `build.ts`, which builds one entry per **attack kit** and then filters by class.
+ */
+export function isBuffableWeapon(templateId: string): boolean {
+	const template = getTemplate(templateId)
+	if (!template || !isWeaponClass(template.cls)) return false
+	return (template.kits ?? []).some((kit) => kitDef(kit.id).kind === 'attack')
 }
 
 /** Merging two of the same item at 5★ is not possible. */
@@ -65,450 +77,24 @@ export function starPrice(baseCost: number, star: Star): number {
 }
 
 /**
- * Standard attack rate, in **attacks per second** (1 → one swing, 1.6 s apart).
- *
- * Every item uses it unless the template declares its own `speed`, so the admin page always has a
- * value to work with and an item that gains damage later still swings at a sane rate.
+ * Fallback **Cooldown Time**, in seconds: the gap between two swings when neither the item nor the
+ * skill says otherwise. 1.6 s is the old 0.625 hits/s, kept so existing rows feel the same.
  */
-export const DEFAULT_SPEED = 0.625
+export const DEFAULT_COOLDOWN = 1.6
 
-/** Swing interval in ms for an attack rate: `speed` is attacks per second, so 0.625 → 1600 ms. */
-export function swingMs(speed: number): number {
-	return Math.round(1000 / speed)
+/** Cooldown in seconds → the millisecond interval the simulation counts down. */
+export function cooldownMs(seconds: number): number {
+	return Math.max(0, Math.round(seconds * 1000))
 }
 
-/** Items with their per-star numbers. Values mirror the public event tuning. */
-export const ITEM_TEMPLATES: ItemTemplate[] = [
-	// ── Weapons ─ ───────────────────────────────────────────────────────────────
-	{
-		id: 'wooden-blade',
-		name: 'Đao Gỗ',
-		cls: 'melee',
-		quality: 1,
-		icon: '🗡️',
-		art: true,
-		tier: 1,
-		cost: 3,
-		space: { w: 1, h: 3 },
-		speed: (star) => pick(star, [0.6667, 0.7092, 0.7576, 0.813, 0.8772]),
-		damage: (star) => pick(star, [12, 20, 32, 50, 78]),
-	},
-	{
-		id: 'fire-spear',
-		name: 'Thương Lửa',
-		cls: 'melee',
-		quality: 2,
-		icon: '🔥',
-		art: true,
-		tier: 1,
-		cost: 4,
-		space: { w: 1, h: 4 },
-		speed: (star) => pick(star, [0.7143, 0.7634, 0.8197, 0.885, 0.9615]),
-		damage: (star) => pick(star, [10, 17, 28, 45, 72]),
-		onHit: (star) => ({
-			chance: 0.25,
-			effects: [
-				{
-					kind: 'status',
-					status: 'burn',
-					duration: 3000,
-					value: pick(star, [14, 22, 34, 52, 80]),
-					stacks: 1,
-					target: 'enemy',
-				},
-			],
-		}),
-	},
-	{
-		id: 'frost-fan',
-		name: 'Phiến Băng',
-		cls: 'ranged',
-		quality: 3,
-		icon: '❄️',
-		art: true,
-		tier: 2,
-		cost: 6,
-		space: { w: 2, h: 1 },
-		speed: (star) => pick(star, [0.7692, 0.813, 0.8621, 0.9174, 0.9804]),
-		damage: (star) => pick(star, [14, 23, 38, 60, 95]),
-		onHit: (star) => ({
-			chance: 0.3,
-			effects: [{ kind: 'status', status: 'slow', duration: 3000, value: slowValue(star), stacks: 1, target: 'enemy' }],
-		}),
-	},
-	{
-		id: 'poison-dagger',
-		name: 'Chủy Độc',
-		cls: 'ranged',
-		quality: 3,
-		icon: '☠️',
-		art: true,
-		tier: 2,
-		cost: 6,
-		space: { w: 1, h: 1 },
-		speed: (star) => pick(star, [1.0526, 1.1111, 1.1765, 1.25, 1.3333]),
-		damage: (star) => pick(star, [8, 13, 21, 34, 55]),
-		onHit: (star) => ({
-			chance: 0.45,
-			effects: [
-				{
-					kind: 'status',
-					status: 'poison',
-					duration: 4000,
-					value: pick(star, [12, 19, 30, 48, 75]),
-					stacks: 1,
-					target: 'enemy',
-				},
-			],
-		}),
-	},
-	{
-		id: 'great-axe',
-		name: 'Phủ Nặng',
-		cls: 'melee',
-		quality: 5,
-		icon: '🪓',
-		art: true,
-		tier: 3,
-		cost: 8,
-		space: { w: 2, h: 3 },
-		speed: (star) => pick(star, [0.4348, 0.463, 0.495, 0.5319, 0.5747]),
-		damage: (star) => pick(star, [34, 56, 92, 150, 245]),
-	},
-	{
-		id: 'twin-claws',
-		name: 'Song Trảo',
-		cls: 'melee',
-		quality: 5,
-		icon: '🐾',
-		art: true,
-		tier: 3,
-		cost: 9,
-		space: { w: 2, h: 1 },
-		speed: (star) => pick(star, [1.3333, 1.4085, 1.4925, 1.5873, 1.6949]),
-		damage: (star) => pick(star, [9, 15, 24, 39, 63]),
-		passive: (star) => ({ haste: pick(star, [4, 7, 11, 17, 27]) }),
-	},
-
-	// ── Armor ─ ─────────────────────────────────────────────────────────────────
-	{
-		id: 'hide-vest',
-		name: 'Giáp Da',
-		cls: 'armor',
-		quality: 1,
-		icon: '🦺',
-		art: true,
-		tier: 1,
-		cost: 3,
-		space: { w: 2, h: 2 },
-		passive: (star) => ({ shield: pick(star, [180, 240, 300, 450, 675]) }),
-	},
-	{
-		id: 'chain-mail',
-		name: 'Giáp Xích',
-		cls: 'armor',
-		quality: 3,
-		icon: '⛓️',
-		art: true,
-		tier: 2,
-		cost: 5,
-		space: { w: 2, h: 2 },
-		passive: (star) => ({ shield: pick(star, [240, 340, 460, 700, 1050]), dr: pick(star, [3, 5, 7, 10, 15]) }),
-	},
-	{
-		id: 'warden-plate',
-		name: 'Giáp Vệ Binh',
-		cls: 'armor',
-		quality: 5,
-		icon: '🛡️',
-		art: true,
-		tier: 3,
-		cost: 8,
-		space: { w: 2, h: 3 },
-		passive: (star) => ({ shield: pick(star, [320, 470, 660, 980, 1450]), dr: pick(star, [6, 9, 12, 16, 22]) }),
-	},
-
-	// ── Soul Jades ─ ────────────────────────────────────────────────────────────
-	{
-		id: 'jade-fury',
-		name: 'Hồn Ngọc Phẫn Nộ',
-		cls: 'jewelry',
-		quality: 2,
-		icon: '💠',
-		art: true,
-		tier: 1,
-		cost: 3,
-		space: { w: 1, h: 1 },
-		passive: (star) => ({ atk: pick(star, [6, 10, 16, 26, 42]) }),
-	},
-	{
-		id: 'jade-haste',
-		name: 'Hồn Ngọc Thôi Sách',
-		cls: 'jewelry',
-		quality: 1,
-		icon: '🌪️',
-		art: true,
-		tier: 1,
-		cost: 3,
-		space: { w: 1, h: 1 },
-		passive: (star) => ({ haste: pick(star, [8, 12, 17, 24, 34]) }),
-	},
-	{
-		id: 'jade-crit',
-		name: 'Hồn Ngọc Chí Mạng',
-		cls: 'jewelry',
-		quality: 3,
-		icon: '🎯',
-		art: true,
-		tier: 2,
-		cost: 5,
-		space: { w: 1, h: 1 },
-		passive: (star) => ({ critRate: pick(star, [8, 12, 18, 25, 35]) }),
-	},
-	{
-		id: 'jade-vampire',
-		name: 'Hồn Ngọc Huyết Ẩm',
-		cls: 'jewelry',
-		quality: 3,
-		icon: '🩸',
-		art: true,
-		tier: 2,
-		cost: 6,
-		space: { w: 1, h: 1 },
-		passive: (star) => ({ lifesteal: pick(star, [6, 9, 13, 18, 25]) }),
-	},
-	{
-		id: 'jade-guard',
-		name: 'Hồn Ngọc Hộ Thể',
-		cls: 'jewelry',
-		quality: 4,
-		icon: '🧿',
-		art: true,
-		tier: 3,
-		cost: 7,
-		space: { w: 1, h: 1 },
-		passive: (star) => ({ dr: pick(star, [5, 8, 11, 15, 21]) }),
-	},
-	{
-		id: 'jade-sword',
-		name: 'Hồn Ngọc Kiếm Thế',
-		cls: 'jewelry',
-		quality: 3,
-		icon: '⚔️',
-		art: true,
-		tier: 2,
-		cost: 5,
-		space: { w: 1, h: 1 },
-		passive: (star) => ({
-			seRegen: pick(star, [3, 5, 8, 12, 19]),
-			counterChance: pick(star, [5, 8, 12, 18, 27]),
-		}),
-	},
-
-	// ── Curios (pulse-activated) ─ ──────────────────────────────────────────────
-	{
-		id: 'war-drum',
-		name: 'Trống Trận',
-		cls: 'focus',
-		quality: 3,
-		icon: '🥁',
-		art: true,
-		tier: 2,
-		cost: 6,
-		space: { w: 2, h: 2 },
-		aura: (star) => ({ target: 'adjacentWeapon', mods: { atkPct: pick(star, [10, 15, 22, 32, 48]) } }),
-	},
-	{
-		id: 'ghost-lantern',
-		name: 'Đèn Quỷ',
-		cls: 'focus',
-		quality: 2,
-		icon: '🏮',
-		art: true,
-		tier: 1,
-		cost: 4,
-		space: { w: 1, h: 2 },
-		interval: (star) => 9000 - 700 * (star - 1),
-		active: (star) => [{ kind: 'shield', amount: pick(star, [60, 100, 160, 260, 420]) }],
-	},
-	{
-		id: 'forge-fang',
-		name: 'Nanh Lò Rèn',
-		cls: 'focus',
-		quality: 3,
-		icon: '🐺',
-		art: true,
-		tier: 2,
-		cost: 6,
-		space: { w: 1, h: 2 },
-		interval: (star) => 9500 - 900 * (star - 1),
-		active: (star) => [{ kind: 'damage', amount: pick(star, [22, 36, 58, 94, 150]) }],
-	},
-	{
-		id: 'venom-vial',
-		name: 'Lọ Độc',
-		cls: 'focus',
-		quality: 3,
-		icon: '⚗️',
-		art: true,
-		tier: 2,
-		cost: 5,
-		space: { w: 1, h: 1 },
-		interval: (star) => 7500 - 600 * (star - 1),
-		active: (star) => [
-			{
-				kind: 'status',
-				status: 'poison',
-				duration: 4000,
-				value: pick(star, [35, 55, 85, 135, 215]),
-				stacks: 1,
-				target: 'enemy',
-			},
-		],
-	},
-	{
-		id: 'storm-bell',
-		name: 'Chuông Bão',
-		cls: 'focus',
-		quality: 3,
-		icon: '🔔',
-		art: true,
-		tier: 2,
-		cost: 6,
-		space: { w: 1, h: 1 },
-		interval: (star) => 8500 - 700 * (star - 1),
-		active: (star) => [
-			{
-				kind: 'status',
-				status: 'haste',
-				duration: 4000,
-				value: pick(star, [20, 26, 33, 42, 54]),
-				stacks: 1,
-				target: 'self',
-			},
-		],
-	},
-	{
-		id: 'divine-forger',
-		name: 'Thần Đúc Sư',
-		cls: 'focus',
-		quality: 5,
-		icon: '🔨',
-		art: true,
-		tier: 3,
-		cost: 8,
-		space: { w: 2, h: 2 },
-		interval: (star) => 9500 - 800 * (star - 1),
-		passive: (star) => ({ dr: pick(star, [2, 3, 4, 6, 9]) }),
-		active: (star) => [
-			{ kind: 'cleanse', statuses: ['slow', 'freeze'], scope: 'adjacent' },
-			{ kind: 'heal', amount: pick(star, [15, 25, 40, 65, 105]) },
-		],
-	},
-	{
-		id: 'frost-seal',
-		name: 'Hàn Ngọc Phù',
-		cls: 'focus',
-		quality: 4,
-		icon: '🧊',
-		art: true,
-		tier: 3,
-		cost: 7,
-		space: { w: 1, h: 1 },
-		interval: (star) => 11000 - 800 * (star - 1),
-		active: (star) => [
-			{ kind: 'damage', amount: pick(star, [15, 25, 40, 65, 105]) },
-			{
-				kind: 'status',
-				status: 'freeze',
-				duration: Math.round((1 + 0.15 * (star - 1)) * 1000),
-				value: 0,
-				stacks: 1,
-				target: 'enemy',
-			},
-		],
-	},
-	{
-		id: 'mirror-shard',
-		name: 'Mảnh Gương',
-		cls: 'focus',
-		quality: 4,
-		icon: '🪞',
-		art: true,
-		tier: 3,
-		cost: 7,
-		space: { w: 1, h: 2 },
-		interval: (star) => 9000 - 700 * (star - 1),
-		active: (star) => [
-			{ kind: 'damage', amount: 0, atkScale: pick(star, [1, 1.3, 1.7, 2.2, 2.9]) },
-			{ kind: 'status', status: 'brittle', duration: 5000, value: pick(star, [8, 12, 16, 22, 31]), stacks: 1, target: 'enemy' },
-		],
-	},
-	{
-		id: 'silk-banner',
-		name: 'Cờ Lụa',
-		cls: 'focus',
-		quality: 4,
-		icon: '🎏',
-		art: true,
-		tier: 3,
-		cost: 7,
-		space: { w: 2, h: 1 },
-		aura: (star) => ({ target: 'adjacentNonWeapon', mods: { maxHp: pick(star, [25, 45, 75, 120, 195]) } }),
-	},
-
-	// ── Potions ─ ───────────────────────────────────────────────────────────────
-	{
-		id: 'heal-dew',
-		name: 'Lộ Sương Trị Thương',
-		cls: 'potion',
-		quality: 1,
-		icon: '🧪',
-		art: true,
-		tier: 1,
-		cost: 3,
-		space: { w: 1, h: 1 },
-		interval: (star) => 6500 - 500 * (star - 1),
-		active: (star) => [{ kind: 'heal', amount: pick(star, [40, 70, 115, 185, 300]) }],
-	},
-	{
-		id: 'tiger-tonic',
-		name: 'Hổ Cốt Tửu',
-		cls: 'potion',
-		quality: 3,
-		icon: '🍶',
-		art: true,
-		tier: 2,
-		cost: 5,
-		space: { w: 1, h: 1 },
-		interval: (star) => 10000 - 700 * (star - 1),
-		active: (star) => [{ kind: 'swordEnergy', amount: pick(star, [25, 40, 60, 90, 135]) }],
-	},
-	{
-		id: 'iron-brew',
-		name: 'Thuốc Sắt',
-		cls: 'potion',
-		quality: 4,
-		icon: '🫙',
-		art: true,
-		tier: 3,
-		cost: 6,
-		space: { w: 1, h: 2 },
-		interval: (star) => 9000 - 700 * (star - 1),
-		active: (star) => [
-			{ kind: 'shield', amount: pick(star, [80, 130, 210, 330, 510]) },
-			{
-				kind: 'status',
-				status: 'regen',
-				duration: 4000,
-				value: pick(star, [10, 18, 30, 50, 80]),
-				stacks: 1,
-				target: 'self',
-			},
-		],
-	},
-]
-
+/**
+ * Items **shipped in code** — deliberately **empty**.
+ *
+ * Content lives in the database only (the admin page), so the game never carries a hardcoded item
+ * list: itemCatalogue() builds everything from the stored rows. Keeping the export keeps the
+ * rest of the engine (and the tests) talking about one catalogue instead of two sources.
+ */
+export const ITEM_TEMPLATES: ItemTemplate[] = []
 export const ITEM_BY_ID: Record<string, ItemTemplate> = Object.fromEntries(
 	ITEM_TEMPLATES.map((template) => [template.id, template]),
 )
@@ -519,7 +105,7 @@ function blankTemplate(id: string): ItemTemplate {
 		id,
 		name: id,
 		icon: '❔',
-		cls: 'focus',
+		cls: 'artifact',
 		tier: 1,
 		quality: 1,
 		cost: 1,
@@ -543,14 +129,13 @@ export function itemCatalogue(): ItemTemplate[] {
 	if (catalogueVersion === overridesVersion()) return catalogue
 	catalogueVersion = overridesVersion()
 
+	// The database is the **only** source: one row per item. A row marked `removed` is a leftover from
+	// the old soft-delete and is skipped, so it can never come back.
 	const overrides = currentContentOverrides().items
-	const removed = new Set(Object.keys(overrides).filter((id) => overrides[id]?.removed === true))
-	const items = ITEM_TEMPLATES.filter((template) => !removed.has(template.id)).map((template) =>
-		mergeItem(template, overrides[template.id]),
-	)
+	const items: ItemTemplate[] = []
 	for (const [id, payload] of Object.entries(overrides)) {
-		if (ITEM_BY_ID[id] || removed.has(id)) continue
-		items.push(mergeItem(blankTemplate(id), payload))
+		if (payload?.removed === true) continue
+		items.push(mergeItem(ITEM_BY_ID[id] ?? blankTemplate(id), payload))
 	}
 
 	catalogue = items
@@ -565,16 +150,35 @@ export function itemTemplateById(templateId: string): ItemTemplate | undefined {
 }
 
 /**
+ * Shown for an id that exists **nowhere** — a created item whose row has not arrived yet (the store
+ * rehydrates before `/api/content` answers) or one the admin just deleted.
+ *
+ * ❌ Never throw there: a bag entry that cannot draw is a **blank page**, and the player then has no
+ * UI at all. The placeholder is 1×1 and has no kits, so it cannot reach a fight (`build.ts` filters
+ * on `itemTemplateById`) and renders as a ❔ tile with the raw id until the overlay lands.
+ */
+const UNKNOWN_TEMPLATE: ItemTemplate = {
+	id: 'unknown',
+	name: 'unknown',
+	icon: '❔',
+	cls: 'artifact',
+	tier: 1,
+	quality: 1,
+	cost: 1,
+	space: { w: 1, h: 1 },
+}
+
+/**
  * Template **with the admin overlay applied** (if any).
  *
- * ⚠️ Falls back to the **code** template when the admin deleted the item: a bag or shop entry that
- * still holds a deleted id has to keep drawing (its numbers no longer reach a fight — `build.ts` and
- * `sanitize.ts` filter on `itemTemplateById`), otherwise the first render after the delete would be a
- * blank page. Only an id that exists nowhere throws.
+ * ⚠️ Falls back to the **code** template when the admin deleted the item, and to a neutral
+ * placeholder for an id that is in neither the catalogue nor the code — see `UNKNOWN_TEMPLATE`. A bag
+ * or shop entry that still holds such an id has to keep drawing, otherwise the first render after a
+ * reload would be a blank page.
  */
 export function getTemplate(templateId: string): ItemTemplate {
 	const template = itemTemplateById(templateId) ?? ITEM_BY_ID[templateId]
-	if (!template) throw new Error(`Unknown item template: ${templateId}`)
+	if (!template) return { ...UNKNOWN_TEMPLATE, id: templateId, name: templateId }
 	return template
 }
 
@@ -587,4 +191,61 @@ export function getTemplate(templateId: string): ItemTemplate {
  */
 export function itemTemplatesUpToTier(tier: number): ItemTemplate[] {
 	return itemCatalogue().filter((template) => template.tier <= tier)
+}
+
+/** Longest id the backend accepts for a content row. */
+const MAX_ITEM_ID = 49
+
+/**
+ * Vietnamese letters Unicode does **not** decompose, so `normalize('NFD')` alone would keep them and
+ * the slug would come out empty.
+ */
+const SLUG_LETTERS: Record<string, string> = {
+	đ: 'd',
+	Đ: 'd',
+	ơ: 'o',
+	Ơ: 'o',
+	ư: 'u',
+	Ư: 'u',
+}
+
+/**
+ * The **code** of an item, generated from the name the admin typed — ❌ the admin never types an id.
+ *
+ * "Kiếm Sắt" → `kiem-sat`: tones are stripped (`NFD` + the letters above), everything that is not a
+ * letter or a digit becomes a dash, and the dashes at both ends are trimmed. A name with no Latin
+ * letters at all (e.g. Chinese) gives `''` and the caller falls back to `mon`.
+ */
+export function itemCodeFromName(name: string): string {
+	return name
+		.trim()
+		.split('')
+		.map((char) => SLUG_LETTERS[char] ?? char)
+		.join('')
+		.normalize('NFD')
+		// Combining marks left behind by NFD (all the Vietnamese tones and the breve/circumflex).
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, MAX_ITEM_ID)
+		.replace(/-+$/, '')
+}
+
+/**
+ * First free code for a name: `kiem-sat`, then `kiem-sat-2`, `kiem-sat-3`…
+ *
+ * The catalogue is asked, not just the code templates, so two admins naming an item the same thing
+ * never overwrite each other — the second one simply becomes `kiem-sat-2`.
+ */
+export function uniqueItemCode(name: string): string {
+	const base = itemCodeFromName(name) || 'mon'
+	const taken = (id: string) => Boolean(ITEM_BY_ID[id]) || Boolean(itemTemplateById(id))
+	if (!taken(base)) return base
+	for (let suffix = 2; suffix < 10_000; suffix += 1) {
+		const tail = `-${suffix}`
+		const candidate = `${base.slice(0, MAX_ITEM_ID - tail.length).replace(/-+$/, '')}${tail}`
+		if (!taken(candidate)) return candidate
+	}
+	return `${base.slice(0, 40)}-moi`
 }

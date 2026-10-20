@@ -3,12 +3,13 @@ import { itemTemplatesUpToTier } from './items'
 import type { EnemyBlueprint, ItemBlueprint, MapDef, Star, StageDef } from './types'
 
 export const MAPS: MapDef[] = [
-	{ name: 'Tụ Khốt Châu', subtitle: 'Bãi cỏ bình yên — nơi mọi thú cưng tập luyện', from: 1, to: 20 },
+	{ name: 'Tụ Khốt Châu', subtitle: 'Bãi cỏ bình yên — nơi quái vật bắt đầu trỗi dậy', from: 1, to: 20 },
 	{ name: 'Hỏa La Quốc', subtitle: 'Đất nước rực lửa của các đấu sĩ', from: 21, to: 40 },
-	{ name: 'Stormchant', subtitle: 'Thung lũng bão tố, chỉ dành cho kẻ mạnh nhất', from: 41, to: 60 },
+	{ name: 'Stormchant', subtitle: 'Thung lũng bão tố — lãnh địa của zombie và tà linh', from: 41, to: 60 },
 ]
 
 export const FINAL_STAGE = 60
+const ENEMY_TYPES = ['Quái vật · ', 'Ác linh · ', 'Zombie · ']
 
 const STAGE_NAMES: string[][] = [
 	[
@@ -32,9 +33,9 @@ const STAGE_NAMES: string[][] = [
 ]
 
 const STAGE_ICONS: string[][] = [
-	['🐭', '🐔', '🐺', '🐗', '🦊', '🐐', '🐒', '🐯', '🐻', '🐝', '🪲', '🐝', '🐍', '🐆', '🦏', '🐂', '🐊', '🦅', '🌳', '🐲'],
-	['🔥', '🦎', '🦁', '🐤', '🦊', '⚔️', '🗿', '👺', '🔔', '🤺', '🦄', '🗿', '🐍', '🧛', '🐊', '🦂', '🐦‍🔥', '😈', '🌋', '☄️'],
-	['🐻‍❄️', '🌬️', '🕊️', '🐈‍⬛', '⚡', '🐺', '🪨', '🐉', '🧊', '⚡', '🐋', '👧', '🧣', '👻', '🌩️', '🐢', '🔥', '🦌', '🌪️', '🗡️'],
+	['👾', '👹', '🧌', '🧟', '👺', '💀', '👻', '🦇', '🕷️', '👿', '🪲', '🧟‍♂️', '🐍', '👹', '🦴', '👺', '🐊', '🦅', '🌳', '🐲'],
+	['🔥', '😈', '👹', '🧟', '👺', '⚔️', '🗿', '👿', '🔔', '🤺', '🧛', '🗿', '🐍', '🧛', '🐊', '🦂', '🐦‍🔥', '😈', '🌋', '☄️'],
+	['🧟', '👻', '💀', '🧟‍♂️', '⚡', '🧟‍♀️', '🦴', '🐉', '🧊', '👻', '🧟', '🧟‍♂️', '🧛', '🧟‍♀️', '🌩️', '🧟', '🔥', '💀', '🌪️', '🗡️'],
 ]
 
 const ENEMY_POOLS: string[][] = [
@@ -47,7 +48,8 @@ const ENEMY_POOLS: string[][] = [
  * Stage index → item star for enemy loadouts (the player is expected to out-scale the early stars).
  *
  * ⚠️ The ceiling stays at **4★** although items can be merged up to 5★: one enemy star rank is worth
- * far more than the stage curve. Measured at stages 49-60 (pet level 5, every item 5★, 24 seeds):
+ * far more than the stage curve. Measured at stages 49-60 (cutie level 5 — the cap at the time, 10 today;
+ * every item 5★, 24 seeds):
  * a 4★ enemy loadout is beaten **81-100 %** of the time, a 5★ one **0 %**, even without any 5★
  * weapon in it. 5★ is the player's reward for merging — see `docs/BALANCE.md` §2.
  */
@@ -88,7 +90,7 @@ function buildStage(index: number): StageDef {
 	const maxHp = Math.round((400 + (index - 1) * 54) * bossMultiplier)
 	const attackDamage = Math.round((8 + (index - 1) * 0.95) * (isBoss ? 1.12 : 1))
 	const attackInterval = Math.max(950, Math.round(1700 - (index - 1) * 7))
-	const name = STAGE_NAMES[mapIndex][stageInMap]
+	const name = `${ENEMY_TYPES[mapIndex]}${STAGE_NAMES[mapIndex][stageInMap]}`
 	const reward = Math.round(6 + index * 1.15) + (isBoss ? 8 : 0)
 
 	return {
@@ -104,8 +106,7 @@ function buildStage(index: number): StageDef {
 			seRegen: 7 + Math.floor(index / 6),
 			attackInterval,
 			attackDamage,
-			counterChance: Math.min(0.4, 0.1 + index * 0.0025) * (isBoss ? 1.2 : 1),
-			mods: { critRate: Math.min(20, Math.round(growth * 6 - 6)), dr: Math.round(Math.min(18, (index / 60) * 16)) },
+				mods: { critRate: Math.min(20, Math.round(growth * 6 - 6)), dr: Math.round(Math.min(18, (index / 60) * 16)) },
 			items: enemyItems(index, mapIndex),
 		},
 	}
@@ -116,6 +117,11 @@ export const STAGES: StageDef[] = Array.from({ length: FINAL_STAGE }, (_, i) => 
 export function getStage(index: number): StageDef {
 	const clamped = Math.min(Math.max(index, 1), FINAL_STAGE)
 	return STAGES[clamped - 1]
+}
+
+/** Highest stage the player may enter after clearing `clearedStage`. */
+export function highestAccessibleStage(clearedStage: number): number {
+	return Math.min(FINAL_STAGE, Math.max(0, Math.floor(clearedStage)) + 1)
 }
 
 export function stageTier(index: number): 1 | 2 | 3 {
@@ -137,7 +143,7 @@ export function makeRivalBlueprint(power: number, stageIndex: number, seed: numb
 	const rng = createRng(seed)
 	const tier = stageTier(stageIndex)
 	const pool = itemTemplatesUpToTier(tier)
-	const count = 3 + rng.int(4)
+	const count = pool.length === 0 ? 0 : 3 + rng.int(4)
 	const items: ItemBlueprint[] = []
 	// Capped at 4★ for the same reason as `enemyStar`: a 5★ rival loadout is unwinnable.
 	const starCap = (tier === 3 ? 4 : tier === 2 ? 3 : 2) as Star
@@ -154,7 +160,6 @@ export function makeRivalBlueprint(power: number, stageIndex: number, seed: numb
 		seRegen: 8,
 		attackInterval: 1300,
 		attackDamage: Math.round(14 * scale + 6),
-		counterChance: 0.18,
 		mods: { critRate: Math.round(6 * scale), dr: Math.round(6 * scale) },
 		items,
 	}

@@ -28,6 +28,7 @@
 	--color-hp: #77c05a;
 	--color-hp-low: #d0533f;
 	--color-se: #6fb3e0;
+	--color-violet-soft: #d7a8ff;
 
 	/*
 	   Rank palette: 1 = silver … 5 = gold-orange. It drives **two** things with the same five steps:
@@ -43,13 +44,59 @@
 	--radius-panel: 12px;
 	--radius-dialog: 16px;
 
+	/*
+	   ── shadcn/ui semantic tokens ────────────────────────────────────────────
+	   shadcn components are written against *roles* (`bg-card`, `text-primary-foreground`,
+	   `border-border`, `ring-ring`), not against this game's palette. These aliases point every role at
+	   the palette above, so a component copied from shadcn/ui works untouched and still looks like
+	   this game — change `--color-gold` and every primary button follows.
+
+	   ⚠️ `--color-muted` is taken (it is the **muted text** colour, used as `text-muted` everywhere),
+	   so there is no `bg-muted`: a muted surface is `bg-ink-700`. Muted **text** is
+	   `--color-muted-foreground`, which maps onto it.
+	*/
+	--color-background: var(--color-ink-900);
+	--color-foreground: var(--color-paper);
+	--color-card: var(--color-ink-800);
+	--color-card-foreground: var(--color-paper);
+	--color-popover: var(--color-ink-700);
+	--color-popover-foreground: var(--color-paper);
+	--color-primary: var(--color-gold);
+	--color-primary-foreground: var(--color-ink-900);
+	--color-secondary: var(--color-ink-700);
+	--color-secondary-foreground: var(--color-paper);
+	--color-muted-foreground: var(--color-muted);
+	--color-accent: var(--color-ink-600);
+	--color-accent-foreground: var(--color-paper);
+	--color-destructive: var(--color-danger);
+	--color-destructive-foreground: var(--color-paper);
+	--color-border: var(--color-line);
+	--color-input: var(--color-line);
+	--color-ring: var(--color-gold-soft);
+
+	/* shadcn's radius scale, expressed with this game's two radii. */
+	--radius-sm: 6px;
+	--radius-md: 8px;
+	--radius-lg: var(--radius-panel);
+	--radius-xl: var(--radius-dialog);
+
 	--shadow-panel: 0 12px 30px rgb(0 0 0 / 45%);
 
-	--font-sans: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+	--font-sans: 'Roboto', 'Arial', system-ui, -apple-system, sans-serif;
 
 	--animate-shake: shake 0.25s ease;
 	--animate-float-up: floatUp 0.9s ease forwards;
-	--animate-slide-in: slideIn 0.2s ease;
+	--animate-combat-floater: combatFloater var(--floater-life, 0.7s) ease-out var(--floater-delay, 0s)
+		forwards;
+	--animate-impact-flash: impactFlash 0.28s ease-out forwards;
+	/* A critical hit's number punches in, then settles. */
+	--animate-critical-pop: criticalPop 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+	/*
+	 * A support gem's haste buff: meteor streaks climbing the weapon tile while the boost lasts.
+	 * `linear` on purpose — light does not ease in and out of a tile; the streak is already in motion
+	 * when it enters and still moving when it leaves.
+	 */
+	--animate-boost-streak: boostStreak 1.1s linear infinite;
 
 	@keyframes shake {
 		0% {
@@ -66,6 +113,31 @@
 		}
 	}
 
+	/*
+	 * Floating combat number: fade in, drift up, fade out. A **CSS** animation on purpose — a
+	 * `motion` component restarts its keyframes on every re-render, so each new hit made every number
+	 * already on screen jump again. A CSS animation runs once per mounted element.
+	 * `--floater-life` / `--floater-delay` are set per number.
+	 */
+	@keyframes combatFloater {
+		0% {
+			opacity: 0;
+			transform: translate(0, 4px) scale(0.65);
+		}
+		12% {
+			opacity: 1;
+			transform: translate(calc(var(--floater-drift, 0px) * 0.25), -4px) scale(1.12);
+		}
+		70% {
+			opacity: 1;
+			transform: translate(calc(var(--floater-drift, 0px) * 0.75), -16px) scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: translate(var(--floater-drift, 0px), -24px) scale(0.92);
+		}
+	}
+
 	@keyframes floatUp {
 		from {
 			opacity: 1;
@@ -77,14 +149,51 @@
 		}
 	}
 
-	@keyframes slideIn {
+	@keyframes impactFlash {
 		from {
-			opacity: 0;
-			transform: translateX(16px);
+			opacity: 0.9;
+			transform: scale(0.45);
 		}
 		to {
+			opacity: 0;
+			transform: scale(1.2);
+		}
+	}
+
+	/*
+	 * Haste streak: one meteor climbing the tile. It starts **below** the tile and stops **above** it
+	 * (`--streak-rise` = tile height + the streak's own length), so the movement is a pure straight
+	 * slide: nothing fades in at the bottom edge, nothing stalls at the top, and the loop restart happens
+	 * where the player cannot see it. Opacity only softens the first and last 6 % of the off-screen part.
+	 *
+	 * ⚠️ Mounted with a **negative** delay per streak, so the first frame already shows a full stream.
+	 */
+	@keyframes boostStreak {
+		0% {
+			opacity: 0;
+			transform: translateY(0);
+		}
+		6% {
 			opacity: 1;
-			transform: translateX(0);
+		}
+		94% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: translateY(calc(-1 * var(--streak-rise, 300px)));
+		}
+	}
+
+	@keyframes criticalPop {
+		0% {
+			transform: scale(1.55) rotate(-3deg);
+		}
+		55% {
+			transform: scale(0.96) rotate(1deg);
+		}
+		100% {
+			transform: scale(1) rotate(0deg);
 		}
 	}
 }
@@ -131,6 +240,54 @@
 		height: 1em;
 		flex-shrink: 0;
 	}
+
+	/*
+	 * 🔴 **A clickable thing shows the hand.** Tailwind v4's preflight leaves a `button` at the browser
+	 * default (`cursor: default`), so without this rule every control in the game looks dead — the
+	 * pointer is the only affordance a flat, gold-on-brown button has.
+	 *
+	 * One rule for the whole app, ❌ not a `cursor-pointer` class sprinkled on each call site (it was,
+	 * and half the buttons were missed). Everything is wrapped in `:where()` so the whole block has
+	 * **zero specificity**: the `not-allowed` rule below always wins, and so does any `cursor-*` utility
+	 * at a call site.
+	 *
+	 * A `label` counts only when it **wraps** something clickable (checkbox, radio, file picker, a
+	 * select); a label on a text box keeps the arrow, because the box itself shows the text caret.
+	 */
+	:where(
+		button:not(:disabled),
+		select:not(:disabled),
+		summary,
+		label:has(input[type='checkbox']),
+		label:has(input[type='radio']),
+		label:has(input[type='file']),
+		label:has(select),
+		input[type='checkbox']:not(:disabled),
+		input[type='radio']:not(:disabled),
+		input[type='range']:not(:disabled),
+		input[type='file']:not(:disabled),
+		[role='button'],
+		[role='menuitem'],
+		[role='menuitemcheckbox'],
+		[role='option'],
+		[role='tab'],
+		[role='switch'],
+		[role='checkbox'],
+		[aria-pressed]
+	) {
+		cursor: pointer;
+	}
+
+	/*
+	 * A control that cannot be used says so with the other hand: `not-allowed` (`🚫`), matching the
+	 * dimmed look the components already give a disabled button.
+	 */
+	button:disabled,
+	select:disabled,
+	[aria-disabled='true'],
+	[data-disabled='true'] {
+		cursor: not-allowed;
+	}
 }
 
 /* Diagonal stripe background shared by locked cells and the waiting tray. */
@@ -159,14 +316,112 @@
 }
 
 /**
- * Item cell background: only the highlight at the top.
+ * Item plate — a **deep quality-coloured slab** with a soft glow behind the picture and a smoke
+ * pattern, not a flat tint.
  *
- * ⚠️ Deliberately has **no opaque base colour**: the tile colour comes from the item's quality
- * (`ITEM_QUALITY_BG` → `bg-quality-*`). Keeping an opaque `linear-gradient(ink-700, ink-700)`
- * here would paint over that colour and every tile would look the same.
+ * All four layers are driven by the `--plate-*` variables set per quality below, so one block paints
+ * every tile from the 52 px bag cell to the 90 px arena cell. The base colour is opaque on purpose:
+ * the plate must read as a solid object, and the picture sits on top of it.
  */
 @utility surface-item {
-	background-image: radial-gradient(circle at 50% 20%, rgb(255 255 255 / 10%), transparent 60%);
+	background-color: #100d0b;
+	background-image:
+		/* lit lip along the top edge — what makes the plate look like a raised slab */
+		linear-gradient(180deg, rgb(255 255 255 / 14%) 0%, rgb(255 255 255 / 0%) 30%),
+		radial-gradient(circle at 22% 16%, rgb(255 255 255 / 12%), transparent 46%),
+		radial-gradient(ellipse at 50% 36%, var(--plate-glow), transparent 68%),
+		/* cloud engraving: a light copy sits just under a dark one, which reads as a carved groove */
+		url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20240%20240%27%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-opacity%3D%270.13%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M%2058%20188%20A%2024.0%2024.0%200%201%201%2071.2%20174.8%20A%2013.2%2013.2%200%201%200%2075.4%20191.6%20M%2078%20200%20C%20108%20216%20150%20214%20176%20200%27%2F%3E%3Cpath%20d%3D%27M%20190%2052%20A%2019.0%2019.0%200%201%200%20179.6%2041.5%20A%2010.4%2010.4%200%201%201%20176.2%2054.9%20M%20172%2044%20C%20146%2030%20108%2034%2084%2048%27%2F%3E%3Cpath%20d%3D%27M%20-8%20104%20C%2026%2086%2056%20122%2094%20110%20C%20132%2098%20158%2070%20198%2074%20C%20220%2076%20238%2088%20250%20100%27%2F%3E%3Cpath%20d%3D%27M%2096%20236%20C%20122%20222%20152%20226%20176%20240%27%2F%3E%3Cpath%20d%3D%27M%20148%20160%20C%20170%20150%20192%20156%20206%20168%27%2F%3E%3Cpath%20d%3D%27M%208%2064%20C%2022%2050%2040%2050%2052%2062%27%2F%3E%3C%2Fsvg%3E"),
+		url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20240%20240%27%20fill%3D%27none%27%20stroke%3D%27%23000000%27%20stroke-opacity%3D%270.32%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M%2058%20188%20A%2024.0%2024.0%200%201%201%2071.2%20174.8%20A%2013.2%2013.2%200%201%200%2075.4%20191.6%20M%2078%20200%20C%20108%20216%20150%20214%20176%20200%27%2F%3E%3Cpath%20d%3D%27M%20190%2052%20A%2019.0%2019.0%200%201%200%20179.6%2041.5%20A%2010.4%2010.4%200%201%201%20176.2%2054.9%20M%20172%2044%20C%20146%2030%20108%2034%2084%2048%27%2F%3E%3Cpath%20d%3D%27M%20-8%20104%20C%2026%2086%2056%20122%2094%20110%20C%20132%2098%20158%2070%20198%2074%20C%20220%2076%20238%2088%20250%20100%27%2F%3E%3Cpath%20d%3D%27M%2096%20236%20C%20122%20222%20152%20226%20176%20240%27%2F%3E%3Cpath%20d%3D%27M%20148%20160%20C%20170%20150%20192%20156%20206%20168%27%2F%3E%3Cpath%20d%3D%27M%208%2064%20C%2022%2050%2040%2050%2052%2062%27%2F%3E%3C%2Fsvg%3E"),
+		linear-gradient(168deg, var(--plate-top) 0%, var(--plate-mid) 46%, var(--plate-bottom) 100%);
+	background-position: center, center, center, 50% 51%, center, center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 18%),
+		inset 0 -14px 22px rgb(0 0 0 / 45%),
+		inset 0 0 26px rgb(0 0 0 / 34%),
+		inset 0 0 0 1px rgb(0 0 0 / 30%),
+		0 0 0 1px rgb(10 8 6 / 80%),
+		0 2px 4px rgb(0 0 0 / 60%);
+}
+
+/* ── Battle: weapon charge ─────────────────────────────────────────────────
+   The read-out is one rising hairline with an **air stream** under it: a short, soft band of light
+   that hugs the line and drifts sideways, plus a wash that fills the space the charge has covered.
+   The wash is strong enough that the covered part of the tile reads at a glance, but it still lets
+   the picture show through — it tints, it does not hide.
+   ------------------------------------------------------------------------ */
+.charge-fill {
+	background-image: linear-gradient(
+		to top,
+		rgb(120 185 235 / 14%),
+		rgb(152 210 250 / 32%) 68%,
+		rgb(212 240 255 / 55%)
+	);
+	box-shadow:
+		inset 0 0 20px rgb(130 195 245 / 40%),
+		inset 0 -10px 16px rgb(120 185 235 / 22%);
+}
+
+/* Inner hairline: the double frame in the reference tiles (dark rim outside, thin light line in). */
+.surface-item::before {
+	content: '';
+	position: absolute;
+	inset: 1px;
+	border-radius: inherit;
+	/* Warm gold hairline for every quality, like the framed cells in the reference art. */
+	border: 1px solid rgb(224 180 104 / 45%);
+	box-shadow:
+		inset 0 0 0 1px rgb(0 0 0 / 42%),
+		inset 0 0 0 3px rgb(224 180 104 / 16%),
+		inset 0 1px 0 rgb(255 255 255 / 12%);
+	pointer-events: none;
+}
+
+/*
+ * Quality palette — 1 silver … 5 gold-orange, the same five steps as `--color-rank-*`.
+ * The plate is a gradient (top lit, bottom sunk) instead of one flat colour, which is what gives the
+ * tile its depth; `--plate-frame` is the inner hairline.
+ */
+[data-item-quality='1'] {
+	--plate-top: #5c6b7a;
+	--plate-mid: #2b333d;
+	--plate-bottom: #151a20;
+	--plate-glow: rgb(198 220 246 / 34%);
+	--plate-frame: rgb(198 216 238 / 28%);
+}
+
+[data-item-quality='2'] {
+	--plate-top: #3f6b4c;
+	--plate-mid: #22372a;
+	--plate-bottom: #121b16;
+	--plate-glow: rgb(130 226 158 / 32%);
+	--plate-frame: rgb(152 226 172 / 26%);
+}
+
+[data-item-quality='3'] {
+	--plate-top: #37567f;
+	--plate-mid: #22314a;
+	--plate-bottom: #101722;
+	--plate-glow: rgb(132 190 255 / 36%);
+	--plate-frame: rgb(156 202 255 / 28%);
+}
+
+[data-item-quality='4'] {
+	--plate-top: #4b3a72;
+	--plate-mid: #2d2344;
+	--plate-bottom: #16111f;
+	--plate-glow: rgb(198 148 255 / 38%);
+	--plate-frame: rgb(205 166 255 / 30%);
+}
+
+[data-item-quality='5'] {
+	--plate-top: #7a5320;
+	--plate-mid: #4a2f12;
+	--plate-bottom: #1f1206;
+	--plate-glow: rgb(255 200 104 / 40%);
+	--plate-frame: rgb(255 208 126 / 36%);
 }
 
 /** Pet cell background. */
@@ -174,17 +429,136 @@
 	background-image: radial-gradient(circle at 35% 25%, rgb(255 255 255 / 16%), transparent 60%), linear-gradient(var(--color-ink-600), var(--color-ink-600));
 }
 
-/** Pet stage in the preparation room: a golden light streak from the top. */
-@utility surface-stage {
-	background-image:
-		radial-gradient(ellipse at 50% 30%, rgb(217 162 39 / 14%), transparent 60%),
-		linear-gradient(180deg, rgb(255 255 255 / 4%), transparent),
-		linear-gradient(var(--color-ink-800), var(--color-ink-800));
-}
-
 /** Arena background: faint diagonal stripes over a dark base. */
 @utility surface-board {
 	background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 2%) 0 8px, transparent 8px 16px), linear-gradient(var(--color-ink-900), var(--color-ink-900));
+}
+
+/** Original navy-and-brass portrait card used for the enlarged battle avatars. */
+.battle-cutie-card {
+	position: relative;
+	display: flex;
+	width: 264px;
+	min-height: 492px;
+	flex: 0 0 264px;
+	flex-direction: column;
+	padding: 17px 15px 24px;
+	border: 3px solid transparent;
+	border-radius: 20px 20px 34px 34px;
+	background:
+		linear-gradient(145deg, #f6df9b, #9b702a 23%, #f1d37e 42%, #76501d 67%, #eacb75) border-box,
+		linear-gradient(160deg, #102a4c, #08182e 56%, #17375c) padding-box;
+	box-shadow:
+		0 14px 28px rgb(0 0 0 / 42%),
+		inset 0 0 0 2px rgb(255 245 201 / 48%),
+		inset 0 0 22px rgb(3 10 24 / 75%);
+}
+
+.battle-cutie-card-enemy {
+	background:
+		linear-gradient(145deg, #f2d291, #8c4a37 24%, #e7bd78 43%, #69302a 68%, #d9a06a) border-box,
+		linear-gradient(160deg, #40253b, #1c172e 56%, #4a2638) padding-box;
+}
+
+.battle-cutie-inlay {
+	position: absolute;
+	z-index: 0;
+	inset: 7px;
+	border: 1px solid rgb(245 216 143 / 65%);
+	border-radius: 13px 13px 27px 27px;
+	pointer-events: none;
+}
+
+.battle-cutie-portrait {
+	position: relative;
+	z-index: 1;
+	min-height: 445px;
+	flex: 1 0 445px;
+	overflow: hidden;
+	border: 2px solid #d5b15f;
+	border-radius: 11px 11px 23px 23px;
+	background:
+		radial-gradient(ellipse at 50% 34%, rgb(154 112 59 / 18%), transparent 62%),
+		linear-gradient(155deg, #291d1b, #493326 54%, #171c2c);
+	box-shadow: inset 0 0 0 3px rgb(7 19 37 / 85%), inset 0 -56px 38px rgb(8 18 34 / 78%);
+}
+
+.battle-cutie-nameplate {
+	position: absolute;
+	z-index: 3;
+	top: 4px;
+	left: 50%;
+	display: flex;
+	width: calc(100% - 34px);
+	min-height: 48px;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	padding: 7px 17px;
+	transform: translateX(-50%);
+	border: 2px solid #efcf7b;
+	border-radius: 13px 13px 17px 17px;
+	overflow: hidden;
+	background:
+		linear-gradient(150deg, rgb(255 255 255 / 10%), transparent 45%),
+		linear-gradient(115deg, #19385f, #0b1d38 58%, #25466b);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 65%), inset 0 0 0 2px rgb(5 16 32 / 75%);
+	color: #fff0c2;
+	font-size: 18.75px;
+	font-weight: 700;
+	line-height: 1.1;
+	text-align: center;
+	text-shadow: 0 1px 3px #07111f;
+	white-space: nowrap;
+}
+
+.battle-cutie-character-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.battle-cutie-level {
+	flex: 0 0 auto;
+	color: #f5d98f;
+	font-size: 15px;
+	font-weight: 500;
+}
+
+.battle-cutie-seals {
+	position: absolute;
+	z-index: 2;
+	right: 0;
+	bottom: 28px;
+	left: 0;
+	display: flex;
+	justify-content: center;
+	gap: 18px;
+}
+
+.battle-cutie-seal {
+	display: grid;
+	width: 58px;
+	height: 58px;
+	place-items: center;
+	overflow: hidden;
+	border: 2px solid #f0d17e;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 35% 25%, rgb(255 255 255 / 14%), transparent 50%),
+		linear-gradient(145deg, #182d47, #0a172a);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 58%), inset 0 0 0 3px rgb(7 18 33 / 75%);
+	color: #ffedbd;
+	font-size: 26px;
+}
+
+/** Empty slot reserved for a Cutie skill that will be added later. */
+.battle-cutie-seal-empty {
+	border-style: dashed;
+	border-color: rgb(240 209 126 / 45%);
+	background: rgb(8 18 34 / 55%);
+	box-shadow: inset 0 0 0 3px rgb(7 18 33 / 60%);
 }
 
 /**
@@ -233,4 +607,3 @@
 @utility btn-surface-gold {
 	background-image: linear-gradient(180deg, var(--color-gold-soft), var(--color-gold));
 }
-

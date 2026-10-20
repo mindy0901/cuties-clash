@@ -1,28 +1,56 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { isMergeable, itemCells, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
+import { isMergeable, itemCells, occupiedSides, occupantAt, takenCells, templateFootprint, toCell } from '../game/bag'
+import { getTemplate, isWeaponClass } from '../game/items'
+import { buffDirectionMask } from '../game/kits'
 import type { ItemInstance } from '../game/types'
 import type { HeldItem } from './useHeldItem'
+import { DirectionOverlay } from './DirectionOverlay'
 import { cn } from './ui'
 
 /** Threshold (px) above which a press counts as a drag rather than a click. */
 const DRAG_THRESHOLD = 4
-
+const BOARD_GAP = 4
+const BOARD_PADDING = 6
+const BOARD_BORDER = 1
 /**
- * Width of one column, in px.
+ * Width of one column, in px. 90 px — the same cell the arena uses, so an item looks the same size
+ * everywhere.
  *
  * ⚠️ Fixed, ❌ do not use `1fr`: the two boards sit in panel columns of different widths, so
  * dividing by panel width would make the inventory cells bigger/smaller than the loadout cells.
  * With a fixed size both boards always have cells **of the same size**, as required by
  * "inventory shares the grid with loadout".
  */
-export const CELL_SIZE = 60
+export const CELL_SIZE = 90
 
+/**
+ * Pixel height of a board that has `rows` rows — cells, the gaps between them, the board's own
+ * padding and its 1 px dashed border.
+ *
+ * ⚠️ Used to size a **scroll viewport** so it shows a whole number of rows (the storage shows its
+ * default `STORAGE_MIN_ROWS` = 8 rows without a scrollbar): the height is a measurement derived from
+ * `CELL_SIZE`, ❌ never a hand-picked `max-h-[600px]` that cuts the last row in half. `BOARD_BORDER`
+ * is the `border` class on the board itself — leaving it out makes the viewport 2 px short and a
+ * scrollbar appears on a board that fits.
+ */
+export function boardHeight(rows: number, cellSize = CELL_SIZE) {
+	const scale = cellSize / CELL_SIZE
+	return (
+		rows * cellSize +
+		(rows - 1) * BOARD_GAP * scale +
+		2 * BOARD_PADDING * scale +
+		2 * BOARD_BORDER
+	)
+}
 
+export interface PointerPosition {
+	x: number
+	y: number
+}
 
 export interface ItemBoxProps {
 	/** Attached to the item's outer element. */
 	boxProps: {
-		key: string
 		'data-item-box': string
 		className: string
 		style: CSSProperties
@@ -49,7 +77,7 @@ export interface GridBoardProps {
 	width: number
 	/** Number of rows. */
 	rows: number
-	/** Cell size (px). Both boards share `CELL_SIZE`, so cells always match. */
+	/** Fixed cell size (px); loadout and inventory use `CELL_SIZE` by default. */
 	cellSize?: number
 	/** Number of usable cells; cells past this limit are dimmed as if locked. */
 	usableCells?: number
@@ -61,7 +89,7 @@ export interface GridBoardProps {
 	renderItem: (item: ItemInstance, box: ItemBoxProps) => ReactNode
 	onItemClick?: (item: ItemInstance) => void
 	onDragStart?: (item: ItemInstance) => void
-	onDragEnd?: (moved: boolean) => void
+	onDragEnd?: (moved: boolean, releasePosition: PointerPosition | null) => void
 	onHoverSlot?: (slot: number | null) => void
 	/** Reports the **anchor cell the hint is drawn from** (differs from the raw cell when the hint
 	 * centers on the cursor) together with the blocked state. */
@@ -107,6 +135,9 @@ export function GridBoard({
 }: GridBoardProps) {
 	const totalSlots = width * rows
 	const usable = usableCells ?? totalSlots
+	const boardScale = cellSize / CELL_SIZE
+	const cellGap = BOARD_GAP * boardScale
+	const boardPadding = BOARD_PADDING * boardScale
 
 	const boardRef = useRef<HTMLDivElement | null>(null)
 	const [hoverSlot, setHoverSlot] = useState<number | null>(null)
@@ -143,10 +174,19 @@ export function GridBoard({
 
 		const rect = board.getBoundingClientRect()
 		if (rect.width <= 0 || rect.height <= 0) return
-		if (event.clientX < rect.left || event.clientX > rect.right) return
-		if (event.clientY < rect.top || event.clientY > rect.bottom) return
-		const col = Math.min(width - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * width)))
-		const row = Math.min(rows - 1, Math.max(0, Math.floor(((event.clientY - rect.top) / rect.height) * rows)))
+		if (event.clientX < rect.left || event.clientX > rect.right) {
+			setHover(null)
+			return
+		}
+		if (event.clientY < rect.top || event.clientY > rect.bottom) {
+			setHover(null)
+			return
+		}
+		// Map against the fixed cell pitch; the outer rect also includes borders, padding and gaps.
+		const x = event.clientX - rect.left - board.clientLeft - boardPadding
+		const y = event.clientY - rect.top - board.clientTop - boardPadding
+		const col = Math.min(width - 1, Math.max(0, Math.round((x - cellSize / 2) / (cellSize + cellGap))))
+		const row = Math.min(rows - 1, Math.max(0, Math.round((y - cellSize / 2) / (cellSize + cellGap))))
 		setHover(row * width + col)
 	}
 
@@ -189,7 +229,7 @@ export function GridBoard({
 
 			const anchor = drawRow * width + drawCol
 			// Drop area: does the block fit entirely inside the **usable** part of the grid (overflows
-			// the board, or overlaps a locked cell of the pet's level)?
+			// the board, or overlaps a locked cell of the cutie's level)?
 			const outOfArea = cells.length < size.w * size.h || cells.some((cell) => cell.slot >= usable)
 
 			// The cell **right under the cursor**:
@@ -215,9 +255,24 @@ export function GridBoard({
 				(cell) => taken.has(cell.slot) && !cursorCells.includes(cell.slot),
 			)
 
+			/**
+			 * The held item's **direction overlay**, read at the cell it is hovering over: a support gem
+			 * shows its four sides, and each side whose neighbour there is a weapon turns gold. This is
+			 * the whole point of the preview for those items — "will my buff reach that blade?".
+			 */
+			const directionMask = held ? buffDirectionMask(getTemplate(held.templateId).kits, held.star) : 0
+			const directionSides =
+				directionMask === 0
+					? { up: false, down: false, left: false, right: false }
+					: occupiedSides(items, cells.map((cell) => cell.slot), held?.uid, width, rows * width, (templateId) =>
+							isWeaponClass(getTemplate(templateId).cls),
+						)
+
 			return {
 				anchor,
 				cells,
+				directionMask,
+				directionSides,
 				blocked: mergeable ? false : outOfArea || clash || (!!cursorItem && !swapHere),
 			}
 		},
@@ -255,10 +310,13 @@ export function GridBoard({
 
 	useEffect(() => {
 		if (!onDragEnd) return
-		const finish = () => {
+		const finish = (event: PointerEvent) => {
 			const moved = pressRef.current?.moved ?? false
 			pressRef.current = null
-			onDragEnd(moved)
+			onDragEnd(
+				moved,
+				event.type === 'pointerup' ? { x: event.clientX, y: event.clientY } : null,
+			)
 		}
 		document.addEventListener('pointerup', finish)
 		document.addEventListener('pointercancel', finish)
@@ -268,6 +326,7 @@ export function GridBoard({
 		}
 	}, [onDragEnd])
 
+	// Keep the board at intrinsic height inside a scrolling flex parent so its surface covers every row.
 	return (
 		<div
 			ref={boardRef}
@@ -310,13 +369,13 @@ export function GridBoard({
 			 * drag is happening at all.
 			 */
 			className={cn(
-				'surface-board relative rounded-panel border border-dashed border-line select-none',
+				'surface-board relative shrink-0 self-start rounded-panel border border-dashed border-line select-none',
 				className,
 			)}
 			style={
 				{
 					'--board-cols': `${width}`,
-					// Cells are **fixed `CELL_SIZE` px squares**, on **both boards**.
+					// Cells use a fixed pixel size; default loadout and inventory boards share `CELL_SIZE`.
 					//
 					// ⚠️ ❌ Do not use `1fr`/`aspect-ratio`/`calc(100% / n)`: every way of dividing by
 					// panel width leaves the two boards with **different** cell sizes (measured: 35px vs
@@ -329,11 +388,40 @@ export function GridBoard({
 					// outside the frame).
 					width: 'max-content',
 					display: 'grid',
-					gap: 4,
-					padding: 6,
+					gap: cellGap,
+					padding: boardPadding,
 				} as CSSProperties
 			}
 		>
+			{/*
+			 * Direction overlay of the **drag preview**: drawn over the preview block, so a support gem
+			 * shows, before it lands, which sides already have a weapon on them.
+			 */}
+			{preview && preview.directionMask !== 0 ? (
+				<div
+					data-preview-directions
+					className="pointer-events-none relative z-20"
+					style={{
+						gridColumn: `${Math.min(...preview.cells.map((c) => c.col)) + 1} / span ${
+							Math.max(...preview.cells.map((c) => c.col)) -
+							Math.min(...preview.cells.map((c) => c.col)) +
+							1
+						}`,
+						gridRow: `${Math.min(...preview.cells.map((c) => c.row)) + 1} / span ${
+							Math.max(...preview.cells.map((c) => c.row)) -
+							Math.min(...preview.cells.map((c) => c.row)) +
+							1
+						}`,
+					}}
+				>
+					<DirectionOverlay
+						mask={preview.directionMask}
+						sides={preview.directionSides}
+						cellSize={cellSize}
+					/>
+				</div>
+			) : null}
+
 			{/* Background cells: positioned **explicitly** from `slot`.
 			    ⚠️ Required: letting CSS Grid auto-place them would order them by **DOM order**
 			    instead of `slot`, so a long item in the middle would push the following cells to
@@ -404,9 +492,8 @@ export function GridBoard({
 						row: `${row + 1} / span ${size.h}`,
 					},
 					boxProps: {
-						key: item.uid,
 						'data-item-box': item.uid,
-						className: 'group/slot relative',
+						className: 'relative',
 						style: {
 							opacity: held?.uid === item.uid ? 0.45 : 1,
 						},

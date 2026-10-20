@@ -19,7 +19,13 @@ export function readCachedContent(): Partial<ContentOverrides> | null {
 		const raw = localStorage.getItem(STORAGE_KEY)
 		if (!raw) return null
 		const parsed: unknown = JSON.parse(raw)
-		return typeof parsed === 'object' && parsed !== null ? (parsed as Partial<ContentOverrides>) : null
+		if (typeof parsed !== 'object' || parsed === null) return null
+		const cache = parsed as Partial<ContentOverrides> & { pets?: ContentOverrides['cuties'] }
+		// ⚠️ The key was `pets` before the domain word became **cutie**. A browser that cached the old
+		// shape would lose every Cutie override for the first frame (the fetch fixes it a moment later,
+		// which still means the player sees the old name flash), so the old key is read as well.
+		if (!cache.cuties && cache.pets) cache.cuties = cache.pets
+		return cache
 	} catch {
 		return null
 	}

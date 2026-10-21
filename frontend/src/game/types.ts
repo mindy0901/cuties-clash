@@ -69,7 +69,18 @@ export type StatMods = Partial<Record<StatKey, number>>
 export type StatSheet = Record<StatKey, number>
 
 /** Timed combat states (dots, hots and control effects). */
-export type StatusKey = 'slow' | 'freeze' | 'poison' | 'burn' | 'regen' | 'cdr' | 'brittle'
+export type StatusKey =
+	| 'slow'
+	| 'freeze'
+	| 'poison'
+	| 'burn'
+	| 'regen'
+	| 'cdr'
+	| 'brittle'
+	/** Water: the owner deals less damage while it lasts (`value` = percent lost). */
+	| 'weaken'
+	/** Fire: the owner receives less healing and armour while it lasts (`value` = percent lost). */
+	| 'wound'
 
 export interface ActiveStatus {
 	key: StatusKey
@@ -117,6 +128,11 @@ export type CombatEffect =
 		| { kind: 'cleanse'; statuses: StatusKey[]; scope: AuraTarget }
 		/** Freezes **one** enemy weapon at random; a frozen weapon keeps its charge and does nothing. */
 		| { kind: 'freezeWeapon'; duration: number }
+		/**
+		 * **Shock / stun**: every enemy weapon stops charging for `duration` ms (a freeze on the whole side,
+		 * not just one random weapon). Used by the thunder kits; the arena shows it as the usual ❄/⚡ badge.
+		 */
+		| { kind: 'stun'; duration: number }
 		/** Slows **one** enemy weapon at random: its charge runs `value`% slower. */
 		| { kind: 'slowWeapon'; duration: number; value: number }
 
@@ -158,6 +174,14 @@ export type OnHitKitId =
 	| 'lifesteal-on-hit'
 	| 'shield-on-hit'
 	| 'sword-energy-on-hit'
+	/** Ice: the target takes more damage for a few seconds. */
+	| 'brittle-on-hit'
+	/** Fire: the target's heals and shields are cut while it lasts. */
+	| 'wound-on-hit'
+	/** Water: the target's own hits land softer for a few seconds. */
+	| 'weaken-on-hit'
+	/** Thunder: every enemy weapon stops charging for a moment. */
+	| 'shock-on-hit'
 
 export type ItemKitId = AttackKitId | ChargeKitId | OnHitKitId | OptionKitId
 
@@ -215,6 +239,15 @@ export type OptionKitId =
 	 * refills the bar faster, a negative one slows it down.
 	 */
 	| 'sword-energy'
+	/**
+	 * **Water**: being hit has a chance to raise a shield (a share of max HP). The "giáp ảo" — armour that
+	 * only exists once something actually lands.
+	 */
+	| 'shield-when-hit'
+	/** **Wood**: being hit has a chance to strip every bad status off the owner. */
+	| 'cleanse'
+	/** **Thunder**: a critical hit refunds Sword Energy. */
+	| 'overcharge'
 
 /** One adjacency aura rank: what it needs next to it and what it grants. */
 export interface AuraSpec {
@@ -446,7 +479,18 @@ export interface BattleEvent {
 	text: string
 	amount?: number
 	icon?: string
+	/**
+	 * The swing that produced the event (`<item uid>#<kitId>`, or `skill` for the Cutie's own kits). What
+	 * the arena draws as a slash / comet, and which weapon's charge is paused by a freeze.
+	 */
 	sourceUid?: string
+	/**
+	 * The **item whose kit caused it**, when that is not the swing itself: a support gem's retaliate freeze,
+	 * a gem's shield or heal. It does not change any damage or timing — it exists so the arena can light up
+	 * the gem that fired (`data-jade-trigger`), which a `sourceUid` pointing at the *victim's* weapon cannot
+	 * express.
+	 */
+	triggerUid?: string
 	player: SideState
 	enemy: SideState
 }

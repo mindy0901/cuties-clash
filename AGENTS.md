@@ -3,10 +3,11 @@
 > Instructions for an AI agent working in this repo. Read before changing anything.
 >
 > ⚠️ This file is **deliberately very short**: it keeps only the rules whose violation causes **loss of
-> player data** or **a blank page**. Every other convention lives in `docs/` — **look it up in §0 before
-> changing anything, do not guess.** Keep this file short when adding content: it is reloaded every session.
+> player data**, **a blank page**, or **a task that costs ten times what it should** (§7). Every other
+> convention lives in `docs/` — **look it up in §0 before changing anything, do not guess.** Keep this file
+> short when adding content: it is reloaded every session.
 >
-> Last updated: **2026-10-20**.
+> Last updated: **2026-10-21**.
 
 ## 0. What to read where — look it up before changing anything
 
@@ -20,6 +21,7 @@
 | Art: sources, licences, rules for adding images | [`docs/ASSETS.md`](docs/ASSETS.md) |
 | Google OAuth: getting keys, error table | [`docs/OAUTH-SETUP.md`](docs/OAUTH-SETUP.md) |
 | What changed in previous sessions, and why | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
+| **Porting to a Unity client** (decision, frozen contracts, staged plan) | [`docs/UNITY-PORT.md`](docs/UNITY-PORT.md) |
 | Things still worth doing | [`README.md`](README.md) |
 
 ## 1. The project
@@ -136,6 +138,13 @@ Query cache (`['save']`) — ❌ do not build a second store to hold it.
   loop** (it really happened, logs alternating 200/400).
 - `pullRun` writes the revision **BEFORE** writing localStorage + `rehydrate`, and only loads the server
   save when this machine has **no** progress yet (`hasLocalRun()`).
+- 🔴 **A run belongs to an account, and the tag says which.** `localStorage` is per **browser**, and
+  signing out keeps the run (anonymous play). So `martial-cutie-save-owner` (`u:<users.id>`, absent =
+  anonymous play) decides on sign-in: **same account or no tag** ⇒ the local run wins and is pushed;
+  **another account's run** ⇒ `pullRun()` loads that account's save (or `newRun()` when it has none) and
+  the foreign run is **never** pushed into it. ❌ Never push while `readyRef` is false, and ❌ never tag
+  the run before the pull succeeded. `writeLocalRun` must write `GAME_SAVE_VERSION`, never `1` — the
+  v1→v2 migration would empty Trang bị.
 - 🔴 **Do not open `http://localhost:5190` in a separate browser profile while `AUTO_LOGIN=true`.**
   A new profile has no save ⇒ the app auto-signs in to the user's account ⇒ loading the server save fails ⇒
   **pushes an empty run up, overwriting the real save**. This **has happened once**. Safe ways to verify:
@@ -170,8 +179,11 @@ where the behaviour needs it) — ❌ no shadcn CLI, no network at build time.
 🔴 **Colours and shapes come from `@theme` tokens** (`bg-card`, `text-muted-foreground`, `border-border`,
 `bg-ink-800`, `text-gold`, `rounded-panel`, `shadow-panel`, `animate-*`…) and everything else is a
 Tailwind utility. ❌ No `bg-[#7d2318]`-style arbitrary values, ❌ no inline `style` for colour, ❌ no new
-class name in a component — a shared pattern becomes an `@utility`/token in `styles/app.css`. A new look
-for an existing control is a new **variant** in its `cva`, ❌ never an inline override. Details:
+class name in a component — a shared pattern becomes an `@utility`/token in `styles/app.css`, and a rule
+**only** the arena uses (the portrait frame, the floating combat number) goes in `styles/battle.css`,
+imported from `app.css`. A new look for an existing control is a new **variant** in its `cva`, ❌ never an
+inline override. ⚠️ An animation that reads a per-element `--*` variable must be an `@utility`, ❌ not a
+`--animate-*` token (a token resolves it on `:root` and silently uses the fallback). Details:
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §8.
 
 **Every item grid uses `CELL_SIZE = 90`** (`components/GridBoard.tsx`) — Trang bị, Kho đồ, the arena, the
@@ -194,7 +206,8 @@ Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §8.
 **one `<footer>` landmark** (`data-action-bar`, a transparent `flex flex-col gap-2.5`) holding **two panels**,
 each with its own `rounded-panel border border-line bg-ink-800/80`: `data-action-bar-panel="modes"` (the four
 modes, one equal column each: `Đấu Trường · Phiêu Lưu · Phòng tập · Bảng Xếp Hạng`) and
-`data-action-bar-panel="journey"` (`Nhiệm Vụ · Bộ Sưu Tập · Bản đồ · Đấu Cutie · tiến trình`). The footer is a
+`data-action-bar-panel="journey"` (`Nhiệm Vụ · Bộ Sưu Tập` — ⚠️ the **fight button and the stage
+progress bar live inside the Adventure dialog**, not here). The footer is a
 **sibling of the main-content block** in the page column (`PrepScreen` returns panels + `<ActionBar/>`), ❌ never
 nested back inside the main-content `div.flex-1` — "main content" is the three panels, nothing else; and ❌ do
 not drop the `<footer>` wrapper either ("2 div này nằm chung 1 div footer"). ❌ Do not move a mode into a panel
@@ -271,3 +284,26 @@ then **delete them in the same session**. ⚠️ If you edit `.gitignore`: **nev
 happened** (16 test files + 1 route file vanished from git, and a fresh clone failed to build). Check with
 `git status --short --ignored`: only `.env`, `node_modules/` and `dist/` may show up. ❌ Do not commit a real
 `.env`; ⚠️ but `frontend/src/routeTree.gen.ts` **must** be committed — it is generated, yet `tsc` needs it.
+
+## 7. Cost — one task, one pass 🔴
+
+This file is reloaded every session, so a rule that must always be obeyed lives here. **A task must cost one
+read pass, one edit pass, one verification pass, one reply.** Most of the waste is re-reading and re-running,
+not the change itself:
+
+- **Read narrow.** `grep`/`rg` for the symbol → `view` with `view_range`. ❌ Never read a whole file "to be
+  safe", and ❌ never re-read a file or a `docs/` page you already saw — it is still in context.
+- **Look a thing up once.** §0's table answers most questions; do not re-open a doc to "make sure".
+- **Edit in place.** `edit` with the smallest unique `old_str`; batch the edits of one file in one response.
+  ❌ No `create` over an existing file, ❌ no rewriting a file to change three lines.
+- **Verify twice, not constantly.** Targeted file first
+  (`pnpm --filter frontend test src/components/__tests__/<name>.test.tsx`), then the full
+  `pnpm build && pnpm test && pnpm lint && pnpm test:be` **once** before the final reply. ❌ Not after every
+  edit; ❌ no full build/test run for a `docs/`-only change; ❌ never the same command twice.
+- **One browser check per visual change.** `runPlaywrightCode` + `innerText` answers "is it there?"; a
+  screenshot only when the question is *layout*. ❌ No screenshot loops and no clicking around to explore.
+- **Ask once.** Every related question in **one** `ask_user` form; ❌ no one question per paragraph.
+- **Stop when it is green.** No unrequested polish, no "while I'm here" cleanups, no second opinion on a
+  decision already made.
+- **Reply short.** What changed, in which file, and the check result. ❌ No replay of the diff, ❌ no recap of
+  the plan, ❌ no restating these rules.

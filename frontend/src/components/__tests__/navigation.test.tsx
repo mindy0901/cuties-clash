@@ -47,7 +47,9 @@ describe('navigation between the preparation room and the shop', () => {
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 		expect(screen.getByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 		expect(screen.getAllByText(/Mua Vật Phẩm/).length).toBeGreaterThan(0)
-		expect(screen.getByText(/Đấu Cutie/)).toBeTruthy()
+		// The fight button and the progress bar live in the Adventure dialog, not in the footer.
+		expect(screen.queryByText(/Đấu Cutie/)).toBeNull()
+		expect(screen.queryByText(/Tiến trình màn/)).toBeNull()
 		// The two not-yet-functional buttons are still shown to keep the layout.
 		expect(screen.getByText(/Nhiệm Vụ/)).toBeTruthy()
 		expect(screen.getByText(/Bộ Sưu Tập/)).toBeTruthy()
@@ -183,21 +185,23 @@ describe('navigation between the preparation room and the shop', () => {
 		}))
 		await renderApp('/shop')
 
-		expect(document.querySelector('[data-shop-offer-card]'), 'nothing hovered yet').toBeNull()
+		expect(document.querySelector('[data-item-hover-card]'), 'nothing hovered yet').toBeNull()
 
 		const cell = document.querySelector<HTMLElement>('[data-shop-offer]')!
 		// React derives `onPointerEnter` from `pointerover`, so that is the event to fire in jsdom.
 		fireEvent.pointerOver(cell)
 
 		// Hover intent: the card waits a beat, so a pointer crossing the board does not flash it.
-		expect(document.querySelector('[data-shop-offer-card]'), 'not on the first pixel of contact').toBeNull()
-		await waitFor(() => expect(document.querySelector('[data-shop-offer-card]')).toBeTruthy())
+		expect(document.querySelector('[data-item-hover-card]'), 'not on the first pixel of contact').toBeNull()
+		await waitFor(() => expect(document.querySelector('[data-item-hover-card]')).toBeTruthy())
 
-		const card = document.querySelector<HTMLElement>('[data-shop-offer-card]')!
+		const card = document.querySelector<HTMLElement>('[data-item-hover-card]')!
 		expect(card.getAttribute('role')).toBe('tooltip')
 		// The numbers come from the same `itemFacts()` the click-to-open dialog reads.
 		expect(card.textContent).toContain('Hồi chiêu')
-		expect(card.textContent).toContain('Sát thương mỗi đòn')
+		expect(card.textContent).toContain('Hệ số sát thương')
+		// Each kit is its own framed box under the header — never merged into one table.
+		expect(card.querySelector('[data-card-kit]')?.className).toContain('border')
 		// Text only: the tile is right there on the board, the card must not repeat its picture.
 		expect(card.querySelector('img')).toBeNull()
 		// The price and the merge hint live on the cell (price row + `↑N★` badge), not in the card.
@@ -205,7 +209,7 @@ describe('navigation between the preparation room and the shop', () => {
 		expect(card.textContent).not.toContain('Mua để gộp lên')
 
 		fireEvent.pointerOut(cell)
-		expect(document.querySelector('[data-shop-offer-card]'), 'leaving the cell closes it').toBeNull()
+		expect(document.querySelector('[data-item-hover-card]'), 'leaving the cell closes it').toBeNull()
 	})
 
 	it('a purchase drops the hover card of the offer it just bought', async () => {
@@ -219,14 +223,14 @@ describe('navigation between the preparation room and the shop', () => {
 
 		const cell = document.querySelector<HTMLElement>('[data-shop-offer]')!
 		fireEvent.pointerOver(cell)
-		await waitFor(() => expect(document.querySelector('[data-shop-offer-card]')).toBeTruthy())
+		await waitFor(() => expect(document.querySelector('[data-item-hover-card]')).toBeTruthy())
 
 		fireEvent.click(cell)
 
 		// ⚠️ The bought cell is **replaced** by the sold placeholder, so no pointer-leave ever reaches
 		// the old button: without an explicit hide the card stayed on screen over a gone offer.
 		expect(useGameStore.getState().run.shop[0]?.sold, 'the offer is bought').toBe(true)
-		expect(document.querySelector('[data-shop-offer-card]'), 'the card must not outlive the offer').toBeNull()
+		expect(document.querySelector('[data-item-hover-card]'), 'the card must not outlive the offer').toBeNull()
 	})
 
 	it('keeps every shop cell at one fixed height, whatever the offers are', async () => {

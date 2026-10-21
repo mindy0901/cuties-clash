@@ -4,6 +4,8 @@ import { HeldGhost } from './HeldGhost'
 import { InventoryPanel } from './InventoryPanel'
 import { CutieLoadoutPanel } from './CutieLoadoutPanel'
 import { CutiePanel } from './CutiePanel'
+import { ItemHoverCard } from './ItemHoverCard'
+import { useItemHoverCard } from './useItemHover'
 import { useHeldItem } from './useHeldItem'
 import { templateFootprint } from '../game/bag'
 import { loadoutCellLocked } from '../game/loadout'
@@ -56,6 +58,21 @@ export function PrepScreen() {
 	const sell = useGameStore((state) => state.sell)
 	const openItem = useUiStore((state) => state.openItem)
 
+	/**
+	 * Hover card (the same one the shop draws): the pointer stopping on a tile describes the item
+	 * without stealing the click, which still opens the details dialog.
+	 */
+	const { hovered, queue: queueCard, hide: hideCard } = useItemHoverCard()
+	const onItemHover = (item: ItemInstance, node: HTMLElement | null) => {
+		if (node) queueCard(item.templateId, item.star, node)
+		else hideCard()
+	}
+	/** A click opens the details dialog, which covers the board — the card has nothing left to point at. */
+	const openDetails = (item: ItemInstance) => {
+		hideCard()
+		openItem(item.uid)
+	}
+
 	const hoverSlotRef = useRef<number | null>(null)
 	/** Anchor cell the hint is drawn from **inside the inventory** (it is a grid, so a drop lands
 	 * on a cell rather than just "into the inventory"). */
@@ -98,6 +115,8 @@ export function PrepScreen() {
 	 */
 	const startDrag = (item: ItemInstance, from: 'inventory' | 'loadout') => {
 		dragRef.current = { uid: item.uid, from }
+		// A card left over from the tile the drag started on would follow the cursor round the board.
+		hideCard()
 		hold(item, from)
 	}
 
@@ -277,7 +296,8 @@ export function PrepScreen() {
 							inventoryRef.current = node
 						}}
 						held={heldInfo}
-						onItemClick={(item) => openItem(item.uid)}
+						onItemClick={openDetails}
+						onItemHover={onItemHover}
 						onDragStart={(item) => startDrag(item, 'inventory')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromInventory}
@@ -293,7 +313,8 @@ export function PrepScreen() {
 						isDraggingItem={held !== null}
 						onShopHover={setActiveShopTarget}
 						held={heldInfo}
-						onItemClick={(item) => openItem(item.uid)}
+						onItemClick={openDetails}
+						onItemHover={onItemHover}
 						onDragStart={(item) => startDrag(item, 'loadout')}
 						onDragEnd={onDragEnd}
 						onAnchorSlot={onAnchorSlotFromGrid}
@@ -309,6 +330,17 @@ export function PrepScreen() {
 			 * already pushes the footer down.
 			 */}
 			<ActionBar />
+
+			{/* The hover card of the bag item under the pointer — the same card the shop draws. */}
+			{hovered ? (
+				<ItemHoverCard
+					templateId={hovered.templateId}
+					star={hovered.star}
+					left={hovered.left}
+					top={hovered.top}
+					maxHeight={hovered.maxHeight}
+				/>
+			) : null}
 
 			{/* The item image following the cursor while an item is held. */}
 			{held && heldItem ? (

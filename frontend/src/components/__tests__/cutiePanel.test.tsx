@@ -47,8 +47,8 @@ describe('combined cutie profile', () => {
 		// No leading  any more: the panel reads out what the Cutie has.
 		expect(within(profile).getByText('5%')).toBeTruthy()
 		expect(within(profile).getByText('80%')).toBeTruthy()
-		// Sword Energy stays, bag slots do not, and a flat stat still prints its 0.
-		expect(within(profile).getByText('Sword Energy')).toBeTruthy()
+		// Energy stays, bag slots do not, and a flat stat still prints its 0.
+		expect(within(profile).getByText('Energy')).toBeTruthy()
 		expect(within(profile).queryByText('Bag slots')).toBeNull()
 		expect(within(profile).getAllByText('0%').length).toBeGreaterThan(0)
 		// Only the item stats that actually exist are listed: the unused bonus rows are gone.

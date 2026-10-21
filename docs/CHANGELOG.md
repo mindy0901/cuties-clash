@@ -8,6 +8,346 @@ Newest session first.
 
 ---
 
+## 2026-10-22 — Unity port: decision recorded, no code yet
+
+- **Asked**: "chuyển dự án sang Unity hoặc UE?" → answered **Unity**, with the web client kept.
+- **Why UE is out**: the owner requires the web channel to stay, and UE5 has no supported web export
+  (HTML5 dropped after 4.24). Unity also ports `game/` to C# nearly mechanically, while UE would force a
+  C++ rewrite or a Blueprint simulation that cannot keep the deterministic iteration order.
+- **Why not "just ship web to stores"**: that is **stage 0** of the plan (Capacitor + Tauri), not the
+  answer — it does not deliver native audio/VFX, controller/Steam integration, or headroom.
+- New [`docs/UNITY-PORT.md`](./UNITY-PORT.md) is the agent-facing contract: three clients / one backend,
+  the port inventory (`frontend/src/game/` → a **pure C# core with no `UnityEngine`**), frozen contracts
+  (`RunState` v3 + the v2→v3 `pet*` migration, the save-sync protocol including retry-once-on-conflict,
+  determinism constants + mulberry32/`Math.imul`/`makeUid` details, the content overlay accessors, and
+  the native OAuth change), the **golden-vector gate** that must pass before any UI work, C# rules
+  (`double` not `float`, `unchecked uint`, explicit ordering), a UI-parity checklist (90 px cells, three
+  equal panels, the shared footer), and 7 stages with exit criteria.
+- 🔴 **No code changed in this repo.** No Unity project exists yet; web and backend behaviour is
+  untouched (`pnpm build && pnpm test && pnpm lint && pnpm test:be` unaffected — docs only).
+
+## 2026-10-21 — One card per kit, every parameter, and a header that fits
+
+- **Asked**: "improve ui lại, header đang quá hẹp. show đầy đủ các kit và các thông số của kit" — the
+  258 px card cut the name (`Beginer's Sw…`) and merged each kit into a couple of summary rows.
+- `ItemHoverCard`: **320 px wide** (`HOVER_CARD_WIDTH` in `useItemHover.ts`, the one constant the
+  placement maths reads) and the name **wraps** on its own line, with the class and the star row under
+  it — no `truncate`, so the item is always identifiable.
+- `itemKitBlocks` now emits **one block per kit in the item's order**, and the charged hit and every
+  on-hit effect are **blocks of their own** (`Basic attack` → `Charged attack` → `Burn on hit` … → the
+  option kits), which is how the admin page already presents them.
+- 🔴 **Every parameter is a row of its own**, with its unit: `Damage multiplier ×1.2`, `Cooldown 2.75s`,
+  `Energy cost 100` (points), `Chance 25%`, `Duration 3s`… The old merged sentences
+  (`Cháy khi trúng đòn · 25%` / `14%/s × ATK · 3s`) and the hidden `target` / `directions` params are
+  gone — a card now lists `Apply to · Adjacent sides` and `Directions · Up · Down · Left · Right`.
+  `stats` prints one row per stat, `aura` its target then each stat.
+- The detail dialog renders the same blocks, so it lists the same rows (it keeps the economy cells) —
+  and its rows are **full width, one per line**: the `statGridClass` grid put three cells side by side
+  and `Choose the buff target` wrapped into a column of two words.
+- Tests: the dialog/card cases assert the new structure (`Trọng kích nạp` is a heading now, `25%` and
+  `3s` are rows, `100` has no `%`).
+- Every parameter row now carries a **glyph** (`ParamIcon` in `components/icons.tsx`): swords for a
+  multiplier, a clock for a cooldown, a bolt for anything Energy, `%` for a chance, a compass for a
+  target / directions, a gauge for a magnitude. The star rank moved onto the **name's own row**
+  ("icon star nằm cùng flow với tên item").
+- The charged attack reads **multiplier first, then Energy** (`charge-attack` params reordered, so the
+  admin form reads the same way) and its label is `Energy cost`, not `Energy needed`.
+- **No `title` on a tile that has the card**: the browser's own tooltip (`Beginer's Sword 1×3`) appeared
+  beside the card as a second popup. `LoadoutGrid` / `InventoryGrid` keep the name in `aria-label` and
+  only set `title` when no `onItemHover` is wired.
+- 🔴 **One term, one number: `Damage multiplier`** (VI `Hệ số sát thương`) — `Hệ số đòn nạp` /
+  "Charged hit multiplier" is gone, so the charged hit prints the same label as the swing it replaces.
+  A new kit that multiplies damage reuses that label instead of inventing a variant.
+- **The dependency is drawn**: an attached kit (charged hit, on-hit effect) now sits under its basic
+  attack with a `CornerDownRight` elbow and a hairline, indented — both views, because those kits cannot
+  be used (or even added in the admin) without a basic attack. `KitBlock.attached` /
+  `data-kit-attached` is the hook the tests read.
+- **A stat-only kit has no title**: `Chỉ số cộng thêm` / "Bonus stats" over a single `Attack +4` row
+  repeated what the row said, so `itemKitBlocks` emits those blocks with an empty `label` and the views
+  skip the heading.
+- **`target` / `directions` are hidden from the card and the dialog** (`HIDDEN_PARAM_KEYS` in
+  `itemFacts.ts`): `Choose the buff target · Adjacent sides` and `Buff directions · Up · Down · Left ·
+  Right` described a mask the tile already draws as arrows. An `aura` kit's own `Apply to` row stays.
+- **Damage floaters are no longer clipped by the portrait frame**: `AvatarCard` renders them in their own
+  overlay over the card instead of inside `[data-avatar-holder]`, whose `overflow-hidden` cut a number
+  near the right edge in half ("dmg popup đang bị frame che mất"). The non-battle card also gained
+  `relative` so that overlay is anchored to it.
+- **…and they no longer widen the arena**: that overlay is `absolute`, so a number past the card's edge
+  added a **horizontal scrollbar** to the battle. The number's position was pulled in from the card edges
+  so a 4-digit critical stays inside the 264 px card.
+- **A number pops in, faster**: the number scales `1 → 1.5 → 1` (no beat at the peak), the life dropped
+  from 700 ms to **560 ms** (floor 360) so a burst clears sooner, and the type shrank to `text-[20px]`
+  (critical `text-[26px]`); it used to be 27 / 34 px and grow to 1.25×.
+- 🔴 **No opacity fade**: the number is fully opaque for its whole life and disappears when it expires —
+  the fade left it washed out at the moment it should read ("xóa làm mờ do quá mờ").
+- 🔴 **Rise and pop are two separate animations** (`combatRise` on the `translate` property, `combatPop` on
+  `scale`). Sharing one `transform` keyframe list forced the size to wait at each keyframe for the
+  position, which is why the number never read as *flying* ("không giống đang bay lên mà như bị đẩy lên từ
+  từ … không mượt như 10fps"); the flight is now one continuous move at a **constant speed that is still
+  going when the number disappears** (it was decelerating into a stall, so it looked like it stopped and
+  then vanished). `will-change: transform` + `backface-visibility: hidden` keep it on its own composited
+  layer so the scaled glyphs are not re-rasterised every frame.
+- 🔴 **…and its duration was silently the 0.6 s fallback**: the animation lived in a `--animate-*` **theme
+  token**, whose `var(--floater-life)` resolves on `:root` (where no per-number value exists), while React
+  kept the number on screen for its real life — 1.12 s at ×0.5. The animation finished first and the number
+  **sat still until it was removed** ("text dừng lại trước khi biến mất"). It is an `@utility` now, so the
+  variables resolve on the element and the flight lasts exactly as long as the number does.
+- **A number is shot out of the spot that took the hit** instead of appearing in a random card slot, and it
+  travels **straight up — 12 o'clock**. `birthOf(key)` scatters the start over a band **clearly above the
+  impact** (38–62 % across, 24–36 % down); `flightOf(key)` picks one of five vertical distances
+  (−70 … −95 px). `--floater-dx` is `0`, so the number never travels sideways (the earlier east/west fan was
+  dropped: "vẫn bay thẳng theo hướng 12h").
+- **The rise is spread over the whole animation**: the number moves on every frame of its life and is still
+  moving when it is removed.
+
+---
+
+## 2026-10-21 — Five element families, seven new kits, three new engine rules
+
+- **Asked**: "fire/water/ice/thunder/wood tinh chỉnh lại bộ kit … gợi ý kit cho tôi theo set up này" →
+  the kit catalogue now has a **job per element** (see [`GAME-RULES.md`](GAME-RULES.md) §6.1):
+  fire = damage + burn + anti-heal, water = soften the enemy's own numbers + healing + phantom armour,
+  ice = control, thunder = speed + crit + shock, wood = cleanse + heal + mitigation.
+- **7 new kits in code** (`kits.ts`): `brittle-on-hit`, `wound-on-hit`, `weaken-on-hit`, `shock-on-hit`
+  (`onHit`) and `shield-when-hit`, `cleanse`, `overcharge` (`option`). Whitelisted in
+  `backend/src/content.ts` so the admin page can attach them and a created kit may copy their mechanic.
+- **3 new engine rules** (`battle.ts`): two statuses — `weaken` (the owner's own hits land for `value` %
+  less) and `wound` (the owner's heals and shields are cut, stacking with burn's built-in 50 %) — and a
+  `stun` effect (every weapon of the target stops charging, where `freezeWeapon` pauses one).
+  `triggerAttacked` additionally runs `shield` (water's phantom armour) and `cleanse` (wood);
+  `dealDamage` refunds Sword Energy on a critical hit when the owner carries `overcharge`.
+- `onHitTriggers` now switches on **`mechanicOf(effect.id)`** instead of the raw id, so a kit created on
+  the admin page (`wound-on-hit-2`) actually reaches its mechanic — the same rule the rest of `build.ts`
+  already followed.
+- `DEBUFF_STATUSES` (`game/labels.ts`) is the one list a cleanse reads: `slow / freeze / poison / burn /
+  brittle / weaken / wound`, ❌ never `regen` or `cdr` (they are buffs).
+- Tests: `game/__tests__/elementKits.test.ts` (each new kit reaches the engine: statuses, stun effect,
+  attacked reactions, `critEnergy`). 566 frontend / 128 backend green.
+
+---
+
+- **Asked**: "thêm hiệu ứng khi các jade trigger effect" — a jade gem's own tile should show that it just did
+  something (a retaliate freeze, a shield, a heal, a cooldown buff).
+- 🔴 **`BattleEvent.triggerUid`** is new: the item whose kit caused the event. `sourceUid` already names the
+  **swing** (and, for a freeze, the *victim's* weapon), so a support gem had no way to appear in its own
+  event. `build.ts` now stores the gem uid on every reaction (`reactions.damage/heal/frozen/debuff/attacked`,
+  `CooldownBuff.uid`) and `battle.ts` forwards it through `push` (freeze, slow, shield, heal, Energy drain,
+  cooldown buff, damage boost). No damage, timing or RNG changed.
+- `BattleScreen` turns the crossed events into `uid → flash key` (kept for 620 ms) and `LoadoutGrid` draws a
+  `data-jade-trigger` overlay on that tile; the key remounts the node so a second trigger restarts the
+  animation.
+- `battle.css`: `animate-jade-trigger` — a white-hot core over a jade bloom plus a ring that pushes outward,
+  on its own composited layer. ⚠️ The gradient sits on the **utility**: `background` is not animatable, so a
+  gradient inside `@keyframes` was dropped and the effect rendered as a bare ring.
+- Tests: `components/__tests__/jadeTrigger.test.tsx` (overlay on the right tile, nothing when idle,
+  remount on a new flash key). Verified in the running arena: `the-icy-vow-7` and `melting-ice-14` both flash.
+
+---
+
+## 2026-10-21 — Energy is a fixed number, never a percentage of the bar
+
+- **Asked**: "energy tính theo fixed number chứ ko phải %. logic game sai hay text hiển thị sai?" —
+  both were consistent before (`build.ts` ran every Energy amount through `sePercent(p, maxSe) =
+  round(maxSe × p / 100)` and every label said `(% thanh)`), so the **logic** was the side that did not
+  match the design.
+- **Every Energy number is now absolute** (`energyPoints()` in `build.ts` only rounds, it never scales):
+  - `charge-attack.seNeed` — the bar must hold that many Energy,
+  - `parry.cost` — Energy spent per parry,
+  - `block-charged.seCost` — Energy spent to negate a charged hit,
+  - `sword-energy-on-hit.amount` — Energy gained on a landed hit,
+  - `se-drain.amount` — Energy taken from the enemy,
+  - `sword-energy.regen` — **points per second** added to the Cutie's own regeneration (it used to be a
+    % *of* that regeneration).
+- Labels lost the unit suffix (`Kiếm Thế cần`, `Kiếm Thế nhận`, `Kiếm Thế rút`, `Kiếm Thế tiêu hao`,
+  `Hồi Kiếm Thế`), so the admin card now reads `Energy needed` with a plain number; the ranges of the two
+  `amount` params opened from 100 to 1000 (points). `kitParamText` prints `amount` **without** a `%` for
+  the two Energy kits, and keeps `%` for a shield / heal (`% of max HP`) — `ENERGY_AMOUNT_KITS`.
+- ⚠️ **Stored values were not rescaled** (decided: the old percentages were the wrong unit). A row typed
+  as `seNeed 100` now costs 100 Energy — on a 300-bar Cutie that is a third of the bar, where it used to
+  be the whole bar. Existing items need a numbers pass in `/admin`.
+- Tests: the `sword-energy` regen case now asserts flat points (`bare.seRegen + 5`, `− 3`). Docs
+  (`GAME-RULES` charged hit / on-hit, `ADMIN` kit tables, `ARCHITECTURE` §2, `README`) all say "absolute
+  Energy points" now.
+
+---
+
+## 2026-10-21 — Admin: the page is fully English, Energy, and the charged/on-hit kits are main kits
+
+- **Asked**: "sửa lại full eng trang các text, sword energy đổi thành energy. charged attack và các onhit
+  kit giờ đều là kit chính ko còn tính sub-kit. nhưng nó sẽ bị disable và yêu cầu phải có basic attack
+  để add vào".
+- **English, everywhere.** The admin page prints `toEnglish(param.label)` verbatim, so every kit
+  parameter label needs its own pair: **11 bracketed labels were missing** (`Kiếm Thế cần (% thanh)`,
+  `Giáp cộng thêm (% máu tối đa)`, `Sát thương mỗi giây (% ATK Cutie)`…) and showed Vietnamese on an
+  English page — the screenshot was `Kiếm Thế cần (% thanh)` inside the charged-hit card. They are in
+  `i18n.ts` now, next to the short forms, and a scan of every `label:` in `game/kits.ts`,
+  `game/stats.ts`, `game/items.ts` and `itemFacts.ts` reports no gaps.
+- **`Sword Energy` → `Energy`** in the English dictionary (16 values), plus the admin's own hard-coded
+  labels (`Max Energy`, `Energy regen (/s)`, the `Energy` group). Vietnamese keeps **Kiếm Thế**.
+- **The charged hit and the on-hit effects are kits of their own.** The `+ Add sub-kit` menu and the
+  green sub-kit frame are gone: every kit is one **red card**, and the charged hit / each on-hit is a
+  card of its own, drawn right under the swing that runs it (their data still lives in `kit.charge` /
+  `kit.onHit`, because `build.ts` runs them from that attack).
+  - They are listed in the **single `Add kit` menu**, grouped by catalogue like everything else.
+  - 🔴 They are **disabled** while the entity has no `basic-attack` (`data-disabled` + `title`
+    `Add a basic attack first`), because there is no swing to attach them to.
+  - Choosing one attaches it to the **basic attack** and the menu stops offering it (the menu used to
+    only hide top-level ids, so nested kits needed their own list).
+- `availableKits` now filters by **`appliesTo`** instead of `kind` (`starred || def.appliesTo === 'both'`),
+  which is what lets the charged/on-hit kits in while keeping `stats` / `aura` / `parry` off a Cutie.
+- Tests: the sub-kit helpers now use the one `Add kit` menu; a case asserts the charged and on-hit entries
+  are **listed but disabled** on an item with no basic attack, and the card test asserts they are cards at
+  the item's level. `cutiePanel.test.tsx` reads `Energy` instead of `Sword Energy`.
+
+---
+
+## 2026-10-21 — Kits get their own framed boxes, and the damage read-out is gone
+
+- **Asked**: "các kit phải hiện phía dưới trong khung border tách biệt với stat cơ bản. chỉ cần hiển thị
+  dmg multiplier ko cần hiển thị damage".
+- `ItemHoverCard` and `ItemDetailDialog` now draw **one bordered box per kit**
+  (`rounded-md border border-border` on the card, `rounded-panel border border-line bg-ink-900/40` in the
+  dialog), **under** the item's basic rows (name / class / economy) instead of a heading with an open
+  table. Two kits on one item read as two cards, not as one long list.
+- `itemKitBlocks` **no longer prints the resulting damage**: `Sát thương mỗi đòn`,
+  `Sát thương mỗi giây` and `Sát thương đòn nạp` are gone. The absolute hit is `Cutie attack ×
+  multiplier` — it says more about the current Cutie than about the item, while the multiplier is the
+  number two items are compared by. What an attack block shows now: `Hệ số sát thương ×1.2`,
+  `Hồi chiêu 2.75s`, `Kiếm Thế cần 100%`, `Hệ số đòn nạp ×2.4`, then its on-hit effects.
+- Consequence: `itemKitBlocks(template, star)` **does not take `owner` any more**, so `ItemHoverCard`
+  lost its `owner` prop and `PrepScreen` / `BattleScreen` / `ShopScreen` / `ItemDetailDialog` lost the
+  `cutieOwnerStats` read they only made to feed it (`itemFacts` still takes the owner for the kit dialog
+  work it does elsewhere).
+- Tests follow the new truth: the dialog's "shows the damage…" case is now "shows the damage
+  **multiplier**…" and asserts the damage rows are **absent**; the hover-card case asserts `×1.2`,
+  `2.75s`, the charged multiplier, and that no damage row appears.
+
+---
+
+## 2026-10-21 — Item details list every kit, with the damage multiplier and the Cooldown Time
+
+- **Asked**: "details hiển thị đang bị sai … phải có dmg multipler, cooldown. show các kits" — the card
+  showed a weapon's **resulting damage** (`Damage per hit 100`) but never the `multiplier` that produced
+  it, and anything that was not the first attack kit (a second swing, `damage-boost`, `sword-energy`,
+  the armour gems) was invisible.
+- **One list for both views**: `itemKitBlocks(template, star, owner)` in `itemFacts.ts` returns **one
+  block per kit**, in the item's order. An attack block starts with `Hệ số sát thương ×1.2` and
+  `Hồi chiêu 2.75s`, then damage / DPS, the charged hit (`Kiếm Thế cần 100%`, `×2.4`, `240`) and the
+  on-hit effects; an option block carries its own parameter table, `stats` one row per stat, `aura` its
+  target + mods. `ItemHoverCard` and `ItemDetailDialog` both render that list — neither computes a row
+  of its own any more, which is the only way the two cannot disagree.
+- `kitParamText` now writes the **percent sign** for percentage parameters (`18%`, `50%`, `0.6%`) — a
+  bare `18` beside "Parry chance" read as a count. `seconds()` keeps **two** decimals, so a stored
+  `2.75` s Cooldown Time is not rounded to `2.8s`.
+- Labels come from the admin's own parameter names, shortened by `shortLabel()`
+  (`Hồi chiêu (giây, Cooldown Time)` → `Hồi chiêu`, `Tỉ lệ Chấn Đao (%)` → `Tỉ lệ Chấn Đao`); **24 short
+  forms were added to `i18n.ts`**, otherwise the English UI showed Vietnamese rows (caught by hovering a
+  gem in the running app, not by a test).
+- Two behaviour fixes that came with it: clicking a tile hides the hover card before the details dialog
+  covers it (`PrepScreen.openDetails`, and the same in the arena), and `seconds()`/percent formatting
+  apply to the dialog's rows as well.
+- ⚠️ `itemDetailDialog.test.tsx` assertions moved to the new labels/units (`Giảm hồi chiêu tạm thời`,
+  `50%`, `0.6%`, `100%` for `seNeed`); `itemHoverCard.test.tsx` gained a case that reads a bow's
+  multiplier, its `2.75s` cooldown, and the charged rows out of the card.
+
+---
+
+## 2026-10-21 — The item hover card works on the home screen and in the arena too
+
+- **Asked**: "cập nhật tính năng hover show detail giống khi ở trang Shop cho item ở trang home và khi
+  battle" — only Cửa hàng described an item on hover; Trang bị / Kho đồ and both grids in the arena were
+  click-only.
+- **One card, one hook.** `ShopOfferCard` became **`ItemHoverCard`** (same `itemFacts` content, test hook
+  `data-item-hover-card` instead of `data-shop-offer-card`) and its pointer logic moved into
+  **`components/useItemHover.ts`** (`useItemHoverCard`: the 350 ms hover intent, the anchor placement —
+  right of the tile, flipping left near the window edge — and `isConnected` guarding a replaced tile).
+  The shop now uses both; `HOVER_DELAY_MS` / `HOVER_CARD_WIDTH` live there once.
+- `LoadoutGrid` / `InventoryGrid` gained **`onItemHover(item, node | null)`**, wired on the tile button
+  (`pointerEnter` / `pointerLeave`, plus focus/blur for the keyboard). ⚠️ It is **not** armed while
+  `held !== null`, and `PrepScreen.startDrag` hides a card already open — otherwise dragging an item
+  across its neighbours popped a card on every tile it crossed.
+- `PrepScreen` and `BattleScreen` each mount one `ItemHoverCard` and read the owner stats from the
+  player's Cutie (`cutieOwnerStats`) — the same number `ItemDetailDialog` shows for an enemy preview.
+  The click still opens the dialog, so nothing about the existing interaction changed.
+- Tests: `components/__tests__/itemHoverCard.test.tsx` (bag: opens after the delay, closes on leave, stays
+  shut during a drag; arena: both grids), and `navigation.test.tsx`'s shop assertions moved to the new
+  hook — both halves of Trap 10 are still asserted.
+- Docs: `ARCHITECTURE.md` §8 (one card everywhere, the hook's three traps), `TESTING.md` Trap 10,
+  `README.md` (the "hover card outside the shop" to-do is done).
+
+---
+
+## 2026-10-21 — The stage fight and the progress bar move into the Adventure map
+
+- **Asked**: "xóa 2 button này, đặt vào trong adventure popup map" — the red `Đấu Cutie · Màn N` button
+  and the `Tiến trình màn X/60` bar sat in the footer's journey panel.
+- `ActionBar`'s journey panel is now just `Nhiệm Vụ · Bộ Sưu Tập` (both still disabled); it no longer
+  needs `FINAL_STAGE` / `getStage` / `cn`. The previous step had already removed both `Bản đồ` buttons
+  (top bar + journey panel) because **Phiêu Lưu** opens the same map.
+- `StageMapDialog`'s footer now holds **the progress bar** (`Tiến trình màn X/60`, with the
+  "Đã mở A/B màn trong khu vực này" count moved into the same row) and **the fight button**
+  (`data-fight-stage`, red, `variant="destructive"`). It fights the **stage selected on the map**:
+  `selectStage(selectedStageIndex)` → `unlockBattleAudio()` → `startBattle('stage')` → `onClose()`, so
+  picking a stage and fighting it is one action; **Vào màn** in the aside still means "pick it and go
+  back to prepare" (the shop refreshes for that stage).
+- ⚠️ Tests: the fight button is no longer reachable from the preparation room, so
+  `src/test/battleEntry.ts` gained **`fightCurrentStage()`** (Adventure → the dialog's fight button) and
+  the 25 stage-fight call sites in `battlePlayback.test.tsx` go through it. `appShell.test.tsx` asserts
+  the footer has neither the button nor the progress bar and that the dialog starts the fight itself.
+- 🔴 Docs corrected: `AGENTS.md` §4.6, `ARCHITECTURE.md` §8 (journey panel), `GAME-RULES.md`
+  ("Stage selection") and `README.md`'s screen table.
+
+---
+
+## 2026-10-21 — The footer's training chip is gone; the switch lives only in the arena
+
+- **Asked**: "xóa label thừa vì đã có chức năng này ở trong battle" — the `Kẻ địch phản đòn` checkbox
+  sat beside **Phòng tập** in the footer's modes panel, duplicating the labelled switch inside the
+  practice fight.
+- `ActionBar` now renders **Phòng tập as one plain button** in its column (`min-w-[160px] flex-1`, like
+  the other three modes) and no longer renders the `<label>` + `<input data-training-attacks>`. It still
+  starts the session with the **remembered** `battleSettingsStore.trainingAttacks`, and the only switch
+  (`data-battle-training-attacks`) is the one in `BattleScreen`'s practice bar, which restarts the session
+  so the pre-computed log matches the flag.
+- Removed the now-unused `setTrainingAttacks` subscription from `ActionBar`. `appShell.test.tsx` asserts
+  the footer has **no** `[data-training-attacks]` and that the button honours the stored `false`.
+- 🔴 Docs corrected: `ARCHITECTURE.md` §8 (**panel 1** is four plain mode buttons) and `GAME-RULES.md`
+  ("Phòng tập") no longer claim the switch is reachable before the fight.
+
+---
+
+## 2026-10-20 — A run belongs to an account, not to the browser
+
+- **Asked**: "lỗi khi đăng nhập bằng user khác với google mail. khi tôi đăng nhập mới thì đã có cuties
+  lv3/10. map đã mở sẵn 5/60 là sao?"
+- **Cause**: the save lives in `localStorage`, which belongs to the **browser**, and signing out keeps it
+  on purpose (anonymous play). `AuthSync` then pushed that run into whoever signed in next — and because
+  `revisionHolder.get()` falls back to `0`, that first `PUT` always returned `400 revision_conflict`, so
+  the retry path ("send **our** data again") **overwrote the account's own save**. The API log showed it
+  as `PUT` 14 ms after the session, `GET`, `PUT`; the second account's row held exactly the run that was
+  on the browser (`fire-pup` Lv3, `clearedStage` 5, empty bag).
+- **Fix**: the run now carries an owner — `martial-cutie-save-owner` = `u:<users.id>`, absent for
+  anonymous progress (`persistedSave.ts`, `accountKey` / `localRunOwner` / `setLocalRunOwner`). On sign-in
+  `AuthSync` decides once per session:
+  - **no tag** (guest play) or **the same account** ⇒ the local run wins, is tagged and pushed — the
+    anonymous → account flow and "localStorage is the primary source" are unchanged;
+  - **another account's tag** ⇒ the account's own save is loaded; when that account has none a
+    `newRun()` starts instead of inheriting the foreign run. Nothing is pushed until the run on screen
+    really belongs to the account (`readyRef`), so a slow pull can no longer be overtaken by the
+    1.5 s push.
+  Signing out keeps the tag (the run stays that account's), and the recovery screen clears save + tag
+  together (`clearLocalSave`).
+- 🔴 **Second bug found while testing the first**: `writeLocalRun` wrote `version: 1` when the machine
+  had no save yet — exactly "continue on a new device" — so zustand ran the **v1 → v2 migration** over a
+  current run and **emptied Trang bị + Kho đồ**. It now writes `GAME_SAVE_VERSION`, the same constant
+  the store uses. A test pulls a save with an item and asserts it survives.
+- `saveSync.test.tsx` grew an `account switching` block (anonymous → account, same account, another
+  account with/without a server save, new device). Account `miloulu01@gmail.com`'s polluted row was
+  deleted (approved), and the admin's browser run was tagged `u:2` — it is byte-identical to that
+  account's save.
+
+---
+
 ## 2026-10-20 — The practice-room switch is also reachable from inside the fight
 
 - **Asked**: "tôi muốn bật tắt auto attack của enemy trong training room khi battle" — the

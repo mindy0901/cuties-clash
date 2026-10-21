@@ -23,6 +23,7 @@ import {
 } from '../game/loadout'
 import { MAX_CUTIE_LEVEL, CUTIES, cutieList, cutieUpgradeCost } from '../game/cuties'
 import { migrateV1ToV2, migrateV2ToV3, type PersistedV1 } from '../game/migrate'
+import { GAME_SAVE_VERSION } from './persistedSave'
 import { sanitizeRun } from '../game/sanitize'
 import { FINAL_STAGE, getStage, highestAccessibleStage, makeRivalBlueprint } from '../game/stages'
 import { TRAINING_HORIZON_MS, makeTrainingBlueprint } from '../game/training'
@@ -427,7 +428,7 @@ export const useGameStore = create<GameStore>()(
 		}),
 		{
 			name: 'martial-cutie-save',
-			version: 3,
+			version: GAME_SAVE_VERSION,
 			partialize: (state) => ({ run: state.run }),
 			/**
 			 * v1 → v2: a v1 save only has `run.items` (one list, everything counts as carried), so the

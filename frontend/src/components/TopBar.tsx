@@ -5,7 +5,7 @@ import { MAPS } from '../game/stages'
 import { useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import { AccountChip } from './AccountChip'
-import { Map as MapIcon, Settings, Swords } from './icons'
+import { Settings, Swords } from './icons'
 import { GoldPill } from './GoldPill'
 import { cn } from './ui'
 import { Button } from './ui/button'
@@ -24,7 +24,6 @@ export function TopBar() {
 	const run = useGameStore((state) => state.run)
 	const phase = useGameStore((state) => state.phase)
 	const leaveBattle = useGameStore((state) => state.leaveBattle)
-	const openMap = useUiStore((state) => state.openMap)
 	// Restarting wipes the whole run, so the button asks first — the dialog lives in the root layout.
 	const openRestart = useUiStore((state) => state.openRestart)
 	const { user } = useSessionState()
@@ -71,9 +70,6 @@ export function TopBar() {
 
 			<GoldPill amount={run.gold} />
 			<StatChip label={translate('Màn')} value={`${run.stage}/60 · ${translate(map.name)}`} />
-			<Button type="button" size="sm" onClick={openMap}>
-				<MapIcon /> {translate('Bản đồ')}
-			</Button>
 			{/* Admin link only appears for accounts listed in `ADMIN_EMAILS`. */}
 			{user?.is_admin ? (
 				<Button

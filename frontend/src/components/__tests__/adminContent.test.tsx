@@ -55,30 +55,16 @@ async function addKit(id: string) {
 	fireEvent.click(item)
 }
 
-/** Open the sub-kit menu inside a kit and pick the charged attack. */
+/**
+ * The charged attack and the on-hit effects are **kits of their own** now: they are listed in the
+ * item's single "Add kit" menu (and disabled until it has a basic attack), so the helpers just use it.
+ */
 async function addCharge() {
-	const trigger = document.querySelector('[data-admin-add-onhit-open]')
-	if (!trigger) throw new Error('the add sub-kit button is missing')
-	fireEvent.keyDown(trigger, { key: 'ArrowDown' })
-	const item = await waitFor(() => {
-		const found = document.querySelector<HTMLElement>('[data-admin-add-charge="charge-attack"]')
-		if (!found) throw new Error('the charged attack is not in the sub-kit menu')
-		return found
-	})
-	fireEvent.click(item)
+	await addKit('charge-attack')
 }
 
-/** Open the sub-kit menu inside the basic-attack kit and pick one on-hit effect. */
 async function addOnHit(id: string) {
-	const trigger = document.querySelector('[data-admin-add-onhit-open]')
-	if (!trigger) throw new Error('the add-on-hit button is missing')
-	fireEvent.keyDown(trigger, { key: 'ArrowDown' })
-	const item = await waitFor(() => {
-		const found = document.querySelector<HTMLElement>(`[data-admin-add-onhit="${id}"]`)
-		if (!found) throw new Error(`on-hit effect "${id}" is not in the menu`)
-		return found
-	})
-	fireEvent.click(item)
+	await addKit(id)
 }
 
 /** Open a stat kit's shadcn dropdown and hand back a lookup for its items. */
@@ -426,7 +412,8 @@ describe('editing content', () => {
 		expect(valuesOf('basic-attack.cooldown')).toEqual(['1.6', '1.6', '1.6', '1.6', '1.6'])
 		expect(document.querySelector('[data-admin-dpm]')).toBeTruthy()
 
-		// On-hit effects are added inside the attack kit, never at the item's top level.
+		// On-hit effects are kits too: chosen from the same menu, they hang off the attack kit in the
+		// draft (the engine runs them from that swing), and the menu stops offering them afterwards.
 		await addOnHit('burn-on-hit')
 		expect(document.querySelector('[data-admin-onhit-kit="burn-on-hit"]')).toBeTruthy()
 		expect(document.querySelectorAll('[data-admin-kit="burn-on-hit"]')).toHaveLength(0)
@@ -443,7 +430,7 @@ describe('editing content', () => {
 		expect(document.querySelector('[data-admin-kit="basic-attack"]')).toBeNull()
 	})
 
-	it('attaches the charged attack inside the basic attack instead of a second card', async () => {
+	it('lists the charged hit and the on-hit effects as kits of their own', async () => {
 		const { puts } = stubApi()
 		renderInRouter(<AdminContentScreen />)
 		await screen.findByText('wooden-blade')
@@ -456,40 +443,36 @@ describe('editing content', () => {
 		await addOnHit('burn-on-hit')
 		await addCharge()
 
-		// One card only: the charged variant lives **inside** the basic attack.
+		// One card per kit: the charged hit and the burn are cards of their own, at the item's level.
+		// ⚠️ They stay **in the draft inside the basic attack** (`build.ts` runs them from that swing),
+		// which is why the saved payload below has no top-level entry for them.
 		expect(document.querySelectorAll('[data-admin-kit]')).toHaveLength(1)
 		expect(document.querySelector('[data-admin-kit="charge-attack"]')).toBeNull()
 		expect(document.querySelector('[data-admin-charge-kit="charge-attack"]')).toBeTruthy()
+		expect(document.querySelector('[data-admin-onhit-kit="burn-on-hit"]')).toBeTruthy()
 		expect(document.querySelectorAll('[data-admin-kit-param="charge-attack.multiplier"]')).toHaveLength(5)
 		expect(document.querySelectorAll('[data-admin-kit-param="charge-attack.seNeed"]')).toHaveLength(5)
 		// It has no rhythm of its own — ❌ there is no cooldown box any more.
 		expect(document.querySelectorAll('[data-admin-kit-param="charge-attack.cooldown"]')).toHaveLength(0)
 		expect(valuesOf('charge-attack.multiplier')).toEqual(['2.2', '2.2', '2.2', '2.2', '2.2'])
 
-		// The on-hit effects and the DPM line belong to the basic attack.
+		// The DPM line belongs to the swing; the charged card sits **above** the on-hit card.
 		const card = document.querySelector('[data-admin-kit="basic-attack"]')!
-		expect(card.querySelector('[data-admin-onhit-kit="burn-on-hit"]')).toBeTruthy()
 		expect(card.querySelector('[data-admin-dpm]')).toBeTruthy()
-		// The charged block always sits **above** the on-hit effects, whatever the order of adding.
-		const charged = card.querySelector('[data-admin-charge-kit="charge-attack"]')!
-		const onHit = card.querySelector('[data-admin-onhit]')!
+		const charged = document.querySelector('[data-admin-charge-kit="charge-attack"]')!
+		const onHit = document.querySelector('[data-admin-onhit-kit="burn-on-hit"]')!
 		expect(charged.compareDocumentPosition(onHit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 		// The charged hit's own number: 1 × 2.2 → 2 at 1★, i.e. per point of cutie attack.
-		expect(card.querySelector('[data-admin-charged-damage]')?.textContent).toContain('2')
+		expect(charged.querySelector('[data-admin-charged-damage]')?.textContent).toContain('2')
 
-		// It is offered **only** inside the swing: the outer kit menu never lists it, and once attached
-		// the sub-kit menu stops offering it too.
+		// It is offered **only** while it is not attached: the one kit menu lists it when the item has a
+		// basic attack, and stops once the swing already carries it.
 		const outer = document.querySelector('[data-admin-add-kit-open]')
 		if (outer) {
 			fireEvent.keyDown(outer, { key: 'ArrowDown' })
 			await waitFor(() => expect(document.querySelector('[data-admin-add-kit]')).toBeTruthy())
 			expect(document.querySelector('[data-admin-add-kit="charge-attack"]')).toBeNull()
-		}
-		const inner = document.querySelector('[data-admin-add-onhit-open]')
-		if (inner) {
-			fireEvent.keyDown(inner, { key: 'ArrowDown' })
-			await waitFor(() => expect(document.querySelector('[data-admin-add-onhit]')).toBeTruthy())
-			expect(document.querySelector('[data-admin-add-charge]')).toBeNull()
+			expect(document.querySelector('[data-admin-add-kit="burn-on-hit"]')).toBeNull()
 		}
 
 		fireEvent.click(screen.getByText('Save'))
@@ -704,7 +687,20 @@ describe('editing content', () => {
 		expect(document.querySelector('[data-admin-kit="basic-attack"]')).toBeNull()
 		expect(document.querySelectorAll('[data-admin-kit]')).toHaveLength(0)
 
-		// The menu offers it again, and adding it back restores the multipliers from code.
+		// The charged hit and every on-hit effect need a swing, so they are **listed but disabled**
+		// until a basic attack is added back.
+		const trigger = document.querySelector('[data-admin-add-kit-open]')!
+		fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+		await waitFor(() => expect(document.querySelector('[data-admin-add-kit]')).toBeTruthy())
+		for (const id of ['charge-attack', 'burn-on-hit']) {
+			const entry = document.querySelector<HTMLElement>(`[data-admin-add-kit="${id}"]`)
+			expect(entry, `${id} is listed like any other kit`).toBeTruthy()
+			expect(entry!.getAttribute('data-disabled'), `${id} waits for a basic attack`).not.toBeNull()
+			expect(entry!.getAttribute('title')).toContain('basic attack')
+		}
+		fireEvent.keyDown(document.body, { key: 'Escape' })
+
+		// The menu offers the basic attack again, and adding it back restores the multipliers from code.
 		await addKit('basic-attack')
 		expect(
 			[...document.querySelectorAll<HTMLInputElement>('[data-admin-kit-param="basic-attack.multiplier"]')].map(

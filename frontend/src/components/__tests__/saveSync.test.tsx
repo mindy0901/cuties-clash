@@ -12,9 +12,10 @@
  * inside an effect.
  */
 import { QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../api/client'
+import type { RunState } from '../../game/types'
 
 const getSave = vi.fn()
 const putSave = vi.fn()
@@ -151,8 +152,7 @@ describe('pullRun', () => {
 	})
 })
 
-describe('no repeated pushes', () => {
-	// The debounce is 1.5s so real timers are used; `waitFor` does not work with fake timers.
+describe('no repeated pushes', () => {	// The debounce is 1.5s so real timers are used; `waitFor` does not work with fake timers.
 	const afterDebounce = () => new Promise((done) => setTimeout(done, 1700))
 
 	it(
@@ -194,6 +194,135 @@ describe('no repeated pushes', () => {
 			expect(putSave).toHaveBeenCalledTimes(2)
 		},
 		// Four 1.7s debounce waits need more than the default 5s timeout.
+		20_000,
+	)
+})
+
+/**
+ * The save lives in the **browser**, but progress belongs to an **account**.
+ *
+ * Without the owner tag, signing in as a second account on the same browser pushed the first
+ * player's run into it and silently replaced that account's own save (seen in the API log:
+ * `PUT` 14 ms after the session, `400 revision_conflict`, `GET`, `PUT`).
+ */
+describe('account switching', () => {
+	const SAVE_KEY = 'martial-cutie-save'
+	const OWNER_KEY = 'martial-cutie-save-owner'
+	const afterDebounce = () => new Promise((done) => setTimeout(done, 1700))
+
+	const mount = () =>
+		render(
+			<QueryClientProvider client={createQueryClient()}>
+				<AuthSync />
+			</QueryClientProvider>,
+		)
+
+	function signInAs(id: number) {
+		session.mockResolvedValue({
+			authenticated: true,
+			user: { ...USER, id },
+			available_providers: ['google'],
+			auto_login: false,
+		})
+	}
+
+	/** Progress already on this machine, owned by `owner` (`null` = anonymous play). */
+	function seedDevice(run: Partial<RunState>, owner: string | null) {
+		useGameStore.setState((state) => ({ run: { ...state.run, ...run } }))
+		if (owner) window.localStorage.setItem(OWNER_KEY, owner)
+		else window.localStorage.removeItem(OWNER_KEY)
+	}
+
+	it(
+		'lets anonymous progress follow the player into the account',
+		async () => {
+			seedDevice({ stage: 6, clearedStage: 5 }, null)
+			signInAs(9)
+			putSave.mockResolvedValue({ run: null, revision: 1, updated_at: null })
+
+			mount()
+			await afterDebounce()
+
+			expect(getSave).not.toHaveBeenCalled()
+			expect(putSave).toHaveBeenCalledTimes(1)
+			expect(putSave.mock.calls[0][0]).toMatchObject({ stage: 6, clearedStage: 5 })
+			expect(window.localStorage.getItem(OWNER_KEY)).toBe('u:9')
+		},
+		20_000,
+	)
+
+	it(
+		'keeps the run of the account that is signing back in',
+		async () => {
+			seedDevice({ stage: 6, clearedStage: 5 }, 'u:7')
+			signInAs(7)
+			putSave.mockResolvedValue({ run: null, revision: 2, updated_at: null })
+
+			mount()
+			await afterDebounce()
+
+			expect(getSave).not.toHaveBeenCalled()
+			expect(putSave).toHaveBeenCalledTimes(1)
+			expect(putSave.mock.calls[0][0]).toMatchObject({ stage: 6 })
+		},
+		20_000,
+	)
+
+	it(
+		"loads the account's own save instead of the run of another account",
+		async () => {
+			seedDevice({ stage: 6, clearedStage: 5, gold: 999 }, 'u:7')
+			signInAs(9)
+			getSave.mockResolvedValue({ run: { stage: 42, clearedStage: 41 }, revision: 5, updated_at: null })
+
+			mount()
+			await waitFor(() => expect(useGameStore.getState().run.stage).toBe(42))
+			await afterDebounce()
+
+			expect(getSave).toHaveBeenCalledTimes(1)
+			// The other account's progress was never uploaded into this one.
+			expect(putSave).not.toHaveBeenCalled()
+			expect(window.localStorage.getItem(OWNER_KEY)).toBe('u:9')
+		},
+		20_000,
+	)
+
+	it(
+		'starts a fresh run for a new account instead of inheriting another run',
+		async () => {
+			seedDevice({ stage: 6, clearedStage: 5, gold: 999 }, 'u:7')
+			signInAs(9)
+			getSave.mockResolvedValue({ run: null, revision: 0, updated_at: null })
+
+			mount()
+			await waitFor(() => expect(useGameStore.getState().run.clearedStage).toBe(0))
+			await afterDebounce()
+
+			expect(useGameStore.getState().run.stage).toBe(1)
+			expect(useGameStore.getState().run.gold).toBe(12)
+			expect(putSave).not.toHaveBeenCalled()
+			expect(window.localStorage.getItem(OWNER_KEY)).toBe('u:9')
+		},
+		20_000,
+	)
+
+	it(
+		"takes the account's save on a device with no progress",
+		async () => {
+			window.localStorage.removeItem(SAVE_KEY)
+			signInAs(9)
+			const blade = { uid: 'a', templateId: 'wooden-blade', star: 1, slot: 0, paid: 10 }
+			getSave.mockResolvedValue({ run: { stage: 42, clearedStage: 41, equipped: [blade] }, revision: 5, updated_at: null })
+
+			mount()
+			await waitFor(() => expect(useGameStore.getState().run.stage).toBe(42))
+			await afterDebounce()
+
+			// A current save must NOT be pushed through the v1 migration, which empties the bag.
+			expect(useGameStore.getState().run.equipped).toHaveLength(1)
+			expect(putSave).not.toHaveBeenCalled()
+			expect(window.localStorage.getItem(OWNER_KEY)).toBe('u:9')
+		},
 		20_000,
 	)
 })

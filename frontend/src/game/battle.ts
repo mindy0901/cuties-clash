@@ -1,6 +1,6 @@
 import { createRng } from './rng'
 import type { Rng } from './rng'
-import { STATUS_TEXT } from './labels'
+import { STATUS_TEXT, DEBUFF_STATUSES } from './labels'
 import type { CombatItem, Combatant, CooldownBuff, DamageBoost } from './build'
 import type { CombatEffect, ActiveStatus, BattleEvent, BattleResult, ScaleMode, SideState, StatusKey } from './types'
 
@@ -123,6 +123,8 @@ function push(
 	icon?: string,
 	sourceUid?: string,
 	critical = false,
+	/** The item whose kit caused it, when that is not `sourceUid` (see `BattleEvent.triggerUid`). */
+	triggerUid?: string,
 ) {
 	// `end` is always recorded: playback uses the last event as the clock, so dropping it would make
 	// a long fight stop before the result.
@@ -135,6 +137,7 @@ function push(
 		amount,
 		icon,
 		sourceUid,
+		...(triggerUid ? { triggerUid } : {}),
 		...(critical ? { critical: true } : {}),
 		player: sideState(sim.player),
 		enemy: sideState(sim.enemy),
@@ -206,9 +209,25 @@ function damageBonusPct(runtime: Runtime): number {
 
 /** A burning target heals (and gains armour) at half rate — the burn's "deep wound". */
 function woundFactor(runtime: Runtime): number {
-	return runtime.statuses.some((entry) => entry.key === 'burn' && entry.remaining > 0)
+	// A burning target only takes half of any healing or armour it is given…
+	const burn = runtime.statuses.some((entry) => entry.key === 'burn' && entry.remaining > 0)
 		? BURN_WOUND_FACTOR
 		: 1
+	// …and fire's `wound` cuts it again on top of that.
+	return burn * healDownFactor(runtime)
+}
+
+/** `wound`: `value` percent of every heal / shield refused, stacking down to a floor of 10 %. */
+function healDownFactor(runtime: Runtime): number {
+	const wound = statusValue(runtime, 'wound')
+	if (wound <= 0) return 1
+	return Math.max(0.1, 1 - wound / 100)
+}
+
+/** `weaken`: the owner's own hits land for `value` percent less. */
+function weakenFactor(runtime: Runtime): number {
+	const weaken = statusValue(runtime, 'weaken')
+	return weaken <= 0 ? 1 : Math.max(0.1, 1 - weaken / 100)
 }
 
 function healingFactor(runtime: Runtime): number {
@@ -223,10 +242,10 @@ function heal(target: Runtime, amount: number): number {
 }
 
 /** Adds armour after the same healing modifiers a heal would take. */
-function grantShield(sim: Sim, target: Runtime, amount: number, text: string, icon: string): number {
+function grantShield(sim: Sim, target: Runtime, amount: number, text: string, icon: string, triggerUid?: string): number {
 	const gained = Math.max(0, Math.round(amount * healingFactor(target)))
 	target.shield += gained
-	if (gained > 0) push(sim, 'shield', target.c.side, text.replace('{amount}', String(gained)), gained, icon)
+	if (gained > 0) push(sim, 'shield', target.c.side, text.replace('{amount}', String(gained)), gained, icon, undefined, false, triggerUid)
 	return gained
 }
 
@@ -271,6 +290,9 @@ function boostWeapons(sim: Sim, owner: Runtime, buff: CooldownBuff): void {
 			`${boosted} vũ khí giảm hồi chiêu ${Math.round(effective)}%`,
 			Math.round(effective),
 			'⚡',
+			undefined,
+			false,
+			buff.uid,
 		)
 	}
 }
@@ -279,7 +301,13 @@ function boostWeapons(sim: Sim, owner: Runtime, buff: CooldownBuff): void {
  * Freezes **one** enemy weapon at random, preferring one that is not frozen yet. A frozen weapon
  * keeps its charge exactly where it was and resumes from there.
  */
-function freezeRandomWeapon(sim: Sim, owner: Runtime, target: Runtime, duration: number): boolean {
+function freezeRandomWeapon(
+	sim: Sim,
+	owner: Runtime,
+	target: Runtime,
+	duration: number,
+	triggerUid?: string,
+): boolean {
 	if (duration <= 0 || target.c.weapons.length === 0) return false
 	const itemIndices = target.c.weapons
 		.map((weapon, index) => ({ weapon, index }))
@@ -300,14 +328,53 @@ function freezeRandomWeapon(sim: Sim, owner: Runtime, target: Runtime, duration:
 		duration,
 		'🧊',
 		target.c.weapons[index].uid,
+		false,
+		triggerUid,
 	)
 	triggerFrozen(sim, target)
 	for (const buff of owner.c.reactions.freeze) boostWeapons(sim, owner, buff)
 	return true
 }
 
-/** Slows **one** enemy weapon at random: its charge runs `value`% slower for `duration`. */
-function slowRandomWeapon(sim: Sim, target: Runtime, value: number, duration: number): boolean {
+/**
+ * **Shock / stun** (thunder): every weapon on the target side stops charging for `duration` ms.
+ *
+ * Stronger than `freezeRandomWeapon` — which picks one weapon — so the kits that use it are rarer and
+ * shorter. It writes the same `weaponFrozen` clock, so the arsenal pauses and resumes exactly like a
+ * freeze and the arena's ❄ badge already reports it.
+ */
+function stunWeapons(
+	sim: Sim,
+	owner: Runtime,
+	target: Runtime,
+	duration: number,
+	triggerUid?: string,
+): boolean {
+	if (duration <= 0 || target.c.weapons.length === 0) return false
+	let stunned = 0
+	for (let index = 0; index < target.c.weapons.length; index += 1) {
+		if (target.weaponFrozen[index] >= duration) continue
+		target.weaponFrozen[index] = duration
+		stunned += 1
+	}
+	if (stunned === 0) return false
+	push(
+		sim,
+		'status',
+		target.c.side,
+		`Tê liệt ${Number((duration / 1000).toFixed(1))}s — ${stunned} vũ khí ngừng nạp`,
+		duration,
+		'⚡',
+		undefined,
+		false,
+		triggerUid,
+	)
+	triggerFrozen(sim, target)
+	for (const buff of owner.c.reactions.freeze) boostWeapons(sim, owner, buff)
+	return true
+}
+
+/** Slows **one** enemy weapon at random: its charge runs `value`% slower for `duration`. */function slowRandomWeapon(sim: Sim, target: Runtime, value: number, duration: number, triggerUid?: string): boolean {
 	if (value <= 0 || duration <= 0 || target.c.weapons.length === 0) return false
 	const itemIndices = target.c.weapons
 		.map((weapon, index) => ({ weapon, index }))
@@ -326,6 +393,8 @@ function slowRandomWeapon(sim: Sim, target: Runtime, value: number, duration: nu
 		Math.round(value),
 		'🐌',
 		target.c.weapons[index].uid,
+		false,
+		triggerUid,
 	)
 	return true
 }
@@ -337,7 +406,7 @@ function triggerDebuff(sim: Sim, target: Runtime): void {
 		const amount = scaledValue(reaction.amount, reaction.scale, target, opponent)
 		const restored = heal(target, amount)
 		if (restored > 0) {
-			push(sim, 'heal', target.c.side, `${target.c.name} hồi +${restored} khi dính hiệu ứng xấu`, restored, '💚')
+			push(sim, 'heal', target.c.side, `${target.c.name} hồi +${restored} khi dính hiệu ứng xấu`, restored, '💚', undefined, false, reaction.uid)
 		}
 	}
 }
@@ -349,9 +418,9 @@ function triggerFrozen(sim: Sim, target: Runtime): void {
 			const amount = scaledValue(reaction.amount, reaction.scale, target, opponent)
 			const restored = heal(target, amount)
 			if (restored > 0) {
-				push(sim, 'heal', target.c.side, `${target.c.name} hồi +${restored} khi bị đóng băng`, restored, '🧊')
+				push(sim, 'heal', target.c.side, `${target.c.name} hồi +${restored} khi bị đóng băng`, restored, '🧊', undefined, false, reaction.uid)
 			}
-			if (reaction.boost) boostDamage(sim, target, reaction.boost)
+			if (reaction.boost) boostDamage(sim, target, reaction.boost, reaction.uid)
 		}
 	}
 	triggerDebuff(sim, target)
@@ -363,17 +432,17 @@ function triggerDamageDealt(sim: Sim, attacker: Runtime, defender: Runtime): voi
 	for (const reaction of attacker.c.reactions.damage) {
 		if (reaction.rage) attacker.hitStacks += 1
 		if (reaction.slow && sim.rng.chance(reaction.chance)) {
-			slowRandomWeapon(sim, defender, reaction.slow.value, reaction.slow.duration)
+			slowRandomWeapon(sim, defender, reaction.slow.value, reaction.slow.duration, reaction.uid)
 		}
 		if (reaction.seDrain && reaction.seDrain.amount > 0 && sim.rng.chance(reaction.chance)) {
 			const before = defender.se
 			defender.se = Math.max(0, defender.se - reaction.seDrain.amount)
 			const lost = Math.round(before - defender.se)
 			if (lost > 0) {
-				push(sim, 'status', defender.c.side, `Kiếm Thế bị hút −${lost}`, lost, '⚔️')
+				push(sim, 'status', defender.c.side, `Kiếm Thế bị hút −${lost}`, lost, '⚔️', undefined, false, reaction.uid)
 			}
 		}
-		if (reaction.boost) boostDamage(sim, attacker, reaction.boost)
+		if (reaction.boost) boostDamage(sim, attacker, reaction.boost, reaction.uid)
 	}
 }
 
@@ -383,10 +452,10 @@ function triggerHeal(sim: Sim, target: Runtime, restored: number): void {
 	for (const reaction of target.c.reactions.heal) {
 		if (reaction.rage) target.healStacks += 1
 		if (reaction.armor && reaction.armor > 0) {
-			grantShield(sim, target, reaction.armor, `Hồi máu → +{amount} giáp`, '🔷')
+			grantShield(sim, target, reaction.armor, `Hồi máu → +{amount} giáp`, '🔷', reaction.uid)
 		}
 		if (reaction.cooldown) boostWeapons(sim, target, reaction.cooldown)
-		if (reaction.boost) boostDamage(sim, target, reaction.boost)
+		if (reaction.boost) boostDamage(sim, target, reaction.boost, reaction.uid)
 	}
 }
 
@@ -396,7 +465,7 @@ function triggerHeal(sim: Sim, target: Runtime, restored: number): void {
  * ⚠️ Like a speed boost it **never stacks**: the higher percentage wins (and the longer remaining
  * time), so two gems on one weapon cannot turn +20 % into +40 %.
  */
-function boostDamage(sim: Sim, owner: Runtime, boost: DamageBoost): void {
+function boostDamage(sim: Sim, owner: Runtime, boost: DamageBoost, triggerUid?: string): void {
 	let boosted = 0
 	let effective = 0
 	for (const uid of boost.uids) {
@@ -416,6 +485,9 @@ function boostDamage(sim: Sim, owner: Runtime, boost: DamageBoost): void {
 			`${boosted} vũ khí được tăng sát thương +${Math.round(effective)}%`,
 			Math.round(effective),
 			'💥',
+			undefined,
+			false,
+			triggerUid,
 		)
 	}
 }
@@ -423,7 +495,22 @@ function boostDamage(sim: Sim, owner: Runtime, boost: DamageBoost): void {
 /** The owner was hit by an attack: the "phản đòn" gem may freeze an enemy weapon. */
 function triggerAttacked(sim: Sim, defender: Runtime, attacker: Runtime): void {
 	for (const reaction of defender.c.reactions.attacked) {
-		if (sim.rng.chance(reaction.chance)) freezeRandomWeapon(sim, defender, attacker, reaction.freeze)
+		if (!sim.rng.chance(reaction.chance)) continue
+		if (reaction.freeze > 0) {
+			freezeRandomWeapon(sim, defender, attacker, reaction.freeze, reaction.uid)
+		}
+		// Water's "giáp ảo": armour that only exists once something lands.
+		if (reaction.shield && reaction.shield > 0) {
+			grantShield(sim, defender, reaction.shield, `Giáp ảo +{amount}`, '🔷', reaction.uid)
+		}
+		// Wood's cleanse: strip every bad status the moment one lands.
+		if (reaction.cleanse) {
+			const removed = defender.statuses.filter((entry) => DEBUFF_STATUSES.includes(entry.key)).length
+			defender.statuses = defender.statuses.filter((entry) => !DEBUFF_STATUSES.includes(entry.key))
+			if (removed > 0) {
+				push(sim, 'status', defender.c.side, `${defender.c.name} tẩy ${removed} hiệu ứng bất lợi`, removed, '✨', undefined, false, reaction.uid)
+			}
+		}
 	}
 }
 
@@ -478,11 +565,15 @@ interface DamageOptions {
 	icon?: string
 	source?: Runtime
 	sourceUid?: string
+	/** The item whose kit caused it, when that is not the swing (see `BattleEvent.triggerUid`). */
+	triggerUid?: string
 }
 
 function dealDamage(sim: Sim, target: Runtime, rawAmount: number, opts: DamageOptions): number {
 	const brittle = statusValue(target, 'brittle')
-	let amount = rawAmount * (1 + brittle / 100) * (1 - target.c.damageReduction)
+	// `weaken` sits on the **attacker**: the soaked side hits softer until it wears off.
+	const weakened = opts.source ? weakenFactor(opts.source) : 1
+	let amount = rawAmount * weakened * (1 + brittle / 100) * (1 - target.c.damageReduction)
 	amount = Math.max(1, Math.round(amount))
 
 	// "Đỡ đòn (tỉ lệ)": a direct hit can be halved. Dots are never blocked, and a kit at 0 % draws
@@ -505,6 +596,10 @@ function dealDamage(sim: Sim, target: Runtime, rawAmount: number, opts: DamageOp
 	target.damageTaken += amount
 	if (opts.source) opts.source.damageDealt += amount
 	if (opts.kind !== 'dot') target.se = Math.min(target.c.maxSe, target.se + HIT_ENERGY)
+	// Thunder's `overcharge`: a critical hit pays Sword Energy back to the side that landed it.
+	if (opts.source && opts.critical && opts.source.c.critEnergy) {
+		opts.source.se = Math.min(opts.source.c.maxSe, opts.source.se + opts.source.c.critEnergy)
+	}
 
 	if (opts.kind !== 'dot') {
 		push(
@@ -516,6 +611,7 @@ function dealDamage(sim: Sim, target: Runtime, rawAmount: number, opts: DamageOp
 			opts.icon,
 			opts.sourceUid,
 			opts.critical,
+			opts.triggerUid,
 		)
 		if (opts.source) triggerAttacked(sim, target, opts.source)
 	}
@@ -609,40 +705,45 @@ function fireEffect(
 				icon: item.icon,
 				source: owner,
 				sourceUid: item.uid,
+				triggerUid: item.uid,
 			})
 			break
 		}
 		case 'heal': {
 			const healed = heal(owner, effect.amount)
-			push(sim, 'heal', owner.c.side, `${item.name} hồi +${healed} máu`, healed, item.icon)
+			push(sim, 'heal', owner.c.side, `${item.name} hồi +${healed} máu`, healed, item.icon, undefined, false, item.uid)
 			triggerHeal(sim, owner, healed)
 			break
 		}
 		case 'shield': {
 			// A shield always sits on the owner; `enemyHp` means the **opponent's** bar.
 			const amount = scaledValue(effect.amount, effect.scale, owner, opponent)
-			grantShield(sim, owner, amount, `${item.name} tạo khiên +{amount}`, '🔷')
+			grantShield(sim, owner, amount, `${item.name} tạo khiên +{amount}`, '🔷', item.uid)
 			break
 		}
 		case 'lifesteal': {
 			const healed = heal(owner, (dealt * effect.percent) / 100)
 			if (healed > 0) {
-				push(sim, 'heal', owner.c.side, `${item.name} hút máu +${healed}`, healed, '🩸')
+				push(sim, 'heal', owner.c.side, `${item.name} hút máu +${healed}`, healed, '🩸', undefined, false, item.uid)
 				triggerHeal(sim, owner, healed)
 			}
 			break
 		}
 		case 'freezeWeapon':
-			freezeRandomWeapon(sim, owner, opponent, effect.duration)
+			freezeRandomWeapon(sim, owner, opponent, effect.duration, item.uid)
+			break
+		case 'stun':
+			// Thunder's shock: **every** enemy weapon stops charging, not just a random one.
+			stunWeapons(sim, owner, opponent, effect.duration, item.uid)
 			break
 		case 'slowWeapon':
-			slowRandomWeapon(sim, opponent, effect.value, effect.duration)
+			slowRandomWeapon(sim, opponent, effect.value, effect.duration, item.uid)
 			break
 		case 'swordEnergy': {
 			const before = owner.se
 			owner.se = Math.min(owner.c.maxSe, owner.se + effect.amount)
 			const gained = Math.round(owner.se - before)
-			push(sim, 'status', owner.c.side, `${item.name} nạp +${gained} Kiếm Thế`, gained, '⚔️')
+			push(sim, 'status', owner.c.side, `${item.name} nạp +${gained} Kiếm Thế`, gained, '⚔️', undefined, false, item.uid)
 			break
 		}
 		case 'status': {
@@ -663,7 +764,7 @@ function fireEffect(
 			const text = applied
 				? `${item.name} → ${target.c.name} dính ${STATUS_TEXT[effect.status]}`
 				: `${item.name} bị kháng ${STATUS_TEXT[effect.status]}`
-			push(sim, 'status', target.c.side, text, undefined, applied ? item.icon : '🚫')
+			push(sim, 'status', target.c.side, text, undefined, applied ? item.icon : '🚫', undefined, false, item.uid)
 			break
 		}
 		case 'cleanse': {
@@ -674,7 +775,7 @@ function fireEffect(
 				for (const key of effect.statuses) owner.immunities.push({ key, remaining: 2000 })
 			}
 			if (removed > 0 || item.linked) {
-				push(sim, 'status', owner.c.side, `${item.name} giải ${removed} hiệu ứng bất lợi`, removed, '✨')
+				push(sim, 'status', owner.c.side, `${item.name} giải ${removed} hiệu ứng bất lợi`, removed, '✨', undefined, false, item.uid)
 			}
 			break
 		}

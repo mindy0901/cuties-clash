@@ -124,7 +124,7 @@ The game has **two screens**, navigated with real paths (the browser Back button
 
 | Screen | Path | Contents |
 | -------- | --------- | -------- |
-| **Phòng chuẩn bị** | `/` | Cutie panel — Power and the Cutie level on one row, then **one full-width row per stat** (Health · Armor · Attack · Speed · Crit · Critical damage · Lifesteal · Damage reduction, plus Sword Energy): the **total** in gold, with `(base + gear)` in brackets whenever Trang bị adds something (`Attack 21 (20 + 1)`) · Cutie stage · **Kho đồ** (storage) · **Trang bị** (what is carried, with **Shop** + **Tháo hết** on its floor) · **shared footer** under the three panels: `Arena · Adventure · Training Room · Leader Board` on one row, then `Quests · Collection · Maps · Cutie Battle · progress` |
+| **Phòng chuẩn bị** | `/` | Cutie panel — Power and the Cutie level on one row, then **one full-width row per stat** (Health · Armor · Attack · Speed · Crit · Critical damage · Lifesteal · Damage reduction, plus Sword Energy): the **total** in gold, with `(base + gear)` in brackets whenever Trang bị adds something (`Attack 21 (20 + 1)`) · Cutie stage · **Kho đồ** (storage) · **Trang bị** (what is carried, with **Shop** + **Tháo hết** on its floor) · **shared footer** under the three panels: `Arena · Adventure · Training Room · Leader Board` on one row, then `Quests · Collection`. The stage fight button and the stage progress bar live **inside the Adventure map dialog** |
 | **Cửa hàng** | `/shop` | Buy items with Gold, reroll the shop list. Opened from the **Shop** button at the bottom of the equipment panel |
 ### How Trang bị and Kho đồ differ
 
@@ -162,7 +162,7 @@ Simulated in 50 ms steps, **fully deterministic** by seed → the same battle al
 - **Kiếm Thế (Sword Energy)**: regenerates over time, and **+4 every time you are hit**. It is spent **only** by two kits, never at random.
     - **Chấn Đao (Counter)** — the `parry` **kit** on an item: its `chance` %, its `cost` Kiếm Thế, and a counter for `referenceAtk × power`; also **pushes the opponent's attack bar back 350 ms**. An item without the kit cannot parry.
     - **Trọng kích (Charged attack)** — a **sub-kit of the basic attack** (`kit.charge`): once the owner holds its `seNeed` (**% of the bar**), the **next basic attack** becomes the charged attack and lands `Cutie attack × multiplier`. That number **replaces** the basic damage (no stacking) and it never gets a timer of its own.
-- 🔴 **Attack belongs to the Cutie; an item only carries multipliers.** A weapon's `basic-attack.multiplier` (default `1`) scales the Cutie's attack, and its `speed` is a **delta added** to the Cutie's own base speed — `0` swings at exactly the Cutie's cadence, `+0.1` on a 0.3 Cutie gives 0.4 attacks a second, and a heavy blade carries `-0.1`. Every other item number is a share of the owner too — `stats` / `aura` tables are percentages of its max HP / attack / regen, a burn is a % of its attack per second, a shield a % of its max HP, and Sword Energy amounts a % of its bar. `sword-energy` is the only kit allowed to change SE regeneration.
+- 🔴 **Attack belongs to the Cutie; an item only carries multipliers.** A weapon's `basic-attack.multiplier` (default `1`) scales the Cutie's attack, and its `speed` is a **delta added** to the Cutie's own base speed — `0` swings at exactly the Cutie's cadence, `+0.1` on a 0.3 Cutie gives 0.4 attacks a second, and a heavy blade carries `-0.1`. Every other item number is a share of the owner too — `stats` / `aura` tables are percentages of its max HP / attack / regen, a burn is a % of its attack per second, a shield a % of its max HP, and **Energy amounts are flat points** (they are never a share of the bar). `sword-energy` is the only kit allowed to change SE regeneration.
 - **Status effects**: Chậm, Đóng Băng, Độc, Cháy, Hồi phục, Cuồng phong, Giòn.
 - **Adjacency**: an aura such as *Trống Trận* only triggers when there is an **adjacent weapon**; *Cờ Lụa* needs **one adjacent non-weapon item** — computed from **every cell** an item occupies, which is why where you place items matters.
 
@@ -205,10 +205,13 @@ frontend/                     # The `frontend` package
 │  ├─ GridBoard.tsx           # Shared multi-cell grid (Kho đồ + Trang bị panel)
 │  ├─ PrepScreen.tsx          # Phòng chuẩn bị (path /)
 │  ├─ ShopScreen.tsx          # Separate Cửa hàng screen (/shop)
-│  ├─ ActionBar.tsx           # Shared footer: 4 modes + Quests · Collection · Maps · Đấu Cutie
+│  ├─ ItemHoverCard.tsx       # The hover card: shop, bag and arena (numbers from `itemFacts.ts`)
+│  ├─ useItemHover.ts         # Hover intent + placement shared by every board (350 ms delay)
+│  ├─ ActionBar.tsx           # Shared footer: 4 modes + Quests · Collection
 │  ├─ CutieLoadoutPanel.tsx   # Trang bị (carried items) + the Shop / Tháo hết buttons on its floor
 │  └─ …                       # TopBar, InventoryPanel, PetPanel, BattleScreen, dialogs…
 ├─ src/styles/app.css         # @theme (design tokens) + project @utility rules
+├─ src/styles/battle.css      # Arena-only frame (portrait card, nameplate, combat numbers)
 ├─ src/test/router.tsx        # Router-aware render helper for tests
 ├─ public/icons/              # Item/Cutie/skill art (see docs/ASSETS.md)
 ├─ Dockerfile                 # The `fr` image (build context = repo root)
@@ -259,8 +262,6 @@ Backend coverage: sign-in sessions, anonymous play still working, logging out re
 - **More battle feel** — comets, damage/critical floaters, freeze and haste overlays and the `shake`
   animation already exist (`components/BattleScreen.tsx`, `HasteStreaks.tsx`, `battleAudio.ts`); what is
   missing is variety per element (fire/poison/burn currently share one floater style).
-- **A hover card outside the shop** — Cửa hàng has one (`ShopOfferCard`); Kho đồ and Trang bị are
-  click-to-open only (`ItemDetailDialog`).
 - **Real PvP** — leaderboards, or rival seeds that can be shared between players.
 - **More Cutie sets**, and filtering/searching items once Kho đồ is crowded.
 - **Localisation coverage** — `i18n.ts` holds the EN dictionary and every string goes through

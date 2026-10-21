@@ -22,7 +22,7 @@ export interface AvatarFeedback {
 	 * label. Only meaningful for `type: 'damage'`.
 	 */
 	critical?: boolean
-	/** How long the number floats, in seconds of real time. Defaults to `0.9`. */
+	/** How long the number floats, in seconds of real time. Defaults to `0.6`. */
 	seconds?: number
 	/**
 	 * Wait before it starts floating, in seconds. Defaults to `0` — every number of one replay tick
@@ -76,24 +76,49 @@ export interface AvatarCardProps {
 }
 
 /**
- * Where a floating number sits: a **pure function of its key and side**, so a number ❌ never moves.
+ * Where a floating number is **born**: a band **well above the impact** — the portrait centre, where the
+ * impact flash is drawn — spread sideways and upward by its key so a burst scatters instead of printing on
+ * one spot (asked for: "vị trí dmg bay lên random phía trên vị trí get hit" … "tối thiểu phải cao hơn vị trí
+ * hit hơn nữa").
  *
- * Two rules:
- * - the band is the **upper half of the portrait** (around head and chest, where the hit visually lands);
- * - the columns are pushed to the **back half** of the card — away from the opponent. A number that pops
- *   on the incoming side reads as "in front of" the fighter, which is exactly what the player rejected.
+ * ⚠️ It stays in the **upper middle** of the card (38–62 % across, 24–34 % down): the highest row is what
+ * decides how far a number may still travel before it reaches the nameplate.
  */
-function feedbackPosition(key: number, side: 'player' | 'enemy'): { left: string; top: string } {
-	// The enemy sits right of the player, so "back" is the right half for one card and the left half for the
-	// other. Nothing lands within ±10 % of the centre, so no number sits directly over the fighter's face.
-	const columns = side === 'player' ? [16, 30, 44] : [56, 70, 84]
-	// Every row is above the portrait's centre (50 %), even before the float lifts it.
-	const rows = [16, 22, 28, 34, 40, 46]
-	const slot = (key * 7) % (columns.length * rows.length)
+const BIRTH_LEFT = ['38%', '44%', '50%', '56%', '62%']
+const BIRTH_TOP = ['24%', '28%', '32%', '36%']
+
+/** Where one number starts, chosen from its key so it **never moves** while others come and go. */
+function birthOf(key: number): { left: string; top: string } {
 	return {
-		left: `${columns[slot % columns.length]}%`,
-		top: `${rows[Math.floor(slot / columns.length)]}%`,
+		left: BIRTH_LEFT[(key * 3) % BIRTH_LEFT.length]!,
+		top: BIRTH_TOP[(key * 2) % BIRTH_TOP.length]!,
 	}
+}
+
+/**
+ * The direction every number travels: **straight up (12 o'clock)**, with only the distance cycled by the
+ * key so a burst stacks in a column. ❌ No sideways fan: a number that left at an angle read as travelling
+ * somewhere (asked for: "vẫn bay thẳng theo hướng 12h").
+ *
+ * ⚠️ The motion is fast from the first frame (`combatFloater` gives the launch ~55 % of the distance in the
+ * first 20 % of the life) — a distance spread evenly over the whole life moved ≤ 0.1 px per frame, which
+ * reads as a slow crawl instead of a shot ("như bị đẩy lên từ từ … không mượt như 10fps").
+ * 🔴 `dy` stops at −95 px: the highest birth row is 24 % of a 492 px card (~118 px) and the nameplate
+ * occupies the top of it, and `dx` stays `0` — the layer is `absolute`, so anything outside the card
+ * would add a horizontal scrollbar to the arena.
+ */
+const FLIGHT: { dx: number; dy: number }[] = [
+	{ dx: 0, dy: -70 },
+	{ dx: 0, dy: -80 },
+	{ dx: 0, dy: -86 },
+	{ dx: 0, dy: -92 },
+	{ dx: 0, dy: -95 },
+]
+
+/** The straight-up vector of one number, for `combatFloater`. */
+function flightOf(key: number): { dx: string; dy: string } {
+	const vector = FLIGHT[(key * 3) % FLIGHT.length]!
+	return { dx: `${vector.dx}px`, dy: `${vector.dy}px` }
 }
 
 /**
@@ -117,10 +142,6 @@ export function AvatarCard({
 }: AvatarCardProps) {
 	const cutie = cutieId ? getCutie(cutieId) : null
 	const isBattleSize = size === 'battle'
-	// The number is knocked **backwards behind the fighter who took the hit**: the blow arrives from the
-	// opposite card, so a hit on the player card (attacker on the right) drifts left and the enemy card
-	// drifts right.
-	const drift = side === 'player' ? '-18px' : '18px'
 	// `artSrc` is the preview override; otherwise the cutie's avatar art, falling back to its own.
 	const picture = artSrc === undefined ? (cutieId ? (avatarArtSrc(cutieId) ?? cutieArtSrc(cutieId)) : null) : artSrc
 	const hitKey = feedback.filter((entry) => entry.type === 'damage').at(-1)?.key
@@ -131,7 +152,7 @@ export function AvatarCard({
 				isBattleSize
 					? cn('battle-cutie-card', side === 'enemy' && 'battle-cutie-card-enemy')
 					: cn(
-							'flex w-[176px] shrink-0 flex-col gap-2 rounded-panel border-2 bg-linear-to-b p-2',
+							'relative flex w-[176px] shrink-0 flex-col gap-2 rounded-panel border-2 bg-linear-to-b p-2',
 							side === 'player'
 								? 'border-[#8a6316] from-[#241d12] to-ink-800'
 								: 'border-[#7d2318] from-[#241412] to-ink-800',
@@ -206,10 +227,19 @@ export function AvatarCard({
 						<ChargeOverlay percent={charge.percent} cycle={charge.cycle} sizeScale={3} />
 					</span>
 				) : null}
+			</div>
+			{/*
+			 * 🔴 The floating numbers live **outside** the portrait, in their own layer over the card: the
+			 * portrait clips to its rounded frame (`overflow-hidden`), so a number near the edge was cut in
+			 * half by that frame ("dmg popup đang bị frame che mất"). Percentages stay relative to the card,
+			 * which is the portrait plus its border — close enough for a number that floats away anyway.
+			 */}
+			<div className="pointer-events-none absolute inset-0 z-[7]">
 				{feedback.map((entry) => {
-					const seconds = entry.seconds ?? 0.9
+					const seconds = entry.seconds ?? 0.6
 					const delay = entry.delay ?? 0
-					const spot = feedbackPosition(entry.key, side)
+					const flight = flightOf(entry.key)
+					const birth = birthOf(entry.key)
 					const style = FEEDBACK_STYLE[entry.type]
 					const critical = entry.critical === true && entry.type === 'damage'
 					return (
@@ -221,7 +251,7 @@ export function AvatarCard({
 							data-combat-feedback={entry.type}
 							data-combat-feedback-key={entry.key}
 							{...(critical ? { 'data-combat-critical-hit': true } : {})}
-							style={spot}
+							style={birth}
 						>
 							<span
 								aria-label={
@@ -235,17 +265,21 @@ export function AvatarCard({
 												)
 								}
 								className={cn(
-									'block animate-combat-floater font-extrabold',
-									isBattleSize ? 'text-[27px]' : 'text-lg',
+									// 🔴 `will-change: transform` promotes the number to its **own composited
+									// layer**: without it the browser re-rasterises the glyphs and the
+									// `text-shadow` on every frame of the scale, which is what made the pop
+									// stutter instead of glide. The layer is scaled by the GPU instead.
+									'block animate-combat-floater font-extrabold [will-change:transform] [backface-visibility:hidden]',
 									critical
-										? // Critical: one step bigger, blazing yellow → red, with the word under it.
+										? // Critical: one step bigger, blazing gold, but still small enough to sit
+											// inside the card (asked for: "thu nhỏ popup bắn ra").
 											cn(
-												'text-[34px] leading-none text-[#ffd45c]',
+												'text-[26px] leading-none text-[#ffd45c]',
 												'[text-shadow:0_0_12px_rgb(255_96_32/85%),0_3px_10px_rgb(0_0_0/85%)]',
 											)
 										: cn(
 												'[text-shadow:0_3px_9px_rgb(0_0_0/80%)]',
-												isBattleSize ? 'text-[27px]' : 'text-lg',
+												isBattleSize ? 'text-[20px]' : 'text-base',
 												style.tone,
 											),
 								)}
@@ -253,7 +287,8 @@ export function AvatarCard({
 									{
 										'--floater-life': `${seconds}s`,
 										'--floater-delay': `${delay}s`,
-										'--floater-drift': drift,
+										'--floater-dx': flight.dx,
+										'--floater-dy': flight.dy,
 									} as React.CSSProperties
 								}
 							>

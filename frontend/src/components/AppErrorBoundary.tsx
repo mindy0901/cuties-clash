@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { translate } from '../i18n'
+import { clearLocalSave } from '../store/persistedSave'
 
 interface Props {
 	children: ReactNode
@@ -30,11 +31,9 @@ export class AppErrorBoundary extends Component<Props, State> {
 	}
 
 	private reset = () => {
-		try {
-			window.localStorage.removeItem('martial-cutie-save')
-		} catch {
-			// Ignore: localStorage may be blocked.
-		}
+		// The owner tag goes with the save: otherwise the next anonymous run would be tagged as the
+		// previous account's.
+		clearLocalSave()
 		window.location.assign('/')
 	}
 

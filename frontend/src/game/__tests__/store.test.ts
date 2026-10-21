@@ -579,3 +579,53 @@ describe('game store loop', () => {
 		expect(useGameStore.getState().run.inventory).toHaveLength(1)
 	})
 })
+
+describe('Sinh Tồn in the store', () => {
+	/** Give the shop a weapon so a fight is even possible. */
+	function withWeapon() {
+		freshRun()
+		useGameStore.getState().buyOffer(0)
+		return useGameStore.getState()
+	}
+
+	it('starts the stream, not a duel, and pays no stage reward', () => {
+		const before = withWeapon()
+		useGameStore.getState().startBattle('survival')
+		const state = useGameStore.getState()
+		expect(state.phase).toBe('battle')
+		expect(state.battle?.mode).toBe('survival')
+		expect(state.battle?.reward).toBe(0)
+		expect(state.battle?.survival?.waves[0]?.index).toBe(1)
+		// The seed advances exactly like every other mode, so the run stays reproducible.
+		expect(state.run.seed).not.toBe(before.run.seed)
+	})
+
+	it('banks the gold and the record on retreat', () => {
+		const before = withWeapon()
+		useGameStore.getState().startBattle('survival')
+		useGameStore.getState().retreatSurvival(120, 4)
+		const state = useGameStore.getState()
+		expect(state.run.gold).toBe(before.run.gold + 120)
+		expect(state.run.survivalBest).toBe(4)
+		expect(state.phase).toBe('prep')
+		expect(state.battle).toBeNull()
+	})
+
+	it('keeps the record but pays nothing when the stream killed the Cutie', () => {
+		withWeapon()
+		useGameStore.getState().startBattle('survival')
+		// Pretend the replay reached the end with the Cutie dead.
+		const battle = useGameStore.getState().battle!
+		useGameStore.setState({
+			battle: {
+				...battle,
+				survival: battle.survival ? { ...battle.survival, died: true } : undefined,
+			},
+		})
+		const goldBefore = useGameStore.getState().run.gold
+		useGameStore.getState().commitBattle()
+		const state = useGameStore.getState()
+		expect(state.run.gold, 'a dead run earns nothing').toBe(goldBefore)
+		expect(state.run.survivalBest).toBeGreaterThanOrEqual(0)
+	})
+})

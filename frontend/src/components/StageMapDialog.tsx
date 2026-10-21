@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { buildEnemyCombatant, buildPlayerCombatant, estimatePower } from '../game/build'
-import { highestAccessibleStage, MAPS, STAGES } from '../game/stages'
+import { FINAL_STAGE, highestAccessibleStage, MAPS, STAGES } from '../game/stages'
 import { translate } from '../i18n'
 import { useGameStore } from '../store/gameStore'
-import { Check, Cost, Lock, Trophy, X } from './icons'
+import { Check, Cost, Lock, Swords, Trophy, X } from './icons'
 import { cn, panelClass, statClass } from './ui'
 import { Button } from './ui/button'
 import { translateEnemyName } from './enemyName'
+import { unlockBattleAudio } from './battleAudio'
 
 const NODE_POINTS = [
 	{ x: 8, y: 15 },
@@ -44,6 +45,9 @@ export function StageMapDialog({ onClose }: { onClose: () => void }) {
 	const run = useGameStore((state) => state.run)
 	const phase = useGameStore((state) => state.phase)
 	const selectStage = useGameStore((state) => state.selectStage)
+	const startBattle = useGameStore((state) => state.startBattle)
+	const equippedCount = run.equipped.filter((item) => item.slot >= 0).length
+	const canFight = equippedCount > 0
 	const maxUnlockedStage = highestAccessibleStage(run.clearedStage)
 	const [activeMapIndex, setActiveMapIndex] = useState(() => Math.max(0, mapIndexForStage(run.stage)))
 	const [selectedStageIndex, setSelectedStageIndex] = useState(run.stage)
@@ -81,6 +85,17 @@ export function StageMapDialog({ onClose }: { onClose: () => void }) {
 
 	function confirmStage() {
 		if (selectStage(selectedStageIndex)) onClose()
+	}
+
+	/**
+	 * The fight button moved here from the shared footer: it selects the stage the player picked on the
+	 * map and starts it at once, so "choose a stage" and "fight it" read as one action.
+	 */
+	function fightSelectedStage() {
+		if (!canFight || !selectStage(selectedStageIndex)) return
+		unlockBattleAudio()
+		startBattle('stage')
+		onClose()
 	}
 
 	return (
@@ -356,13 +371,44 @@ export function StageMapDialog({ onClose }: { onClose: () => void }) {
 					</aside>
 				</div>
 
-				<footer className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-xs text-muted md:px-7">
-					<span>
-						{translate('Đã mở {unlocked}/{total} màn trong khu vực này', {
-							unlocked: unlockedStagesInMap,
-							total: map.to - map.from + 1,
-						})}
-					</span>
+				<footer className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3 md:px-7">
+					<div className="flex min-w-[240px] flex-1 flex-col justify-center gap-1 rounded-panel border border-line bg-black/25 px-3 py-2">
+						<div className="flex flex-wrap items-center justify-between gap-x-3 text-[11px] text-muted">
+							<span>
+								{translate('Tiến trình màn {cleared}/{total}', {
+									cleared: run.clearedStage,
+									total: FINAL_STAGE,
+								})}
+							</span>
+							<span>
+								{translate('Đã mở {unlocked}/{total} màn trong khu vực này', {
+									unlocked: unlockedStagesInMap,
+									total: map.to - map.from + 1,
+								})}
+							</span>
+						</div>
+						<span className="h-1.5 overflow-hidden rounded-full bg-black/60">
+							<span
+								className="block h-full rounded-full bg-linear-to-r from-gold to-gold-soft transition-[width] duration-300"
+								style={{ width: `${Math.round((run.clearedStage / FINAL_STAGE) * 100)}%` }}
+							/>
+						</span>
+					</div>
+					<Button
+						type="button"
+						variant="destructive"
+						data-fight-stage
+						className="min-w-[240px] justify-center text-base font-bold whitespace-nowrap"
+						disabled={!canConfirm || !canFight}
+						onClick={fightSelectedStage}
+						title={
+							canFight
+								? translate('Đánh màn {stage}', { stage: selectedStageIndex })
+								: translate('Hãy mang ít nhất 1 món lên trang bị trước')
+						}
+					>
+						<Swords /> {translate('Đấu Cutie')} · {translate('Màn {stage}', { stage: selectedStageIndex })}
+					</Button>
 				</footer>
 			</div>
 		</div>

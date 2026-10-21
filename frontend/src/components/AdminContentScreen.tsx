@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toEnglish, useLanguageStore } from '../i18n'
 import { useAdminContent, useDeleteArt, useResetContent, useSaveContent, useSessionState, useUploadArt } from '../api/queries'
-import { currentContentOverrides, kitCatalogue, pruneRemovedKits, putLocalOverride, removedKits } from '../game/content'
+import { currentContentOverrides, kitCatalogue, pruneRemovedKits, putLocalOverride } from '../game/content'
 import {
 	ITEM_BY_ID,
 	QUALITY_VALUES,
@@ -13,11 +13,9 @@ import {
 	uniqueItemCode,
 } from '../game/items'
 import {
-	CHARGE_KITS,
 	DIRECTION_LABELS,
 	KIT_CATEGORIES,
 	KIT_CATEGORY_LABELS,
-	ON_HIT_KITS,
 	defaultKit,
 	isRepeatableKit,
 	kitDef,
@@ -203,8 +201,8 @@ const CUTIE_FIELDS: FieldDef[] = [
 	},
 
 	{ key: 'maxHp', label: 'Health', group: 'Defence', kind: 'int', min: 50, max: 100_000 },
-	{ key: 'maxSe', label: 'Max Sword Energy', group: 'Sword Energy', kind: 'int', min: 10, max: 1000 },
-	{ key: 'seRegen', label: 'Sword Energy regen (/s)', group: 'Sword Energy', kind: 'number', min: 0, max: 100 },
+	{ key: 'maxSe', label: 'Max Energy', group: 'Energy', kind: 'int', min: 10, max: 1000 },
+	{ key: 'seRegen', label: 'Energy regen (/s)', group: 'Energy', kind: 'number', min: 0, max: 100 },
 	{
 		// Same catalogue as an item: a cutie with no attack kit never swings.
 		key: 'kits',
@@ -217,7 +215,7 @@ const CUTIE_FIELDS: FieldDef[] = [
 /** The order the field groups are drawn in, per kind. A group with no visible field is skipped. */
 const GROUP_ORDER: Record<Kind, string[]> = {
 	item: ['Identity', 'Shop', 'Grid'],
-	cutie: ['Identity', 'Offence', 'Defence', 'Sword Energy'],
+	cutie: ['Identity', 'Offence', 'Defence', 'Energy'],
 }
 
 const FIELDS: Record<Kind, FieldDef[]> = { item: ITEM_FIELDS, cutie: CUTIE_FIELDS }
@@ -791,6 +789,16 @@ function AdminContentEditor({ kind }: { kind: Kind }) {
 	 * repeatable, and a fresh copy starts on a stat the item does not grant yet.
 	 */
 	const addKit = (id: ItemKitId) => {
+		// The charged hit and the on-hit effects live inside a swing (`build.ts` runs them from the
+		// attack kit), so choosing one here attaches it to the **basic attack** instead of adding a
+		// card of its own. They are only offered when that kit exists (see `needsBasicAttack`).
+		const kind = kitDef(id).kind
+		if (kind === 'charge' || kind === 'onHit') {
+			if (basicAttackIndex < 0) return
+			if (kind === 'charge') addCharge(basicAttackIndex)
+			else addOnHit(basicAttackIndex, id as OnHitKitId)
+			return
+		}
 		const code = parseKitDrafts(codeDefaults.kits?.[0]).find((kit) => kit.id === id)
 		const draftKit = code ?? kitToDraft(defaultKit(id))
 		if (id === 'stats' || id === 'aura') {
@@ -815,18 +823,40 @@ function AdminContentEditor({ kind }: { kind: Kind }) {
 	 * Every kit id is offered until it is attached — an item may carry several attack kits, and a
 	 * second `stats` / `aura` kit is how a second stat is added.
 	 *
-	 * A cutie gets the **attack kits only** (plus their on-hit effects): `stats` / `aura` / `parry`
+	 * A cutie gets the kits a Cutie may carry (`appliesTo: 'both'`): `stats` / `aura` / `parry`
 	 * describe an item's tables and adjacency, and Chấn Đao belongs to a weapon, not to a cutie.
+	 *
+	 * 🔴 **The charged hit and the on-hit effects are kits in this same list** (they are no longer a
+	 * "sub-kit" menu of their own): they need a swing to hang on, so they stay **disabled** until the
+	 * entity has a `basic-attack` kit — see `needsBasicAttack`.
 	 *
 	 * ⚠️ Read from `kitCatalogue()`, **not** from `KIT_DEFS`: a kit deleted on the Kits tab must not be
 	 * offered here — attaching it would resurrect it in the entity's kit list.
 	 */
+	const basicAttackIndex = kits.findIndex((kit) => kit.id === 'basic-attack')
+
 	const availableKits = useMemo(() => {
 		void contentVersion
+		// Kits that live inside a swing (the charged hit, the on-hit effects) are attached to one, so
+		// they are not top-level entries of `kits`: read them off the swings to hide them from the menu.
+		const attachedNested = new Set(
+			kits.flatMap((kit) => [
+				...(kit.charge ? [kit.charge.id] : []),
+				...(kit.onHit ?? []).map((effect) => effect.id),
+			]),
+		)
 		return kitCatalogue()
-			.filter((def) => def.kind === 'attack' || (starred && def.kind === 'option'))
+			.filter((def) => starred || def.appliesTo === 'both')
 			.filter((def) => !kits.some((kit) => kit.id === def.id) || isRepeatableKit(def.id))
+			.filter((def) => !attachedNested.has(def.id))
 	}, [kits, starred, contentVersion])
+
+	/**
+	 * A kit that only makes sense **inside a swing** (the charged hit, an on-hit effect): it is listed
+	 * like any other kit but greyed out until the entity carries a `basic-attack` to attach it to.
+	 */
+	const needsBasicAttack = (def: { kind: string }) =>
+		(def.kind === 'charge' || def.kind === 'onHit') && basicAttackIndex < 0
 
 	/**
 	 * The same list, split into the headings the menu draws.
@@ -1479,20 +1509,12 @@ function AdminContentEditor({ kind }: { kind: Kind }) {
 						{kits.map((kit, kitIndex) => {
 							const def = kitDef(kit.id)
 							const dpm = def.kind === 'attack' ? dpmOf(kit) : []
-							const addableOnHit = ON_HIT_KITS.filter(
-								(effect) => !(kit.onHit ?? []).some((attached) => attached.id === effect.id),
-							).filter((effect) => !removedKits().has(effect.id))
-							// The charged variant is offered right here, inside the swing it belongs to.
-							const addableCharge =
-								def.kind === 'attack' && !kit.charge
-									? CHARGE_KITS.filter((charge) => !removedKits().has(charge.id))
-									: []
 							return (
+								<Fragment key={`${kit.id}-${kitIndex}`}>
 								<div
-									key={`${kit.id}-${kitIndex}`}
 									data-admin-kit={kit.id}
 									data-admin-kit-index={kitIndex}
-									// Red frame = a **main** kit at the item's top level; green marks a sub-kit.
+									// Every kit is a **main** kit: one red frame per card, ⚠️ no sub-kit colour.
 									className="flex flex-col gap-1.5 rounded-lg border border-danger-soft/60 bg-black/20 p-2"
 								>
 									<span className="flex w-full flex-wrap items-center gap-1.5 text-[12.5px]">
@@ -1553,15 +1575,17 @@ function AdminContentEditor({ kind }: { kind: Kind }) {
 											onChangeAll={(key, value) => setKitParamAll(kitIndex, key, value)}
 										/>
 									)}
+								</div>
 
-									{/* The charged variant lives **inside** this swing, never as a second card. */}
+									{/* The charged hit is a kit of its own: drawn as its **own card** under the swing
+									    it runs on (`build.ts` reads `kit.charge`), in the same red frame as the rest. */}
 									{def.kind === 'attack' && kit.charge ? (
 										<div
 											data-admin-charge-kit="charge-attack"
-											className="mt-1 flex flex-col gap-1.5 rounded-md border border-hp/60 bg-se/5 p-2"
+											className="mt-1 flex flex-col gap-1.5 rounded-lg border border-danger-soft/60 bg-black/20 p-2"
 										>
-											<span className="flex w-full flex-wrap items-center justify-between gap-1.5 text-[12px]">
-												<span className="font-semibold text-se-soft">
+											<span className="flex w-full flex-wrap items-center justify-between gap-1.5 text-[12.5px]">
+												<span className="font-semibold">
 													{toEnglish(kitDef('charge-attack').label)}
 												</span>
 												{/* What the charged hit deals — on the title row, next to the ✕. */}
@@ -1602,107 +1626,45 @@ function AdminContentEditor({ kind }: { kind: Kind }) {
 										</div>
 									) : null}
 
-									{def.kind === 'attack' ? (
-										<div
-											data-admin-onhit
-											// No label of its own: an on-hit effect is a **sub-kit card** exactly like the
-											// charged hit, so it needs no group heading to explain it.
-											className={cn(
-												'mt-1 flex flex-col gap-1.5',
-												kit.charge ? 'border-t border-line/60 pt-2' : null,
-											)}
-										>
-											{/* ❌ No "No effect yet" sentence: a kit with no sub-kit is just a plain hit. */}
-
-											{(kit.onHit ?? []).map((effect) => {
-												const effectDef = kitDef(effect.id)
-												return (
-													<div
-														key={effect.id}
-														data-admin-onhit-kit={effect.id}
-														className="flex flex-col gap-1.5 rounded-md border border-hp/60 bg-black/25 p-2"
+									{/* Every on-hit effect is a kit of its own too: one card each, under the swing that
+									    runs it (❌ no "sub-kit" wrapper). */}
+									{(def.kind === 'attack' ? (kit.onHit ?? []) : []).map((effect) => {
+										const effectDef = kitDef(effect.id)
+										return (
+											<div
+												key={effect.id}
+												data-admin-onhit-kit={effect.id}
+												className="flex flex-col gap-1.5 rounded-lg border border-danger-soft/60 bg-black/20 p-2"
+											>
+												<span className="flex w-full flex-wrap items-center justify-between gap-1.5 text-[12.5px]">
+													<span className="font-semibold">{toEnglish(effectDef.label)}</span>
+													<button
+														type="button"
+														data-admin-remove-onhit={effect.id}
+														className="rounded border border-line px-1 text-[12px] leading-5 hover:border-danger-soft hover:text-danger-soft"
+														title={toEnglish("Remove this kit from the attack")}
+														onClick={() => removeOnHit(kitIndex, effect.id as OnHitKitId)}
 													>
-														<span className="flex w-full flex-wrap items-center justify-between gap-1.5 text-[12px]">
-															<span className="font-semibold">{toEnglish(effectDef.label)}</span>
-															<button
-																type="button"
-																data-admin-remove-onhit={effect.id}
-																className="rounded border border-line px-1 text-[12px] leading-5 hover:border-danger-soft hover:text-danger-soft"
-																title={toEnglish("Remove this effect from the attack")}
-																onClick={() => removeOnHit(kitIndex, effect.id as OnHitKitId)}
-															>
-																<X />
-															</button>
-														</span>
-														<KitParamInputs
-															kitId={effect.id}
-															params={effect.params}
-															single={!starred}
-															onChange={(key, index, value) =>
-																setOnHitParam(kitIndex, effect.id as OnHitKitId, key, index, value)
-															}
-															onChangeAll={(key, value) =>
-																setOnHitParamAll(kitIndex, effect.id as OnHitKitId, key, value)
-															}
-														/>
-													</div>
-												)
-											})}
-
-											{/* One menu for everything that lives **inside** this swing: the charged variant
-											    and the on-hit effects. ❌ Neither is a card at the item's top level. */}
-											{addableCharge.length > 0 || addableOnHit.length > 0 ? (
-												<DropdownMenu>
-													<DropdownMenuTrigger asChild>
-														<Button
-															type="button"
-															data-admin-add-onhit-open
-															variant="outline"
-															size="sm"
-															className="self-start"
-															title={toEnglish("Add a sub-kit to this attack")}
-														>
-															<Plus /> {toEnglish("Add sub-kit")}
-														</Button>
-													</DropdownMenuTrigger>
-													<DropdownMenuContent align="start">
-														{addableCharge.length > 0 ? (
-															<>
-																<DropdownMenuLabel>{toEnglish("Charged hit")}</DropdownMenuLabel>
-																{addableCharge.map((charge) => (
-																	<DropdownMenuItem
-																		key={charge.id}
-																		data-admin-add-charge={charge.id}
-																		onSelect={() => addCharge(kitIndex)}
-																	>
-																		<span className="font-semibold">
-																			{toEnglish(charge.label)}
-																		</span>
-																	</DropdownMenuItem>
-																))}
-																<DropdownMenuSeparator />
-															</>
-														) : null}
-														<DropdownMenuLabel>
-															{toEnglish("On-hit effects")}
-														</DropdownMenuLabel>
-														{addableOnHit.map((effect) => (
-															<DropdownMenuItem
-																key={effect.id}
-																data-admin-add-onhit={effect.id}
-																onSelect={() => addOnHit(kitIndex, effect.id as OnHitKitId)}
-															>
-																<span className="font-semibold">{toEnglish(effect.label)}</span>
-															</DropdownMenuItem>
-														))}
-													</DropdownMenuContent>
-												</DropdownMenu>
-											) : null}
-										</div>
-										) : null}
-									</div>
-								)
-							})}
+														<X />
+													</button>
+												</span>
+												<KitParamInputs
+													kitId={effect.id}
+													params={effect.params}
+													single={!starred}
+													onChange={(key, index, value) =>
+														setOnHitParam(kitIndex, effect.id as OnHitKitId, key, index, value)
+													}
+													onChangeAll={(key, value) =>
+														setOnHitParamAll(kitIndex, effect.id as OnHitKitId, key, value)
+													}
+												/>
+											</div>
+										)
+									})}
+								</Fragment>
+							)
+						})}
 
 							{availableKits.length > 0 ? (
 								<DropdownMenu>
@@ -1728,15 +1690,24 @@ function AdminContentEditor({ kind }: { kind: Kind }) {
 												<DropdownMenuLabel className="text-[11px] font-normal text-muted">
 													{toEnglish(group.label)}
 												</DropdownMenuLabel>
-												{group.kits.map((def) => (
-													<DropdownMenuItem
-														key={def.id}
-														data-admin-add-kit={def.id}
-														onSelect={() => addKit(def.id)}
-													>
-														<span className="font-semibold">{toEnglish(def.label)}</span>
-													</DropdownMenuItem>
-												))}
+												{group.kits.map((def) => {
+													// The charged hit and the on-hit effects need a swing: listed, but
+													// greyed out until the entity has a basic attack to attach them to.
+													const needsBasic = needsBasicAttack(def)
+													return (
+														<DropdownMenuItem
+															key={def.id}
+															data-admin-add-kit={def.id}
+															data-admin-add-onhit={def.kind === 'onHit' ? def.id : undefined}
+															data-admin-add-charge={def.kind === 'charge' ? def.id : undefined}
+															disabled={needsBasic}
+															title={needsBasic ? toEnglish('Add a basic attack first') : undefined}
+															onSelect={() => addKit(def.id)}
+														>
+															<span className="font-semibold">{toEnglish(def.label)}</span>
+														</DropdownMenuItem>
+													)
+												})}
 											</div>
 										))}
 									</DropdownMenuContent>

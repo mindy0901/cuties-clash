@@ -64,6 +64,8 @@ export interface DamageReaction {
 	seDrain?: { amount: number }
 	/** `damage-boost` kit that starts when one of the owner's weapons lands a hit. */
 	boost?: DamageBoost
+	/** The item that granted it — the arena lights up that tile when the reaction fires. */
+	uid?: string
 }
 
 export interface HealReaction {
@@ -72,6 +74,8 @@ export interface HealReaction {
 	cooldown?: CooldownBuff
 	/** `damage-boost` kit that starts when the owner is healed. */
 	boost?: DamageBoost
+	/** The item that granted it (see `DamageReaction.uid`). */
+	uid?: string
 }
 
 /**
@@ -98,6 +102,8 @@ export interface CooldownBuff {
 	mode: BuffTargetMode
 	/** `mode === 'directions'`: the swings on the ticked sides, by swing uid. */
 	weaponUids: string[]
+	/** The gem that granted it — the arena lights up that tile when the buff lands. */
+	uid?: string
 }
 
 export type FreezeReaction = CooldownBuff
@@ -106,6 +112,12 @@ export interface AttackedReaction {
 	/** 0–1. */
 	chance: number
 	freeze: number
+	/** Water's `shield-when-hit`: armour granted (already a share of max HP) when the roll succeeds. */
+	shield?: number
+	/** Wood's `cleanse`: strip every bad status on the owner when the roll succeeds. */
+	cleanse?: boolean
+	/** The item that granted it (see `DamageReaction.uid`). */
+	uid?: string
 }
 
 export interface DebuffReaction {
@@ -113,6 +125,8 @@ export interface DebuffReaction {
 	scale?: ScaleMode
 	/** `damage-boost` kit that starts when the owner is frozen. */
 	boost?: DamageBoost
+	/** The item that granted it (see `DamageReaction.uid`). */
+	uid?: string
 }
 
 export interface CombatReactions {
@@ -165,6 +179,8 @@ export interface Combatant {
 	regenPct: number
 	/** Chance (0–1) to take half damage from a direct hit. */
 	blockChance: number
+	/** Sword Energy a **critical** hit refunds (the `overcharge` kit); `0` when it carries none. */
+	critEnergy?: number
 	/** Enough Sword Energy negates a **charged** attack outright. */
 	blockCharged?: { seCost: number }
 	reactions: CombatReactions
@@ -251,6 +267,8 @@ function cooldownBuff(
 	kit: { id: ItemKitId; params: Record<string, number[]> },
 	star: Star,
 	swingsOnSide: (side: Direction) => string[],
+	/** The gem that grants it; carried onto the event so the arena can light that tile up. */
+	uid?: string,
 ): CooldownBuff | undefined {
 	const value = kitValue(kit, 'boost', star)
 	if (value <= 0) return undefined
@@ -260,7 +278,7 @@ function cooldownBuff(
 		mode === 'directions'
 			? [...new Set(DIRECTIONS.filter((side) => (mask & DIRECTION_BITS[side]) !== 0).flatMap(swingsOnSide))]
 			: []
-	return { value, mode, duration: Math.round(kitValue(kit, 'duration', star)), weaponUids }
+	return { value, mode, duration: Math.round(kitValue(kit, 'duration', star)), weaponUids, uid }
 }
 
 /**
@@ -270,9 +288,15 @@ function cooldownBuff(
  */
 const addItemMods = addMods
 
-/** Percent of the owner's max Sword Energy → an absolute amount for the simulation. */
-function sePercent(percent: number, maxSe: number): number {
-	return Math.round((maxSe * percent) / 100)
+/**
+ * An Energy amount from a kit is **absolute points**, not a share of the bar: `seNeed: 100` means the
+ * owner needs 100 Energy, whatever its `maxSe` is. The simulation compares these numbers against
+ * `runtime.se` / `maxSe` directly (`battle.ts`), so no conversion happens here — the value is only
+ * rounded (and clamped by `kitValue` to the kit's own range) so a stored `2.5` cannot leak into a bar
+ * comparison as a fraction that never lands.
+ */
+function energyPoints(value: number): number {
+	return Math.round(value)
 }
 
 /**
@@ -284,13 +308,13 @@ function sePercent(percent: number, maxSe: number): number {
  * ⚠️ Every number here is owner-relative: a burn is a share of the **cutie's attack** per second,
  * a shield is a share of its **max HP**, and Sword Energy amounts are a share of its **max bar**.
  */
-function onHitTriggers(attack: ItemKit, star: Star, maxSe: number): OnHitTrigger[] {
+function onHitTriggers(attack: ItemKit, star: Star): OnHitTrigger[] {
 	const triggers: OnHitTrigger[] = []
 	for (const effect of attack.onHit ?? []) {
 		// The kit stores the chance as a percentage (0–100), the simulation rolls 0–1.
 		const chance = kitValue(effect, 'chance', star) / 100
 		if (chance <= 0) continue
-		switch (effect.id) {
+		switch (mechanicOf(effect.id)) {
 			case 'burn-on-hit':
 			case 'poison-on-hit': {
 				triggers.push({
@@ -335,7 +359,7 @@ function onHitTriggers(attack: ItemKit, star: Star, maxSe: number): OnHitTrigger
 			case 'sword-energy-on-hit':
 				triggers.push({
 					chance,
-					effects: [{ kind: 'swordEnergy', amount: sePercent(kitValue(effect, 'amount', star), maxSe) }],
+					effects: [{ kind: 'swordEnergy', amount: energyPoints(kitValue(effect, 'amount', star)) }],
 				})
 				break
 			case 'lifesteal-on-hit':
@@ -355,6 +379,34 @@ function onHitTriggers(attack: ItemKit, star: Star, maxSe: number): OnHitTrigger
 							scale: 'hp' as ScaleMode,
 						},
 					],
+				})
+				break
+			case 'brittle-on-hit':
+			case 'wound-on-hit':
+			case 'weaken-on-hit':
+				triggers.push({
+					chance,
+					effects: [
+						{
+							kind: 'status',
+							status: mechanicOf(effect.id) === 'brittle-on-hit'
+								? ('brittle' as StatusKey)
+								: mechanicOf(effect.id) === 'wound-on-hit'
+									? ('wound' as StatusKey)
+									: ('weaken' as StatusKey),
+							duration: kitValue(effect, 'duration', star),
+							value: kitValue(effect, 'value', star),
+							stacks: 1,
+							target: 'enemy',
+						},
+					],
+				})
+				break
+			case 'shock-on-hit':
+				// Every enemy weapon stops charging — see `stun` in `game/types.ts`.
+				triggers.push({
+					chance,
+					effects: [{ kind: 'stun', duration: kitValue(effect, 'duration', star) }],
 				})
 				break
 		}
@@ -377,7 +429,6 @@ function kitSwings(
 	kits: ItemKit[] | undefined,
 	star: Star,
 	attackStat: number,
-	maxSe: number,
 	source: { uid: string; templateId: string; name: string; icon: string; slot: number; cls: string },
 ): CombatItem[] {
 	const swings: CombatItem[] = []
@@ -394,12 +445,12 @@ function kitSwings(
 			damage: attackDamage(attack, star, attackStat),
 			// `kitValue` clamps to the kit's own range, so this can never be 0 (min 0.1 s).
 			interval: attackCooldownMs(attack, star),
-			onHit: onHitTriggers(attack, star, maxSe),
+			onHit: onHitTriggers(attack, star),
 			...(attack.charge
 				? {
 						charge: {
 							multiplier: kitValue(attack.charge, 'multiplier', star),
-							seNeed: sePercent(kitValue(attack.charge, 'seNeed', star), maxSe),
+							seNeed: energyPoints(kitValue(attack.charge, 'seNeed', star)),
 							// The charged hit is its own number: owner attack × the charged multiplier.
 							// ❌ The basic attack's damage is never added on top of it.
 							damage: Math.round(attackStat * kitValue(attack.charge, 'multiplier', star)),
@@ -482,7 +533,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 		const uid = combatItemUid(entry.templateId, entry.slot)
 		// An item has no attack of its own: its kits multiply the **cutie's** attack.
 		items.push(
-			...kitSwings(template.kits, entry.star, attackStat, input.baseMaxSe, {
+			...kitSwings(template.kits, entry.star, attackStat, {
 				uid,
 				templateId: entry.templateId,
 				name: template.name,
@@ -508,6 +559,8 @@ export function buildCombatant(input: BuildInput): Combatant {
 	let regenPct = 0
 	let blockChance = 0
 	let blockCharged: Combatant['blockCharged']
+	/** Thunder's `overcharge`: the best Sword-Energy refund on a critical hit, `0` when none. */
+	let critEnergy = 0
 	/** "Always on" `damage-boost` kits, folded into the swings once every item has been read. */
 	const permanentBoosts: DamageBoost[] = []
 	for (const entry of placed) {
@@ -549,7 +602,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 				if (chance <= 0) continue
 				const candidate = {
 					chance,
-					cost: sePercent(kitValue(kit, 'cost', entry.star), input.baseMaxSe),
+					cost: energyPoints(kitValue(kit, 'cost', entry.star)),
 					power: kitValue(kit, 'power', entry.star) / 100,
 					name: template.name,
 				}
@@ -569,7 +622,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 			}
 			switch (mechanic) {
 				case 'freeze-haste': {
-					const buff = cooldownBuff(kit, star, swingsOnSide)
+					const buff = cooldownBuff(kit, star, swingsOnSide, uid)
 					if (buff) reactions.freeze.push(buff)
 					break
 				}
@@ -578,7 +631,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 					const amount = kitValue(kit, 'amount', star)
 					if (amount <= 0) break
 					// A heal is a share of the owner's max HP.
-					const reaction = { amount, scale: 'hp' as ScaleMode }
+					const reaction = { amount, scale: 'hp' as ScaleMode, uid }
 					if (mechanic === 'freeze-heal') reactions.frozen.push(reaction)
 					else reactions.debuff.push(reaction)
 					break
@@ -589,6 +642,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 						reactions.attacked.push({
 							chance,
 							freeze: Math.round(kitValue(kit, 'duration', star)),
+							uid,
 						})
 					}
 					break
@@ -602,6 +656,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 								value: kitValue(kit, 'value', star),
 								duration: Math.round(kitValue(kit, 'duration', star)),
 							},
+							uid,
 						})
 					}
 					break
@@ -612,14 +667,14 @@ export function buildCombatant(input: BuildInput): Combatant {
 						perStack: kitValue(kit, 'value', star),
 						maxStacks: Math.round(kitValue(kit, 'maxStacks', star)),
 					}
-					if (mechanic === 'rage-on-hit') reactions.damage.push({ chance: 1, rage })
-					else reactions.heal.push({ rage })
+					if (mechanic === 'rage-on-hit') reactions.damage.push({ chance: 1, rage, uid })
+					else reactions.heal.push({ rage, uid })
 					break
 				}
 				case 'armor-on-heal': {
 					// A share of the owner's max HP, resolved once per item.
 					const amount = Math.round((input.baseMaxHp * kitValue(kit, 'amount', star)) / 100)
-					if (amount > 0) reactions.heal.push({ armor: amount })
+					if (amount > 0) reactions.heal.push({ armor: amount, uid })
 					break
 				}
 				case 'se-drain': {
@@ -627,14 +682,35 @@ export function buildCombatant(input: BuildInput): Combatant {
 					if (chance > 0) {
 						reactions.damage.push({
 							chance,
-							seDrain: { amount: sePercent(kitValue(kit, 'amount', star), input.baseMaxSe) },
+							seDrain: { amount: energyPoints(kitValue(kit, 'amount', star)) },
+							uid,
 						})
 					}
 					break
 				}
 				case 'heal-haste': {
-					const buff = cooldownBuff(kit, star, swingsOnSide)
-					if (buff) reactions.heal.push({ cooldown: buff })
+					const buff = cooldownBuff(kit, star, swingsOnSide, uid)
+					if (buff) reactions.heal.push({ cooldown: buff, uid })
+					break
+				}
+				case 'shield-when-hit': {
+					// Water's "giáp ảo": the shield only appears once a hit actually lands.
+					const chance = kitValue(kit, 'chance', star) / 100
+					const amount = Math.round((input.baseMaxHp * kitValue(kit, 'amount', star)) / 100)
+					if (chance > 0 && amount > 0) {
+						reactions.attacked.push({ chance, freeze: 0, shield: amount, uid })
+					}
+					break
+				}
+				case 'cleanse': {
+					// Wood: a chance to strip every bad status the moment one lands.
+					const chance = kitValue(kit, 'chance', star) / 100
+					if (chance > 0) reactions.attacked.push({ chance, freeze: 0, cleanse: true, uid })
+					break
+				}
+				case 'overcharge': {
+					const amount = energyPoints(kitValue(kit, 'amount', star))
+					if (amount > 0) critEnergy = Math.max(critEnergy, amount)
 					break
 				}
 				case 'damage-reduction':
@@ -651,7 +727,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 					break
 				case 'sword-energy':
 					// The one kit allowed to move Sword Energy — a negative number slows the refill.
-					stats.seRegen += (input.baseSeRegen * kitValue(kit, 'regen', star)) / 100
+					stats.seRegen += kitValue(kit, 'regen', star)
 					break
 				case 'damage-boost': {
 					const value = kitValue(kit, 'value', star)
@@ -671,16 +747,16 @@ export function buildCombatant(input: BuildInput): Combatant {
 					const trigger = Math.round(kitValue(kit, 'trigger', star))
 					const boost = { value, duration: Math.round(kitValue(kit, 'duration', star)), uids }
 					if (trigger === BOOST_TRIGGER_ALWAYS) permanentBoosts.push(boost)
-					else if (trigger === BOOST_TRIGGER_HIT) reactions.damage.push({ chance: 1, boost })
-					else if (trigger === BOOST_TRIGGER_HEAL) reactions.heal.push({ boost })
-					else reactions.frozen.push({ amount: 0, boost })
+					else if (trigger === BOOST_TRIGGER_HIT) reactions.damage.push({ chance: 1, boost, uid })
+					else if (trigger === BOOST_TRIGGER_HEAL) reactions.heal.push({ boost, uid })
+					else reactions.frozen.push({ amount: 0, boost, uid })
 					break
 				}
 				case 'block-chance':
 					blockChance += kitValue(kit, 'chance', star) / 100
 					break
 				case 'block-charged': {
-					const seCost = sePercent(kitValue(kit, 'seCost', star), input.baseMaxSe)
+					const seCost = energyPoints(kitValue(kit, 'seCost', star))
 					// The cheapest block wins: two copies must not make the same block cost more.
 					if (!blockCharged || seCost < blockCharged.seCost) blockCharged = { seCost }
 					break
@@ -719,7 +795,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 	}
 	// Swings of the owner itself (a cutie's kits). Its plain attack comes from the kits, not from the
 	// base weapon, so `baseWeaponInterval` is 0 for a cutie and the row below drops out.
-	const own = kitSwings(input.baseKits, 1, attackStat, input.baseMaxSe, {
+	const own = kitSwings(input.baseKits, 1, attackStat, {
 		uid: 'skill',
 		templateId: 'skill',
 		name: input.baseWeaponName,
@@ -764,6 +840,7 @@ export function buildCombatant(input: BuildInput): Combatant {
 		regenPct,
 		blockChance: Math.min(0.9, blockChance),
 		...(blockCharged ? { blockCharged } : {}),
+		...(critEnergy > 0 ? { critEnergy } : {}),
 		reactions,
 		// Counter damage and `atkScale` effects read the **owner's** attack, never an item's.
 		referenceAtk: Math.round(weaponBase * (1 + atkPct)),

@@ -15,6 +15,8 @@ interface CutieLoadoutPanelProps {
 	held: HeldItem | null
 	/** Clicking an item → opens the detail dialog. */
 	onItemClick: (item: ItemInstance) => void
+	/** Pointer over a tile → the hover card (`useItemHoverCard`). */
+	onItemHover?: (item: ItemInstance, node: HTMLElement | null) => void
 	/** Starts holding an item (beginning of the drag). */
 	onDragStart?: (item: ItemInstance) => void
 	/** Pointer release: `moved` tells whether it was dragged or merely clicked. */
@@ -39,6 +41,7 @@ interface CutieLoadoutPanelProps {
 export function CutieLoadoutPanel({
 	held,
 	onItemClick,
+	onItemHover,
 	onDragStart,
 	onDragEnd,
 	onHoverSlot,
@@ -73,6 +76,7 @@ export function CutieLoadoutPanel({
 				interactive
 				held={held}
 				onItemClick={onItemClick}
+				onItemHover={onItemHover}
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
 				onHoverSlot={onHoverSlot}

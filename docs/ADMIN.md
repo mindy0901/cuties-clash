@@ -71,13 +71,17 @@ Removing its `basic-attack` kit means it **never attacks** — that is a legal c
 
 ### Kits
 
-**Colour of a kit card** — a **main** kit (a card at the item's top level) is drawn with a **red**
-border (`border-danger-soft/60`, `[data-admin-kit]`); a **sub-kit** — the charged hit
-(`[data-admin-charge-kit]`) and every on-hit effect (`[data-admin-onhit-kit]`) — with a **green** one
-(`border-hp/60`). Nothing else is allowed to look like a kit card, so "is this a swing of its own or
-part of another one?" is answered by the frame alone. An on-hit effect therefore carries **no group
-heading** of its own: the cards and the "Thêm kit con" menu are enough, and the thin divider above them
-only appears when a charged hit sits there too.
+**Colour of a kit card** — 🔴 **every kit is a main kit**: a card at the item's level, one red border
+(`border-danger-soft/60`). That includes the charged hit (`[data-admin-charge-kit]`) and every
+on-hit effect (`[data-admin-onhit-kit]`) — there is **no sub-kit colour and no "Add sub-kit" menu** any
+more. The charged hit and the on-hit effects are added from the **same `Add kit` menu** as everything
+else, and the card for each one sits right under the swing that runs it (their data still lives in
+`kit.charge` / `kit.onHit`, so the engine keeps running them from that attack — the admin only presents
+them as the kits they are).
+
+⚠️ **They need a swing: the entries are listed but disabled** (`data-disabled`, a `title` saying
+`Add a basic attack first`) until the entity carries a `basic-attack` kit. Choosing one attaches it to
+that basic attack; the menu stops offering it once it is attached.
 
 **Attack kits (main)** — attached to the item itself. Each kit becomes its **own swing**, with its own
 damage, cadence and on-hit rolls, so adding a kit never replaces the one already there:
@@ -85,7 +89,7 @@ damage, cadence and on-hit rolls, so adding a kit never replaces the one already
 | Kit id | Label | Parameters (one value per star rank) |
 | --- | --- | --- |
 | `basic-attack` | Đòn đánh cơ bản | **`multiplier` — Hệ số sát thương (Damage multiplier)** on the Cutie's `attack` (default 1), then **`cooldown` — Hồi chiêu (giây, Cooldown Time)** in **seconds**, `0.1` … `60` (default `1.6`): the only rhythm number in the game, and it is absolute. Damage is listed first, cooldown right under it |
-| `charge-attack` | Trọng kích nạp (Charged attack) — **sub-kit of `basic-attack`**, ❌ not a card of its own | `seNeed` **% of max Sword Energy** (default 100 = the whole bar) · `multiplier` on the **Cutie's `attack`**. Once the bar holds that much the **next basic attack becomes the charged attack**: it spends it and lands `attack × multiplier`, which **replaces** the basic damage (❌ never added on top). It has **no cooldown of its own** — the basic attack keeps its Cooldown Time |
+| `charge-attack` | Trọng kích nạp (Charged attack) — a **kit of its own** in the editor (attaches to the basic attack) | `seNeed` **Energy points** (absolute, default 100 — the bar holds `maxSe` of them) · `multiplier` on the **Cutie's `attack`**. Once the bar holds that much the **next basic attack becomes the charged attack**: it spends it and lands `attack × multiplier`, which **replaces** the basic damage (❌ never added on top). It has **no cooldown of its own** — the basic attack keeps its Cooldown Time |
 
 Neither has a damage of its own: the charged slam is the **same base attack** multiplied, and it has
 **no rhythm of its own** — it simply replaces one basic attack.
@@ -95,8 +99,10 @@ Neither has a damage of its own: the charged slam is the **same base attack** mu
 stored number is still milliseconds — the box converts on the way in and out (`displayScale: 1000` in
 `game/kits.ts`), so the simulation and every saved row keep their unit.
 
-**On-hit effects** — optional sub-kits that live **inside one attack kit** (`kit.onHit`), because
-they only make sense when that attack lands. Trigger chance is a **percentage (0–100)**:
+**On-hit effects** — optional kits that run **inside one attack kit** (`kit.onHit`), because they only
+make sense when that attack lands. They are added from the single `Add kit` menu (disabled until the
+entity has a basic attack) and drawn as their own card under the swing. Trigger chance is a
+**percentage (0–100)**:
 
 | Kit id | Label | Parameters (one value per star rank) |
 | --- | --- | --- |
@@ -106,12 +112,12 @@ they only make sense when that attack lands. Trigger chance is a **percentage (0
 | `freeze-on-hit` | Đóng băng khi trúng đòn | `chance` % · `duration` (seconds). Freezes **one enemy weapon** at random (not the whole side); it never refreshes a weapon that is already frozen while another one is free |
 | `lifesteal-on-hit` | Hút máu khi trúng đòn | `chance` % · `percent` of the hit healed |
 | `shield-on-hit` | Tạo khiên khi trúng đòn | `chance` % · `amount` **% of the owner's max HP** as armour |
-| `sword-energy-on-hit` | Tích Kiếm Thế khi trúng đòn | `chance` % · `amount` **% of the attacker's max bar** |
+| `sword-energy-on-hit` | Tích Kiếm Thế khi trúng đòn | `chance` % · `amount` **Energy points** gained (absolute) |
 
 ⚠️ **There is no `scaling` select any more.** The unit belongs to the kit, so a designer cannot make
 a burn read the wrong bar: burn / poison are always a **% of the owner's attack per second**, a
 shield or a heal is always a **% of the owner's max HP** (resolved when it fires, `scaledValue` in
-`battle.ts`), and every Sword Energy amount is a **% of the owner's max bar**.
+`battle.ts`). 🔴 **Energy is the exception: it is a number, never a share** — `seNeed`, `parry.cost`, `block-charged.seCost`, `sword-energy-on-hit.amount` and the Energy-drain amount are **absolute points**, and `sword-energy.regen` adds **points per second** to the Cutie's own regeneration.
 
 **Option kits** — optional; they sit at the item's top level beside the attack kits:
 
@@ -119,7 +125,7 @@ shield or a heal is always a **% of the owner's max HP** (resolved when it fires
 | --- | --- | --- |
 | `stats` | Chỉ số cộng thêm | **one stat per kit**, chosen from a **shadcn dropdown** on the card, then **one number box per star rank** — ❌ no JSON to hand-write, ❌ no "add a stat" row inside the card. 🔴 A **percentage** stat keeps its sign in the name (`% Giảm sát thương` / `% Damage reduction`, `% Tỉ lệ chí mạng`, `% Hút máu`, `% Tốc độ đánh`) because the picker shows no value beside it; `atk` / `maxHp` / `shield` carry none. Every number is an **amount added straight to the Cutie** (`atk` `30` = +30 attack, `maxHp` `120` = +120 max HP, `critRate` `5` = +5 % critical chance). 🔴 **A second stat is a second kit**: `stats` is repeatable, and a new copy starts on a stat the item does not grant yet. 🔴 **Only the 5★ box needs typing**: the four lower ranks fill themselves at **20 / 40 / 60 / 80 %** of it (`100` → `20 40 60 80 100`, `1` → `0.2 0.4 0.6 0.8 1`); any other rank still edits on its own, so a deliberately flat or curved ladder survives. ⚠️ `seRegen` is refused here — use `sword-energy` |
 | `aura` | Hào khí liền kề | the same one-stat card plus a **target** select — `adjacent`, `adjacentWeapon`, `adjacentNonWeapon`, `all`. Each number is likewise added **straight to the neighbours' stats**, and a second stat is again a second kit |
-| `parry` | Chấn Đao | number boxes per star: `chance` % to parry an incoming hit · `cost` **% of max Sword Energy** per parry · `power` counter damage as a % of the owner's basic attack. **A parry exists only through this kit** — no pet, stage or stat carries a hidden counter chance, and the strongest `parry` kit on the loadout wins |
+| `parry` | Chấn Đao | number boxes per star: `chance` % to parry an incoming hit · `cost` **Energy points** spent per parry (absolute) · `power` counter damage as a % of the owner's basic attack. **A parry exists only through this kit** — no pet, stage or stat carries a hidden counter chance, and the strongest `parry` kit on the loadout wins |
 | `freeze-haste` | Hỗ trợ Băng · Giảm hồi chiêu | `target` (who gets the buff, see below) · `directions` (bitmask of the ticked sides) · `boost` % temporary **cooldown reduction** · `duration` (seconds). Triggers when the owner applies a freeze |
 | `freeze-heal` | Hỗ trợ Băng · Hồi máu | `amount` **% of max HP**: heals the owner when one of its weapons is frozen |
 | `freeze-reflect` | Hỗ trợ Băng · Phản đòn | `chance` % · `duration`: when the owner is hit, freezes one enemy weapon at random |
@@ -163,7 +169,7 @@ one-off template field for a new mechanic — add a kit so every item can use it
 
 | Field | Control |
 | --- | --- |
-| `kits` | a **kit list**: every kit draws one card and every id can be attached **once** — except `stats` / `aura`, which are **repeatable because each copy is one stat**. An attack card shows **one number box per star rank** (`1★` … `5★`), its own **DPM** line and its own **＋ Thêm hiệu ứng** menu for on-hit effects (their own number boxes). The **charged attack** is a **sub-block inside the attack card** (blue outline, added from that card's own **＋ Thêm kit con** menu): its `seNeed` / `multiplier` boxes plus a **Sát thương đòn nạp** readout — ❌ it never appears in the item-level **＋ Thêm kit** menu, and never gets a card or a DPM of its own. Option kits `stats` / `aura` are separate cards: a **stat dropdown** + one box per star (❌ no JSON, ❌ no stat rows to add); `parry` uses number boxes like an attack kit. **＋ Thêm kit** offers every kit that is not attached yet (**`stats` / `aura` always stay in the list**); a **✕** removes that one card. **＋ Thêm kit con** (inside an attack card) offers the charged attack plus the on-hit effects |
+| `kits` | a **flat kit list**: every kit draws one card and every id can be attached **once** — except `stats` / `aura`, which are **repeatable because each copy is one stat**. An attack card shows **one number box per star rank** (`1★` … `5★`) and its own **DPM** line. 🔴 **The charged attack and the on-hit effects are cards of their own too** (same red frame), drawn right under the swing they run on: the charged hit shows its `seNeed` / `multiplier` boxes plus a charged-damage readout, an on-hit shows its own chance / duration / value boxes. They are chosen from the **single `Add kit` menu** and are **disabled** (`title`: `Add a basic attack first`) until the entity has a `basic-attack`; choosing one attaches it to that swing and the menu stops offering it. Option kits `stats` / `aura` are separate cards: a **stat dropdown** + one box per star (❌ no JSON, ❌ no stat rows to add); `parry` uses number boxes like an attack kit. **`Add kit`** offers every kit that is not attached yet (**`stats` / `aura` always stay in the list**); a **✕** removes that one card |
 | the menus themselves | **shadcn/ui `DropdownMenu`** (`components/shadcn/dropdown-menu.tsx`, Radix under the hood), styled with this game's tokens — ❌ no `ui/` folder next to `ui.ts`, no extra icon/animation dependencies |
 | `art` flags, emoji | ❌ not in the form: they only declare **which file on disk** to use (`icon` is the emoji fallback for a missing picture). The picture itself is uploaded from this page, so the flags stay in `items.ts`/`pets.ts` |
 | `space` | **two number inputs**, `w` (1–4) and `h` (1–5) — ❌ not raw JSON. no class fixes the shape — a jade, an accessory and a potion are sized by their own row |

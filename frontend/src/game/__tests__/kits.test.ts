@@ -562,18 +562,19 @@ describe('owner-relative item numbers', () => {
 		expect(result.events.some((event) => event.text.includes('tăng sát thương'))).toBe(true)
 	})
 
-	it('a sword-energy kit moves regeneration by a share of the cutie\'s own', () => {
+	it("a sword-energy kit adds flat points per second to the cutie's own regeneration", () => {
 		installRetiredItems({
 			items: {
-				'jade-fury': { kits: [wave('sword-energy', { regen: fives(50) })] },
-				'jade-guard': { kits: [wave('sword-energy', { regen: fives(-50) })] },
+				'jade-fury': { kits: [wave('sword-energy', { regen: fives(5) })] },
+				'jade-guard': { kits: [wave('sword-energy', { regen: fives(-3) })] },
 			},
 		})
 		const bare = buildPlayerCombatant('fire-pup', 1, [])
 		const faster = buildPlayerCombatant('fire-pup', 1, bag(['jade-fury', 1, 0]))
 		const slower = buildPlayerCombatant('fire-pup', 1, bag(['jade-guard', 1, 0]))
-		expect(faster.seRegen).toBe(bare.seRegen * 1.5)
-		expect(slower.seRegen).toBe(bare.seRegen * 0.5)
+		// 🔴 Energy is a number, never a share: +5 Energy/s on top of the cutie's own 5/s, −3/s below it.
+		expect(faster.seRegen).toBe(bare.seRegen + 5)
+		expect(slower.seRegen).toBe(bare.seRegen - 3)
 	})
 
 	it('an item stat table adds its numbers straight to the cutie', () => {

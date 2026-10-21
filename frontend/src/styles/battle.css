@@ -1,0 +1,252 @@
+/*
+ * **Arena-only CSS** — the battle portrait frame, its nameplate and skill seals, and the floating combat
+ * number. Everything else (tokens, base layer, the shared utilities) lives in `app.css`.
+ *
+ * Rule of thumb: a rule belongs here when it is used **only** by `BattleScreen` / `AvatarCard`. A pattern
+ * two screens share stays an `@utility` in `app.css`, and a colour, radius, shadow or timing that is a fixed
+ * value belongs in `@theme` — the tokens are the design system, this file is one screen's frame.
+ *
+ * ⚠️ An animation that reads a **per-element** `--*` variable cannot be a `--animate-*` theme token: a token
+ * is emitted on `:root`, where that variable does not exist, so the animation silently runs its fallback.
+ * That is why `animate-combat-floater` is an `@utility` here instead of a token in `@theme`.
+ */
+
+/*
+ * The floating combat number's **two** animations (see `combatRise` / `combatPop` below).
+ *
+ * 🔴 Declared as a utility, ❌ not a `--animate-*` theme token. A theme token is emitted on `:root`, so its
+ * `var(--floater-life)` is resolved **there** — where the per-number value does not exist — and every
+ * number ran the 0.6 s fallback while React kept it on screen for its real life (up to 1.12 s at ×0.5).
+ * The animation ended early and the number then **sat still until it was removed**, which is exactly the
+ * "text dừng lại trước khi biến mất" the player reported. Declared as a utility, the variables resolve on
+ * the element itself, so the flight lasts exactly as long as the number does.
+ */
+@utility animate-combat-floater {
+	animation:
+		combatRise var(--floater-life, 0.6s) linear var(--floater-delay, 0s) forwards,
+		combatPop var(--floater-life, 0.6s) linear var(--floater-delay, 0s) forwards;
+}
+
+/*
+ * Floating combat number — **two independent animations on one element**, because they must not share a
+ * timeline:
+ * - `combatRise` moves it up with the `translate` property at a **constant speed, from the first frame to
+ *   the very last**: it is still travelling when it disappears, ❌ it never coasts to a stop before
+ *   vanishing (asked for: "tiếp tục bay cho đến khi biến mất, chứ ko được dừng lại rồi mới biến mất").
+ *   A decelerating curve ended with a visible stall, which read as a slow push rather than flight.
+ * - `combatPop` changes only the `scale` property: 1 → 150 % → 1, with no hold at the peak and a settle
+ *   that starts moving immediately (an ease-in start reads as a freeze at 150 %).
+ * ❌ Putting both in one `transform` keyframe list forced the size to pause at each keyframe so the position
+ * could be interpolated — that was the original stutter. Using the individual properties (`translate` /
+ * `scale`) keeps the two curves apart, and the `-translate-x-1/2` centring stays on the parent so a 150 %
+ * number is not also shifted sideways.
+ * 🔴 The number is **fully opaque for its whole life** and disappears when it expires — the fade-out made it
+ * washed out at exactly the moment it should read (asked for: "xóa làm mờ do quá mờ").
+ */
+@keyframes combatRise {
+	from {
+		translate: 0 0;
+	}
+	to {
+		translate: var(--floater-dx, 0px) var(--floater-dy, 0px);
+	}
+}
+
+@keyframes combatPop {
+	0% {
+		scale: 1;
+		/* The punch: most of the growth lands in the first frames. */
+		animation-timing-function: cubic-bezier(0.2, 0.8, 0.35, 1);
+	}
+	22% {
+		scale: 1.5;
+		/* 🔴 The settle starts with velocity ~1.6 (not 0): an ease-in here held the peak for a few frames
+		   and read as a freeze behind the punch. */
+		animation-timing-function: cubic-bezier(0.32, 0.6, 0.4, 1);
+	}
+	55%,
+	100% {
+		scale: 1;
+	}
+}
+
+/*
+ * A **jade item firing**: a green bloom and a ring that pushes outward from the tile, once per trigger.
+ *
+ * The tile's own picture stays untouched — the effect is a separate overlay (`LoadoutGrid` renders it
+ * under the freeze sheet and the badges), so a frozen jade gem can show both at once. It is **opacity +
+ * scale only**, on a promoted layer, so it cannot stutter while the arena is animating around it.
+ * `--color-jade` is the design token; ❌ no literal hex here.
+ */
+@utility animate-jade-trigger {
+	/* ⚠️ The gradient lives on the **utility**, never in the keyframes: `background` is not an animatable
+	   property, so declaring it inside `@keyframes` is dropped by the browser and the flash rendered as a
+	   bare ring. Only `opacity`, `transform` and `box-shadow` animate. */
+	background-image: radial-gradient(
+		circle at 50% 50%,
+		#f2fffa 0%,
+		color-mix(in oklab, var(--color-jade) 88%, white) 32%,
+		color-mix(in oklab, var(--color-jade) 62%, transparent) 58%,
+		transparent 78%
+	);
+	animation: jadeTrigger 620ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+	will-change: transform, opacity;
+}
+
+@keyframes jadeTrigger {
+	0% {
+		opacity: 0;
+		transform: scale(0.62);
+		box-shadow:
+			0 0 0 0 color-mix(in oklab, var(--color-jade) 85%, transparent),
+			inset 0 0 0 0 color-mix(in oklab, var(--color-jade) 85%, transparent);
+	}
+	18% {
+		opacity: 1;
+		transform: scale(1.04);
+		box-shadow:
+			0 0 0 2px color-mix(in oklab, var(--color-jade) 90%, transparent),
+			inset 0 0 22px 4px color-mix(in oklab, var(--color-jade) 70%, transparent);
+	}
+	60% {
+		opacity: 0.62;
+		transform: scale(1.1);
+		box-shadow:
+			0 0 0 5px color-mix(in oklab, var(--color-jade) 28%, transparent),
+			inset 0 0 24px 5px color-mix(in oklab, var(--color-jade) 22%, transparent);
+	}
+	100% {
+		opacity: 0;
+		transform: scale(1.18);
+		box-shadow:
+			0 0 0 10px transparent,
+			inset 0 0 24px 7px transparent;
+	}
+}
+
+/** Original navy-and-brass portrait card used for the enlarged battle avatars. */
+.battle-cutie-card {
+	position: relative;
+	display: flex;
+	width: 264px;
+	min-height: 492px;
+	flex: 0 0 264px;
+	flex-direction: column;
+	padding: 17px 15px 24px;
+	border: 3px solid transparent;
+	border-radius: 20px 20px 34px 34px;
+	background:
+		linear-gradient(145deg, #f6df9b, #9b702a 23%, #f1d37e 42%, #76501d 67%, #eacb75) border-box,
+		linear-gradient(160deg, #102a4c, #08182e 56%, #17375c) padding-box;
+	box-shadow:
+		0 14px 28px rgb(0 0 0 / 42%),
+		inset 0 0 0 2px rgb(255 245 201 / 48%),
+		inset 0 0 22px rgb(3 10 24 / 75%);
+}
+
+.battle-cutie-card-enemy {
+	background:
+		linear-gradient(145deg, #f2d291, #8c4a37 24%, #e7bd78 43%, #69302a 68%, #d9a06a) border-box,
+		linear-gradient(160deg, #40253b, #1c172e 56%, #4a2638) padding-box;
+}
+
+.battle-cutie-inlay {
+	position: absolute;
+	z-index: 0;
+	inset: 7px;
+	border: 1px solid rgb(245 216 143 / 65%);
+	border-radius: 13px 13px 27px 27px;
+	pointer-events: none;
+}
+
+.battle-cutie-portrait {
+	position: relative;
+	z-index: 1;
+	min-height: 445px;
+	flex: 1 0 445px;
+	overflow: hidden;
+	border: 2px solid #d5b15f;
+	border-radius: 11px 11px 23px 23px;
+	background:
+		radial-gradient(ellipse at 50% 34%, rgb(154 112 59 / 18%), transparent 62%),
+		linear-gradient(155deg, #291d1b, #493326 54%, #171c2c);
+	box-shadow: inset 0 0 0 3px rgb(7 19 37 / 85%), inset 0 -56px 38px rgb(8 18 34 / 78%);
+}
+
+.battle-cutie-nameplate {
+	position: absolute;
+	z-index: 3;
+	top: 4px;
+	left: 50%;
+	display: flex;
+	width: calc(100% - 34px);
+	min-height: 48px;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	padding: 7px 17px;
+	transform: translateX(-50%);
+	border: 2px solid #efcf7b;
+	border-radius: 13px 13px 17px 17px;
+	overflow: hidden;
+	background:
+		linear-gradient(150deg, rgb(255 255 255 / 10%), transparent 45%),
+		linear-gradient(115deg, #19385f, #0b1d38 58%, #25466b);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 65%), inset 0 0 0 2px rgb(5 16 32 / 75%);
+	color: #fff0c2;
+	font-size: 18.75px;
+	font-weight: 700;
+	line-height: 1.1;
+	text-align: center;
+	text-shadow: 0 1px 3px #07111f;
+	white-space: nowrap;
+}
+
+.battle-cutie-character-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.battle-cutie-level {
+	flex: 0 0 auto;
+	color: #f5d98f;
+	font-size: 15px;
+	font-weight: 500;
+}
+
+.battle-cutie-seals {
+	position: absolute;
+	z-index: 2;
+	right: 0;
+	bottom: 28px;
+	left: 0;
+	display: flex;
+	justify-content: center;
+	gap: 18px;
+}
+
+.battle-cutie-seal {
+	display: grid;
+	width: 58px;
+	height: 58px;
+	place-items: center;
+	overflow: hidden;
+	border: 2px solid #f0d17e;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 35% 25%, rgb(255 255 255 / 14%), transparent 50%),
+		linear-gradient(145deg, #182d47, #0a172a);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 58%), inset 0 0 0 3px rgb(7 18 33 / 75%);
+	color: #ffedbd;
+	font-size: 26px;
+}
+
+/** Empty slot reserved for a Cutie skill that will be added later. */
+.battle-cutie-seal-empty {
+	border-style: dashed;
+	border-color: rgb(240 209 126 / 45%);
+	background: rgb(8 18 34 / 55%);
+	box-shadow: inset 0 0 0 3px rgb(7 18 33 / 60%);
+}

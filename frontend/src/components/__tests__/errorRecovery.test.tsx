@@ -47,6 +47,7 @@ describe('AppErrorBoundary', () => {
 
 	it('the recovery button clears the save from localStorage', () => {
 		window.localStorage.setItem('martial-cutie-save', JSON.stringify({ state: {}, version: 2 }))
+		window.localStorage.setItem('martial-cutie-save-owner', 'u:7')
 		// `window.location.assign` does not work in jsdom → stub it.
 		const assign = vi.fn()
 		Object.defineProperty(window, 'location', { value: { assign }, writable: true })
@@ -55,6 +56,8 @@ describe('AppErrorBoundary', () => {
 		fireEvent.click(screen.getByText(/Xoá bản lưu và chơi lại/))
 
 		expect(window.localStorage.getItem('martial-cutie-save')).toBeNull()
+		// The owner tag goes too, so the next anonymous run is not tagged as the old account's.
+		expect(window.localStorage.getItem('martial-cutie-save-owner')).toBeNull()
 		expect(assign).toHaveBeenCalledWith('/')
 	})
 })

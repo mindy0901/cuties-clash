@@ -323,22 +323,25 @@ export const KIT_DEFS: KitDef[] = [
 		label: 'Trọng kích nạp',
 		params: [
 			{
-				// How full the Sword Energy bar has to be, as a **percentage of max Sword Energy**: the
-				// next basic attack is only upgraded once the owner holds this much, and spends it.
+				// The charged hit **replaces** the basic attack's damage instead of adding to it, so the
+				// multiplier is the first thing to read — the Energy it costs comes after it.
+				key: 'multiplier',
+				// Same wording as the basic attack's own multiplier (`Hệ số sát thương`): one term for one number,
+				// on every item and every kit.
+				label: 'Hệ số sát thương',
+				min: 0.1,
+				max: 20,
+				default: 2.2,
+			},
+			{
+				// How much Energy the bar has to hold: **absolute points** (see `energyPoints`), the next
+				// basic attack is only upgraded once the owner holds this much, and spends it.
 				key: 'seNeed',
-				label: 'Kiếm Thế cần (% thanh)',
+				label: 'Kiếm Thế cần',
 				min: 0,
 				max: 1000,
 				integer: true,
 				default: 100,
-			},
-			{
-				// The charged hit **replaces** the basic attack's damage instead of adding to it.
-				key: 'multiplier',
-				label: 'Hệ số đòn nạp',
-				min: 0.1,
-				max: 20,
-				default: 2.2,
 			},
 		],
 	},
@@ -390,6 +393,57 @@ export const KIT_DEFS: KitDef[] = [
 		params: [CHANCE, FREEZE_DURATION],
 	},
 	{
+		// Ice: the target's own armour cracks. `brittle` is a status the engine already runs (it raises
+		// the damage the owner of the status takes), so this kit only has to hand it out.
+		id: 'brittle-on-hit',
+		kind: 'onHit',
+		category: 'control',
+		appliesTo: 'both',
+		label: 'Giòn khi trúng đòn',
+		params: [
+			CHANCE,
+			STATUS_DURATION,
+			{ key: 'value', label: 'Tăng sát thương nhận (%)', min: 0, max: 100, default: 15 },
+		],
+	},
+	{
+		// Fire: an open wound. The burn already halves what the target can heal back; this cuts it again
+		// and stacks on top of it.
+		id: 'wound-on-hit',
+		kind: 'onHit',
+		category: 'control',
+		appliesTo: 'both',
+		label: 'Vết thương khi trúng đòn',
+		params: [
+			CHANCE,
+			STATUS_DURATION,
+			{ key: 'value', label: 'Giảm hồi máu nhận (%)', min: 0, max: 90, default: 35 },
+		],
+	},
+	{
+		// Water: the soaked target swings softer for a while.
+		id: 'weaken-on-hit',
+		kind: 'onHit',
+		category: 'control',
+		appliesTo: 'both',
+		label: 'Yếu ớt khi trúng đòn',
+		params: [
+			CHANCE,
+			STATUS_DURATION,
+			{ key: 'value', label: 'Giảm sát thương gây ra (%)', min: 0, max: 80, default: 20 },
+		],
+	},
+	{
+		// Thunder: a stun, i.e. **every** enemy weapon stops charging — stronger than a freeze, so it is
+		// shorter and rarer. See `stun` in `game/types.ts`.
+		id: 'shock-on-hit',
+		kind: 'onHit',
+		category: 'control',
+		appliesTo: 'both',
+		label: 'Tê liệt khi trúng đòn',
+		params: [CHANCE, { ...FREEZE_DURATION, default: 800, label: 'Thời gian tê liệt (giây)' }],
+	},
+	{
 		id: 'sword-energy-on-hit',
 		kind: 'onHit',
 		category: 'stats',
@@ -399,9 +453,9 @@ export const KIT_DEFS: KitDef[] = [
 			CHANCE,
 			{
 				key: 'amount',
-				label: 'Kiếm Thế nhận (% thanh)',
+				label: 'Kiếm Thế nhận',
 				min: 0,
-				max: 100,
+				max: 1000,
 				integer: true,
 				default: 6,
 				defaults: [6, 8, 10, 13, 17],
@@ -429,6 +483,37 @@ export const KIT_DEFS: KitDef[] = [
 			CHANCE,
 			{ key: 'amount', label: 'Khiên (% máu tối đa)', min: 0, max: 500, default: 8 },
 		],
+	},
+	{
+		// Water: armour that only exists once something lands. The engine reaction runs from
+		// `triggerAttacked`, so it needs no per-tick bookkeeping.
+		id: 'shield-when-hit',
+		kind: 'option',
+		category: 'defense',
+		appliesTo: 'item',
+		label: 'Giáp ảo khi bị đánh',
+		params: [
+			CHANCE,
+			{ key: 'amount', label: 'Khiên (% máu tối đa)', min: 0, max: 500, default: 6 },
+		],
+	},
+	{
+		// Wood: the only kit that removes bad statuses. The engine effect (`cleanse`) already existed.
+		id: 'cleanse',
+		kind: 'option',
+		category: 'support',
+		appliesTo: 'item',
+		label: 'Tẩy uế',
+		params: [CHANCE],
+	},
+	{
+		// Thunder: a critical hit pays Sword Energy back, so a crit build keeps its heavy hits coming.
+		id: 'overcharge',
+		kind: 'option',
+		category: 'stats',
+		appliesTo: 'item',
+		label: 'Quá tải khi chí mạng',
+		params: [{ key: 'amount', label: 'Kiếm Thế nhận', min: 0, max: 1000, integer: true, default: 25 }],
 	},
 	{
 		id: 'stats',
@@ -469,7 +554,7 @@ export const KIT_DEFS: KitDef[] = [
 		category: 'stats',
 		appliesTo: 'item',
 		label: 'Kiếm Thế',
-		params: [{ key: 'regen', label: 'Hồi Kiếm Thế (% hồi Cutie)', min: -100, max: 500, default: 10 }],
+		params: [{ key: 'regen', label: 'Hồi Kiếm Thế', min: -100, max: 500, default: 10 }],
 	},
 	{
 		id: 'aura',
@@ -488,7 +573,7 @@ export const KIT_DEFS: KitDef[] = [
 		label: 'Chấn Đao',
 		params: [
 			{ key: 'chance', label: 'Tỉ lệ Chấn Đao (%)', min: 0, max: 100, default: 15 },
-			{ key: 'cost', label: 'Kiếm Thế tiêu hao (% thanh)', min: 0, max: 1000, integer: true, default: 65 },
+			{ key: 'cost', label: 'Kiếm Thế tiêu hao', min: 0, max: 1000, integer: true, default: 65 },
 			{
 				key: 'power',
 				label: 'Sát thương phản kích (%)',
@@ -584,7 +669,7 @@ export const KIT_DEFS: KitDef[] = [
 		label: 'Hòn ngọc Hút Kiếm Thế',
 		params: [
 			CHANCE,
-			{ key: 'amount', label: 'Kiếm Thế rút (% thanh)', min: 0, max: 100, default: 4, defaults: [4, 6, 8, 11, 15] },
+			{ key: 'amount', label: 'Kiếm Thế rút', min: 0, max: 1000, default: 4, defaults: [4, 6, 8, 11, 15] },
 		],
 	},
 	{
@@ -681,7 +766,7 @@ export const KIT_DEFS: KitDef[] = [
 		params: [
 			{
 				key: 'seCost',
-				label: 'Kiếm Thế tiêu hao (% thanh)',
+				label: 'Kiếm Thế tiêu hao',
 				min: 0,
 				max: 1000,
 				integer: true,

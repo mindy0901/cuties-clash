@@ -14,6 +14,8 @@ import { AvatarCard, type AvatarFeedback } from './AvatarCard'
 import { BookOpen, Pause, Play, RotateCcw, Shield, SkipForward, Swords } from './icons'
 import { CutieIcon } from './ItemIcon'
 import { LoadoutGrid } from './LoadoutGrid'
+import { ItemHoverCard } from './ItemHoverCard'
+import { useItemHoverCard } from './useItemHover'
 import { cn, dialogClass, overlayClass, panelTitleClass } from './ui'
 import { Button } from './ui/button'
 import { translate } from '../i18n'
@@ -21,7 +23,7 @@ import { translateEnemyName } from './enemyName'
 import { playBattleImpactSound, playBattleSlashSound } from './battleAudio'
 import { frozenShift, pausedAttackTimes, weaponChargeState, type FreezeWindow, type WeaponCharge } from './battleCharge'
 
-const DEBUFFS: StatusKey[] = ['slow', 'freeze', 'poison', 'burn', 'brittle']
+const DEBUFFS: StatusKey[] = ['slow', 'freeze', 'poison', 'burn', 'brittle', 'weaken', 'wound']
 const DAMAGE_KINDS = new Set(['attack', 'charged', 'counter', 'dot'])
 const PROJECTILE_KINDS = new Set(['attack', 'charged', 'counter'])
 /** Replay tick: every 60 ms of real time advances 60 ms of simulated time at ×1 speed. */
@@ -36,11 +38,16 @@ const COMET_FLIGHT_MS = (PROJECTILE_ANIMATION_DURATION / PROJECTILE_SPEED_BOOST)
 /** How early a comet leaves, so that it lands exactly on the tick of its event. */
 const COMET_LEAD_MS = COMET_FLIGHT_MS * COMET_IMPACT
 /** How long a floating number lives, in **simulated** ms — real time shrinks as playback speeds up. */
-const FEEDBACK_LIFE_MS = 700
+const FEEDBACK_LIFE_MS = 560
 /** Never flash a number for less than this, however fast the replay runs. */
-const FEEDBACK_MIN_LIFE_MS = 480
+const FEEDBACK_MIN_LIFE_MS = 360
 /** Most numbers one side may show at once; a heavy burst drops its oldest rather than flooding the frame. */
 const FEEDBACK_MAX_LIVE = 5
+/**
+ * Real milliseconds a **jade** item's tile stays lit after one of its kits fires. Real, not simulated: it is
+ * a flash of light, and 620 ms matches the `jadeTrigger` animation in `styles/battle.css`.
+ */
+const JADE_FLASH_MS = 620
 /** Length of the tapering tail behind the head, in arena pixels. */
 const COMET_TAIL = 260
 /** Half-height of the comet body at its widest point. */
@@ -691,6 +698,22 @@ export function BattleScreen() {
 	const openItem = useUiStore((state) => state.openItem)
 	const navigate = useNavigate()
 
+	/**
+	 * Hover card over either side's gear — the same card the shop and the bag draw. Read-only: the
+	 * click still opens the details dialog (an enemy item opens the preview variant).
+	 */
+	const { hovered, queue: queueCard, hide: hideCard } = useItemHoverCard()
+	const onItemHover = (item: ItemInstance, node: HTMLElement | null) => {
+		if (node) queueCard(item.templateId, item.star, node)
+		else hideCard()
+	}
+	/** A click opens the details dialog, which covers the arena — the card has nothing left to point at. */
+	const openDetails = (item: ItemInstance, owned: boolean) => {
+		hideCard()
+		if (owned) openItem(item.uid)
+		else openItem(item.uid, item)
+	}
+
 	const events = useMemo(() => battle?.result.events ?? [], [battle])
 	const lastEventTime = events.length > 0 ? events[events.length - 1].t : 0
 	/**
@@ -771,6 +794,14 @@ export function BattleScreen() {
 	 */
 	const jumpedRef = useRef(false)
 	const feedbackTimersRef = useRef(new Map<number, number>())
+	/**
+	 * `uid → flash key` for a **jade** item whose kit has just fired. Held in state (not a ref) because the
+	 * tile has to re-render to show the flash; the value is only a counter so a second trigger restarts the
+	 * animation. Timers clear it after `JADE_FLASH_MS`.
+	 */
+	const [jadeFlashes, setJadeFlashes] = useState<Record<string, number>>({})
+	const jadeFlashKeyRef = useRef(0)
+	const jadeTimersRef = useRef(new Map<string, number>())
 	const impactTimersRef = useRef(new Set<number>())
 
 	useEffect(() => {
@@ -821,8 +852,35 @@ export function BattleScreen() {
 		if (jumpedRef.current) {
 			feedbackRef.current = []
 			setCombatFeedback([])
+			setJadeFlashes({})
 			return
 		}
+		// 🔴 A **jade** item that fires lights its own tile. Read from the same crossed events as the
+		// numbers, so the glow lands on the frame the effect lands on — and it covers the events that draw
+		// no number at all (a freeze, a parry, a cooldown buff), which are exactly the jade triggers.
+		// `triggerUid` is the gem whose kit caused it; a swing's own `sourceUid` covers a jade weapon.
+		const flashed: Record<string, number> = {}
+		for (const event of events.slice(start, index)) {
+			const source = (event.triggerUid ?? event.sourceUid)?.split('#')[0]
+			if (!source || usedItems.get(source) !== 'jade') continue
+			jadeFlashKeyRef.current += 1
+			flashed[source] = jadeFlashKeyRef.current
+			const pending = jadeTimersRef.current.get(source)
+			if (pending !== undefined) window.clearTimeout(pending)
+			jadeTimersRef.current.set(
+				source,
+				window.setTimeout(() => {
+					jadeTimersRef.current.delete(source)
+					setJadeFlashes((live) => {
+						if (live[source] === undefined) return live
+						const next = { ...live }
+						delete next[source]
+						return next
+					})
+				}, JADE_FLASH_MS),
+			)
+		}
+		if (Object.keys(flashed).length > 0) setJadeFlashes((current) => ({ ...current, ...flashed }))
 		const seconds = floaterSeconds(speed)
 		const created: CombatFeedback[] = []
 		events.slice(start, index).forEach((event, offset) => {
@@ -865,7 +923,7 @@ export function BattleScreen() {
 				),
 			)
 		}
-	}, [events, index, speed])
+	}, [events, index, speed, usedItems])
 
 	/**
 	 * Comets are launched **one flight early**, so they reach the target on the very tick their event
@@ -1232,8 +1290,10 @@ export function BattleScreen() {
 								items={playerItems}
 								weaponCharges={playerWeaponCharges}
 								weaponStatuses={battleWeaponStatuses.player}
+								jadeTriggers={jadeFlashes}
 								interactive
-								onItemClick={(item) => openItem(item.uid)}
+								onItemClick={(item) => openDetails(item, true)}
+								onItemHover={onItemHover}
 							/>
 						</div>
 					</div>
@@ -1253,8 +1313,10 @@ export function BattleScreen() {
 								items={enemyItems}
 								weaponCharges={enemyWeaponCharges}
 								weaponStatuses={battleWeaponStatuses.enemy}
+								jadeTriggers={jadeFlashes}
 								interactive
-								onItemClick={(item) => openItem(item.uid, item)}
+								onItemClick={(item) => openDetails(item, false)}
+								onItemHover={onItemHover}
 							/>
 						</div>
 						<AvatarCard
@@ -1432,6 +1494,16 @@ export function BattleScreen() {
 						</div>
 					</section>
 				</div>
+			) : null}
+			{/* The hover card of the gear under the pointer — either side, exactly like the shop's. */}
+			{hovered ? (
+				<ItemHoverCard
+					templateId={hovered.templateId}
+					star={hovered.star}
+					left={hovered.left}
+					top={hovered.top}
+					maxHeight={hovered.maxHeight}
+				/>
 			) : null}
 		</div>
 	)

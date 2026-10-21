@@ -5,6 +5,7 @@ import { useGameStore } from '../../store/gameStore'
 import { useBattleSettingsStore } from '../../store/battleSettingsStore'
 import { renderApp } from '../../test/router'
 import { installRetiredItems } from '../../test/retiredItems'
+import { fightCurrentStage } from '../../test/battleEntry'
 import type { ShopOffer } from '../../game/types'
 import { CUTIE_SKILL_SLOTS } from '../../game/cuties'
 import { playBattleImpactSound, playBattleSlashSound, unlockBattleAudio } from '../battleAudio'
@@ -67,7 +68,7 @@ describe('battle screen playback', () => {
 	it('steps through the fight and commits the result on its own', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		expect(unlockBattleAudio).toHaveBeenCalledOnce()
 
 		expect(useGameStore.getState().phase).toBe('battle')
@@ -91,7 +92,7 @@ describe('battle screen playback', () => {
 	it('does not fire the whole skipped tail at once when Bỏ qua is pressed', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		// One normal tick, so the mocks are warm, then jump to the end.
 		advance(60)
 		vi.mocked(playBattleSlashSound).mockClear()
@@ -112,7 +113,7 @@ describe('battle screen playback', () => {
 	it('offers the supported speeds and persists the selected speed in localStorage', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		expect(screen.getByRole('button', { name: '×0.5' })).toBeTruthy()
 		expect(screen.getByRole('button', { name: '×1' })).toBeTruthy()
@@ -129,7 +130,7 @@ describe('battle screen playback', () => {
 	it('launches the comet one flight early, so the number and the impact land with it', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×0.5' }))
 		expect(useBattleSettingsStore.getState().speed).toBe(0.5)
 
@@ -172,7 +173,7 @@ describe('battle screen playback', () => {
 			run: { ...state.run, stage: 29, clearedStage: 29 },
 		}))
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×0.5' }))
 
 		const tileOf = (uid: string) =>
@@ -201,7 +202,7 @@ describe('battle screen playback', () => {
 	it('boosts projectile speed by 50% in every mode and scales with the selected battle speed', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×3' }))
 
 		for (let step = 0; step < 100 && !document.querySelector('[data-combat-slash]'); step += 1) {
@@ -233,7 +234,7 @@ describe('battle screen playback', () => {
 	it('keeps each avatar beside its own loadout on the outer side of the arena', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		const playerTeam = document.querySelector('[data-battle-team="player"]')
 		const enemyTeam = document.querySelector('[data-battle-team="enemy"]')
@@ -268,7 +269,7 @@ describe('battle screen playback', () => {
 	it('shows the armour the simulation reports, not the starting value', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		const started = useGameStore.getState().battle
 		if (!started) throw new Error('battle did not start')
@@ -289,7 +290,7 @@ describe('battle screen playback', () => {
 	it('prints the Sword Energy read-out on its bar, like health', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		const started = useGameStore.getState().battle
 		if (!started) throw new Error('battle did not start')
@@ -307,7 +308,7 @@ describe('battle screen playback', () => {
 	it('commits immediately when the player skips', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByText(/Bỏ qua/))
 
 		expect(useGameStore.getState().battle?.committed).toBe(true)
@@ -317,7 +318,7 @@ describe('battle screen playback', () => {
 	it('shows a dismissible outcome, then supports log review and replay without recommitting', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		expect(screen.queryByRole('dialog', { name: 'Nhật ký trận đấu' })).toBeNull()
 		expect(screen.queryByText(/Hỏa Khuyển Trảo.*−/)).toBeNull()
@@ -353,7 +354,7 @@ describe('battle screen playback', () => {
 	it('pauses and resumes playback', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		fireEvent.click(screen.getByText(/Tạm dừng/))
 		advance(30_000)
@@ -368,7 +369,7 @@ describe('battle screen playback', () => {
 	it('does not reset an existing damage number timer when another hit arrives', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		const battle = useGameStore.getState().battle
@@ -402,7 +403,7 @@ describe('battle screen playback', () => {
 	it('draws the cutie’s own swing charge on its portrait, like a weapon tile', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		// Both sides attack through their kits, so both portraits get the same rising hairline an item
 		// tile has — a Cutie with no attack kit would have none.
@@ -427,7 +428,7 @@ describe('battle screen playback', () => {
 	it('reuses the loadout grids on the arena, with an avatar frame per side', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		// The arena uses the prep room's **own `GridBoard`**: one grid for us, one for the opponent.
 		const boards = document.querySelectorAll<HTMLElement>('[data-grid-board]')
@@ -483,7 +484,7 @@ describe('battle screen playback', () => {
 		// The opponent only carries gear from stage 8 on; the arena must have an enemy tile to click.
 		useGameStore.setState((state) => ({ run: { ...state.run, stage: 22, clearedStage: 22 } }))
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		advance(60)
 
 		// Our own gear: the dialog resolves it from the run, so the shop/sell rows are there too.
@@ -506,7 +507,7 @@ describe('battle screen playback', () => {
 	it('renders animated health and energy bars mirrored toward the center with shield counters', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		expect(document.querySelectorAll('[data-battle-hp-fill]')).toHaveLength(2)
 		expect(document.querySelectorAll('[data-battle-se-fill]')).toHaveLength(2)
@@ -533,7 +534,7 @@ describe('battle screen playback', () => {
 		try {
 			gearUp()
 			await renderApp()
-			fireEvent.click(screen.getByText(/\u0110\u1ea5u Cutie/))
+			fightCurrentStage()
 			fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 			const weapon = document.querySelector<HTMLElement>('[data-battle-weapon-source]')
@@ -566,7 +567,7 @@ describe('battle screen playback', () => {
 	it('plays projectiles and shows a number for both sides that take a hit', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		const battle = useGameStore.getState().battle
 		if (!battle) throw new Error('battle did not start')
@@ -758,7 +759,7 @@ describe('battle screen playback', () => {
 		}))
 		useGameStore.getState().buyOffer(0)
 		await renderApp()
-		fireEvent.click(screen.getByText(/\u0110\u1ea5u Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		// The fan is the only weapon, so the cutie's own swing is the only melee source in the arena.
@@ -786,7 +787,7 @@ describe('battle screen playback', () => {
 	it('gives every hit its own number and shows a burst in the order the hits happened', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/\u0110\u1ea5u Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		const battle = useGameStore.getState().battle
@@ -842,7 +843,7 @@ describe('battle screen playback', () => {
 	it('gives each of two identical weapons its own number, even when they fire together', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		const battle = useGameStore.getState().battle
@@ -882,17 +883,20 @@ describe('battle screen playback', () => {
 			)
 		advance(180)
 		expect(numbers(), 'two weapons, two numbers').toEqual(['−44', '−44'])
-		// …and they do not sit on top of each other.
-		const spots = [
+		// …and they fly out on two different paths, so they do not sit on top of each other.
+		const paths = [
 			...document.querySelectorAll<HTMLElement>('[data-avatar-card="enemy"] [data-combat-feedback="damage"]'),
-		].map((node) => `${node.style.left},${node.style.top}`)
-		expect(new Set(spots).size).toBe(2)
+		].map((node) => {
+			const inner = node.firstElementChild as HTMLElement | null
+			return `${inner?.style.getPropertyValue('--floater-dx')},${inner?.style.getPropertyValue('--floater-dy')}`
+		})
+		expect(new Set(paths).size).toBe(2)
 	})
 
-	it('keeps a number on screen for half a second at ×2', async () => {
+	it('keeps a number on screen for a readable moment at ×2', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/\u0110\u1ea5u Cutie/))
+		fightCurrentStage()
 		expect(useBattleSettingsStore.getState().speed).toBe(2)
 
 		const battle = useGameStore.getState().battle
@@ -916,16 +920,18 @@ describe('battle screen playback', () => {
 
 		advance(120)
 		expect(document.querySelector('[data-combat-feedback-key="1"]')).toBeTruthy()
-		advance(420)
-		expect(document.querySelector('[data-combat-feedback-key="1"]'), 'still visible at 540 ms').toBeTruthy()
-		advance(300)
-		expect(document.querySelector('[data-combat-feedback-key="1"]'), 'gone by 840 ms').toBeNull()
+		// `FEEDBACK_MIN_LIFE_MS` (380 ms) is the floor however fast the replay runs — a number must stay
+		// long enough to read, even at ×2 (the CSS shrink → vanish takes the same span).
+		advance(120)
+		expect(document.querySelector('[data-combat-feedback-key="1"]'), 'still visible at 240 ms').toBeTruthy()
+		advance(400)
+		expect(document.querySelector('[data-combat-feedback-key="1"]'), 'gone within a second').toBeNull()
 	})
 
 	it('keeps two empty skill slots on each battle avatar and no skill icons in the top bar', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 
 		for (const side of ['player', 'enemy'] as const) {
 			const slots = document.querySelectorAll<HTMLElement>(
@@ -947,7 +953,7 @@ describe('battle screen playback', () => {
 	it('starts a fresh battle from the outcome footer without leaving the arena', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByText(/Bỏ qua/))
 
 		fireEvent.click(screen.getByRole('button', { name: /Chiến thắng!|Thất bại|Hoà/ }))
@@ -972,7 +978,7 @@ describe('battle screen playback', () => {
 	it('keeps the battle active after dismissing the outcome and exits only on request', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByText(/Bỏ qua/))
 
 		fireEvent.click(screen.getByRole('button', { name: /Chiến thắng!|Thất bại|Hoà/ }))
@@ -992,7 +998,7 @@ describe('battle screen playback', () => {
 	it('holds the charge of a frozen weapon still and frosts its tile', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		const battle = useGameStore.getState().battle
@@ -1055,7 +1061,7 @@ describe('battle screen playback', () => {
 	it('marks a critical hit in the replay with the CRITICAL popup', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		const battle = useGameStore.getState().battle
@@ -1097,7 +1103,7 @@ describe('battle screen playback', () => {
 	it('runs the clock on playback time instead of jumping with the events', async () => {
 		gearUp()
 		await renderApp()
-		fireEvent.click(screen.getByText(/Đấu Cutie/))
+		fightCurrentStage()
 		fireEvent.click(screen.getByRole('button', { name: '×1' }))
 
 		const battle = useGameStore.getState().battle

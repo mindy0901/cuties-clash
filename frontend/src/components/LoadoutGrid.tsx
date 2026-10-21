@@ -28,9 +28,22 @@ export interface LoadoutGridProps {
 	/** Per-weapon battle states: a frozen charge is paused, a `slow` raises the cooldown, a `boost`
 	 * (cooldown reduction) lowers it. */
 	weaponStatuses?: Record<string, { frozen?: number; slow?: number; boost?: number }>
+	/**
+	 * `uid → flash key` for a **jade** item whose kit just fired (a freeze, a parry, a shield, a heal…).
+	 * The tile lights up for a moment; the value only has to **change** so the overlay remounts and the
+	 * CSS animation restarts.
+	 */
+	jadeTriggers?: Record<string, number>
 	held?: HeldItem | null
 	/** Clicking an item → opens the detail dialog. */
 	onItemClick?: (item: ItemInstance) => void
+	/**
+	 * The pointer entering / leaving a tile → the hover card (`useItemHoverCard`).
+	 *
+	 * `node` is the tile element itself, which the card is anchored to; `null` means "left the tile".
+	 * ❌ Not fired while an item is being dragged: the cursor passes over the neighbours on the way.
+	 */
+	onItemHover?: (item: ItemInstance, node: HTMLElement | null) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean, releasePosition: PointerPosition | null) => void
 	onHoverSlot?: (slot: number | null) => void
@@ -59,8 +72,10 @@ export function LoadoutGrid({
 	interactive = false,
 	weaponCharges,
 	weaponStatuses,
+	jadeTriggers,
 	held = null,
 	onItemClick,
+	onItemHover,
 	onDragStart,
 	onDragEnd,
 	onHoverSlot,
@@ -96,7 +111,16 @@ export function LoadoutGrid({
 					// The hand is a promise: only a board the player can actually touch gets it. A
 					// preview (admin art picker, shop card) draws the same tile and stays `default`.
 					className={cn('relative block size-full', interactive ? 'cursor-pointer' : 'cursor-default')}
-					title={`${translate(template.name)} ${size.w}×${size.h}`}
+					// 🔴 The hover card is the item's description; a `title` as well drew a **second** popup
+					// ("Beginer's Sword 1×3") next to the card. `aria-label` keeps the name for a screen reader.
+					aria-label={`${translate(template.name)} ${size.w}×${size.h}`}
+					title={onItemHover ? undefined : `${translate(template.name)} ${size.w}×${size.h}`}
+					onPointerEnter={
+						onItemHover && held === null ? (event) => onItemHover(item, event.currentTarget) : undefined
+					}
+					onPointerLeave={onItemHover && held === null ? () => onItemHover(item, null) : undefined}
+					onFocus={onItemHover ? (event) => onItemHover(item, event.currentTarget) : undefined}
+					onBlur={onItemHover ? () => onItemHover(item, null) : undefined}
 				>
 					<ItemTile
 						templateId={item.templateId}
@@ -107,6 +131,17 @@ export function LoadoutGrid({
 						weaponCharge={weaponCharges?.[uid]?.percent}
 						weaponChargeCycle={weaponCharges?.[uid]?.cycle}
 					/>
+					{/* A jade item that just fired: a green flash out of the tile, over the picture and under
+					    the freeze sheet / badges. `key` is the flash counter, so a second trigger in a row
+					    restarts the animation instead of being swallowed by the first. */}
+					{jadeTriggers?.[uid] !== undefined ? (
+						<span
+							key={jadeTriggers[uid]}
+							aria-hidden="true"
+							data-jade-trigger={uid}
+							className="animate-jade-trigger pointer-events-none absolute inset-0 z-[5] rounded-md"
+						/>
+					) : null}
 					{/* Freeze: a frost sheet over the whole tile, so a frozen weapon reads as frozen even
 					    when the player is not looking at the small ❄ badge. It sits **above** the picture but
 					    below the badge, and never takes pointer events (the tile stays clickable). */}

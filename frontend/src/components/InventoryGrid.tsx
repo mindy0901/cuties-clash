@@ -16,6 +16,13 @@ export interface InventoryGridProps {
 	held: HeldItem | null
 	/** Clicking an item → opens the detail dialog. */
 	onItemClick?: (item: ItemInstance) => void
+	/**
+	 * The pointer entering / leaving a tile → the hover card (`useItemHoverCard`).
+	 *
+	 * `node` is the tile element itself, which the card is anchored to; `null` means "left the tile".
+	 * ❌ Not fired while an item is being dragged: the cursor passes over the neighbours on the way.
+	 */
+	onItemHover?: (item: ItemInstance, node: HTMLElement | null) => void
 	onDragStart?: (item: ItemInstance) => void
 	onDragEnd?: (moved: boolean, releasePosition: PointerPosition | null) => void
 	/** Anchor cell the hint is drawn from — placement on pointer release uses exactly this cell. */
@@ -46,6 +53,7 @@ export function InventoryGrid({
 	items,
 	held,
 	onItemClick,
+	onItemHover,
 	onDragStart,
 	onDragEnd,
 	onAnchorSlot,
@@ -72,7 +80,16 @@ export function InventoryGrid({
 					data-inv-tile={item.uid}
 					{...box.buttonProps}
 					className="relative block size-full"
-					title={`${translate(template.name)} ${size.w}×${size.h}`}
+					// 🔴 The hover card is the item's description; a `title` as well drew a **second** popup
+					// ("Beginer's Sword 1×3") next to the card. `aria-label` keeps the name for a screen reader.
+					aria-label={`${translate(template.name)} ${size.w}×${size.h}`}
+					title={onItemHover ? undefined : `${translate(template.name)} ${size.w}×${size.h}`}
+					onPointerEnter={
+						onItemHover && held === null ? (event) => onItemHover(item, event.currentTarget) : undefined
+					}
+					onPointerLeave={onItemHover && held === null ? () => onItemHover(item, null) : undefined}
+					onFocus={onItemHover ? (event) => onItemHover(item, event.currentTarget) : undefined}
+					onBlur={onItemHover ? () => onItemHover(item, null) : undefined}
 				>
 					<ItemTile templateId={item.templateId} star={item.star} rotated={item.rotated} />
 					{directionMask !== 0 ? (

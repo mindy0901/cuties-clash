@@ -21,7 +21,19 @@
  * Those are never replaced with an outline icon: a cutie is a picture, not a UI control.
  */
 
-import { Coins, Star } from 'lucide-react'
+import {
+	Clock,
+	Coins,
+	Compass,
+	Gauge,
+	Percent,
+	Star,
+	Swords,
+	Timer,
+	TrendingUp,
+	Zap,
+	type LucideIcon,
+} from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export {
@@ -37,6 +49,7 @@ export {
 	CircleDot,
 	ClipboardList,
 	Clock,
+	CornerDownRight,
 	Dices,
 	Grid2x2,
 	Handshake,
@@ -104,6 +117,39 @@ export function StarRow({ count, className }: { count: number; className?: strin
 			))}
 		</span>
 	)
+}
+
+/**
+ * Glyph in front of a kit-parameter row (`KitLine['key']` in `itemFacts.ts`): two swords for a
+ * multiplier, a clock for a cooldown, a bolt for anything Energy, and so on.
+ *
+ * ⚠️ A key with no entry draws **nothing** rather than a meaningless dot: an icon is a hint, and a
+ * wrong hint is worse than none.
+ */
+const PARAM_ICONS: Record<string, LucideIcon> = {
+	multiplier: Swords,
+	cooldown: Clock,
+	seNeed: Zap,
+	cost: Zap,
+	seCost: Zap,
+	regen: Zap,
+	chance: Percent,
+	trigger: Percent,
+	percent: Percent,
+	duration: Timer,
+	target: Compass,
+	directions: Compass,
+	boost: TrendingUp,
+	power: Gauge,
+	value: Gauge,
+	amount: Gauge,
+}
+
+/** The icon row of one parameter; `paramKey` is the key `itemFacts` stored on the line. */
+export function ParamIcon({ paramKey, className }: { paramKey: string; className?: string }) {
+	const Icon = PARAM_ICONS[paramKey]
+	if (!Icon) return null
+	return <Icon aria-hidden className={cn('size-3.5 opacity-70', className)} />
 }
 
 

@@ -1,20 +1,12 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { sellValue } from '../game/bag'
 import { CLASS_LABELS, getTemplate, starPrice } from '../game/items'
-import { getCutie, cutieOwnerStats } from '../game/cuties'
-import { kitDef, kitValue } from '../game/kits'
-import { STAT_LABELS, formatStat } from '../game/stats'
 import { useGameStore } from '../store/gameStore'
 import { ItemGridPreview } from './ArtPreview'
-import { Cost } from './icons'
+import { CornerDownRight, Cost, ParamIcon } from './icons'
 import { cn, dialogClass, overlayClass, rowBetweenClass, statClass, statGridClass, tagClass } from './ui'
 import { Button } from './ui/button'
-import {
-	AURA_TARGET_LABELS,
-	itemFacts,
-	kitParamText,
-	onHitText,
-} from './itemFacts'
+import { itemKitBlocks } from './itemFacts'
 import { translate } from '../i18n'
 import type { ItemInstance } from '../game/types'
 
@@ -54,10 +46,9 @@ export function ItemDetailDialog({
 	// Default shape of the item, **not** the orientation it happens to have in the bag: the tile next
 	// to this line is drawn upright, so the numbers have to describe the same shape.
 	const size = template.space
-	// Every number the dialog prints comes from `itemFacts`, shared with the shop's hover card.
-	const owner = cutieOwnerStats(getCutie(run.cutieId), run.cuties[run.cutieId] ?? 1)
-	const { passive, mods, attackKits, baseAttack, hitOf, intervalOf, aura, auraMods, parry, extraOptionKits } =
-		itemFacts(template, item.star, owner)
+	// Every row below comes from `itemKitBlocks`, shared with the hover card: one item, one set of
+	// numbers, in both places — damage multiplier and Cooldown Time included.
+	const blocks = itemKitBlocks(template, item.star)
 
 	return (
 		<div className={overlayClass} onClick={onClose}>
@@ -103,142 +94,76 @@ export function ItemDetailDialog({
 						<Row label={translate('Bán được (hoàn 50%)')} value={<Cost amount={sellValue(item)} />} />
 					</div>
 				) : null}
-				{attackKits.map((kit) => {
-					const def = kitDef(kit.id)
-					const hit = hitOf(kit)
-					const interval = intervalOf(kit)
-					const seconds = Number((interval / 1000).toFixed(1))
-					const charge = kit.charge
-					const chargedMultiplier = charge
-						? Number(kitValue(charge, 'multiplier', item.star).toFixed(2))
-						: 0
-					return (
-						<div key={kit.id} className="flex flex-col gap-2.5">
-							<h3 className="text-[15px]">{translate(def.label)}</h3>
-							<div className={statGridClass}>
-								{hit > 0 ? <Row label={translate('Sát thương mỗi đòn')} value={String(hit)} /> : null}
-								{interval > 0 ? (
+				{/* Every kit the item carries — the same list the hover card draws (`itemKitBlocks`), so
+				    the two can never disagree. Each kit sits in its **own framed box** under the item's
+				    basic rows: the damage multiplier and Cooldown Time of a swing, its charged hit, its
+				    on-hit effects, and every option kit (stats, aura, Chấn Đao, support and armour). */}
+				{blocks.map((block, index) => (
+					<Fragment key={`${block.id}-${index}`}>
+						{/* The charged hit / an on-hit effect belongs to the attack above it — the elbow draws
+						    that dependency (an attached kit is dead without a basic attack). */}
+						{block.attached ? (
+							<div className="ml-1 flex items-center gap-1 text-muted">
+								<CornerDownRight className="size-4 opacity-60" />
+								<span className="h-px flex-1 bg-line" />
+							</div>
+						) : null}
+						<div
+							data-detail-kit={block.id}
+							data-kit-attached={block.attached ? '' : undefined}
+							className={cn(
+								'flex flex-col gap-2 rounded-panel border border-line bg-ink-900/40 p-2.5',
+								block.attached && 'ml-3',
+							)}
+						>
+							{block.label ? <h3 className="text-[15px]">{translate(block.label)}</h3> : null}
+							{/* One row per parameter, full width — `statGridClass` put three cells side by side and
+							    a long label ("Choose the buff target") wrapped into a column of two words. */}
+							<div className="flex flex-col gap-2">
+								{block.lines.map((line) => (
 									<Row
-										label={translate('Hồi chiêu')}
-										value={translate('{seconds}s', { seconds })}
-									/>
-								) : null}
-								{hit > 0 && interval > 0 ? (
-									<Row
-										label={translate('Sát thương mỗi giây')}
-										value={(hit / (interval / 1000)).toFixed(1)}
-									/>
-								) : null}
-								{/* The charged attack rides on this swing: enough Sword Energy turns the **next**
-								    basic attack into it, and its damage **replaces** — never adds to — this one. */}
-								{charge ? (
-									<>
-										<Row
-											label={translate('Kiếm Thế cần')}
-											value={String(Math.round(kitValue(charge, 'seNeed', item.star)))}
-										/>
-										<Row label={translate('Hệ số đòn nạp')} value={`×${chargedMultiplier}`} />
-										<Row
-											label={translate('Sát thương đòn nạp')}
-											value={String(Math.round(baseAttack * chargedMultiplier))}
-										/>
-									</>
-								) : null}
-								{/* The on-hit effects belong to the kit they were attached to. */}
-								{(kit.onHit ?? []).map((effect) => (
-									<Row
-										key={effect.id}
-										label={`${translate(kitDef(effect.id).label)} · ${Math.round(kitValue(effect, 'chance', item.star))}%`}
-										value={onHitText(effect, item.star)}
-										tone="good"
+										key={line.key}
+										label={translate(line.label)}
+										paramKey={line.key}
+										value={line.value}
+										tone={line.good ? 'good' : undefined}
 									/>
 								))}
 							</div>
 						</div>
-					)
-				})}
-
-				{parry ? (
-					<div className="flex flex-col gap-2.5">
-						<h3 className="text-[15px]">{translate('Chấn Đao')}</h3>
-						<div className={statGridClass}>
-							<Row
-								label={translate('Tỉ lệ Chấn Đao')}
-								value={`${Number(kitValue(parry, 'chance', item.star).toFixed(1))}%`}
-								tone="good"
-							/>
-							<Row
-								label={translate('Kiếm Thế tiêu hao')}
-								value={String(Math.round(kitValue(parry, 'cost', item.star)))}
-							/>
-							<Row
-								label={translate('Sát thương phản kích')}
-								value={`${Math.round(kitValue(parry, 'power', item.star))}%`}
-								tone="good"
-							/>
-						</div>
-					</div>
-				) : null}
-
-				{extraOptionKits.map((kit) => {
-					const def = kitDef(kit.id)
-					return (
-						<div key={kit.id} className="flex flex-col gap-2.5">
-							<h3 className="text-[15px]">{translate(def.label)}</h3>
-							<div className={statGridClass}>
-								{def.params.map((param) => (
-									<Row
-										key={param.key}
-										label={translate(param.label)}
-										value={kitParamText(kit, param.key, item.star)}
-										tone="good"
-									/>
-								))}
-							</div>
-						</div>
-					)
-				})}
-
-				{aura && auraMods.length > 0 ? (
-					<div className="flex flex-col gap-2.5">
-						<h3 className="text-[15px]">{translate('Hào khí liền kề')}</h3>
-						<div className={statGridClass}>
-							<Row
-								label={translate(AURA_TARGET_LABELS[aura.target])}
-								value={auraMods
-									.map((key) => `${translate(STAT_LABELS[key])} ${formatStat(key, aura.mods[key] ?? 0)}`)
-									.join(' · ')}
-								tone="good"
-							/>
-						</div>
-					</div>
-				) : null}
-
-				{mods.length > 0 ? (
-					<div className="flex flex-col gap-2.5">
-						<h3 className="text-[15px]">{translate('Chỉ số cộng thêm')}</h3>
-						<div className={statGridClass}>
-							{mods.map((key) => (
-								<Row
-									key={key}
-									label={translate(STAT_LABELS[key])}
-									value={formatStat(key, passive?.[key] ?? 0)}
-									tone="good"
-								/>
-							))}
-						</div>
-					</div>
-				) : null}
+					</Fragment>
+				))}
 			</div>
 		</div>
 	)
 }
 
-function Row({ label, value, tone }: { label: string; value: ReactNode; tone?: 'good' }) {
+function Row({
+	label,
+	value,
+	tone,
+	paramKey,
+}: {
+	label: string
+	value: ReactNode
+	tone?: 'good'
+	/** Draws the glyph of that kit parameter (`ParamIcon`); the economy rows have none. */
+	paramKey?: string
+}) {
 	return (
 		<div className={statClass}>
-			<span className="text-muted">{label}</span>
-			<span className={cn('inline-flex items-center gap-1 font-semibold', tone === 'good' && 'text-jade')}>{value}</span>
+			<span className="flex min-w-0 items-center gap-1.5 text-muted">
+				{paramKey ? <ParamIcon paramKey={paramKey} /> : null}
+				{label}
+			</span>
+			<span
+				className={cn(
+					'shrink-0 inline-flex items-center gap-1 font-semibold tabular-nums',
+					tone === 'good' && 'text-jade',
+				)}
+			>
+				{value}
+			</span>
 		</div>
 	)
 }

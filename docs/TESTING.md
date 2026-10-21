@@ -139,13 +139,16 @@ Playback can cross several simulation events in one interval tick, especially at
 impact, and healing feedback with multiple same-time events; checking only the final event can hide
 missed combat visuals.
 
-### Trap 10 — the shop's hover card opens **late**, and dies with its offer
+### Trap 10 — a hover card opens **late**, and dies with its tile
 
-`ShopScreen` waits `HOVER_DELAY_MS = 350` before drawing `[data-shop-offer-card]` (hover intent), so a
-test must fire `pointerOver` and then `await waitFor(...)` — ❌ never assert the card synchronously.
+`useItemHoverCard` (`components/useItemHover.ts`) waits `HOVER_DELAY_MS = 350` before the card
+(`[data-item-hover-card]`) is drawn — the same hook for the shop, the bag and the arena — so a test must
+fire `pointerEnter` and then `await waitFor(...)`; ❌ never assert the card synchronously. Leaving the
+tile (`pointerLeave`) closes it, and a card is **not armed while an item is being dragged**.
 The other half of the same feature: buying **replaces** the cell button with the sold placeholder, so
 the old element never fires `pointerleave`; `navigation.test.tsx` therefore asserts that a click leaves
 `shop[i].sold === true` **and no card** on screen. When touching either behaviour, keep both assertions.
+`components/__tests__/itemHoverCard.test.tsx` covers the bag and the arena.
 
 ## 2. Backend — Vitest
 

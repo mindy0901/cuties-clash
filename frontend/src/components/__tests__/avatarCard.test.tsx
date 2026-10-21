@@ -19,6 +19,16 @@ function holder(): HTMLElement {
 	return found
 }
 
+/**
+ * The floating numbers live in their own layer over the **card** (not inside the portrait, whose
+ * `overflow-hidden` cut them off), so the queries below start at the card.
+ */
+function card(side: 'player' | 'enemy' = 'player'): HTMLElement {
+	const found = document.querySelector<HTMLElement>(`[data-avatar-card="${side}"]`)
+	if (!found) throw new Error('avatar card not found')
+	return found
+}
+
 describe('the avatar frame', () => {
 	it('uses the cutie art when the cutie has no dedicated avatar yet', () => {
 		render(<AvatarCard side="player" name="Cẩu Hỏa Sài" cutieId="fire-pup" />)
@@ -75,7 +85,7 @@ describe('the avatar frame', () => {
 		expect(holder().className, 'and the frame grows with the card').toContain('flex-1')
 	})
 
-	it('shows damage and healing feedback at separate randomized positions with an impact flash', () => {
+	it('shows damage and healing feedback born above the hit with an impact flash', () => {
 		render(
 			<AvatarCard
 				side="player"
@@ -88,21 +98,34 @@ describe('the avatar frame', () => {
 			/>,
 		)
 
-		const damage = holder().querySelector<HTMLElement>('[data-combat-feedback="damage"]')
-		const heal = holder().querySelector<HTMLElement>('[data-combat-feedback="heal"]')
+		const damage = card().querySelector<HTMLElement>('[data-combat-feedback="damage"]')
+		const heal = card().querySelector<HTMLElement>('[data-combat-feedback="heal"]')
 		expect(holder().querySelector('[data-combat-impact]')).toBeTruthy()
 		expect(damage?.textContent).toBe('−28')
 		expect(heal?.textContent).toBe('+12')
-		expect(damage?.style.left).toMatch(/^\d+%$/)
-		expect(damage?.style.top).toMatch(/^\d+%$/)
-		expect(heal?.style.left).toMatch(/^\d+%$/)
-		expect(heal?.style.top).toMatch(/^\d+%$/)
+		// 🔴 Every number is born **well above the hit**, in the upper middle of the card — never in a
+		// corner and never near the portrait's centre, so it reads as leaving the blow upward.
+		for (const floater of [damage, heal]) {
+			const left = Number.parseFloat(floater?.style.left ?? '0')
+			const top = Number.parseFloat(floater?.style.top ?? '0')
+			expect(left).toBeGreaterThanOrEqual(38)
+			expect(left).toBeLessThanOrEqual(62)
+			// The hit lands at ~46 %: the birth band has to sit clearly higher than that.
+			expect(top).toBeGreaterThanOrEqual(24)
+			expect(top).toBeLessThanOrEqual(36)
+		}
+		const vectorOf = (node: HTMLElement | null | undefined) => {
+			const inner = node?.firstElementChild as HTMLElement | null
+			return `${inner?.style.getPropertyValue('--floater-dx')},${inner?.style.getPropertyValue('--floater-dy')}`
+		}
+		// …and two hits do not sit on top of each other.
 		expect(`${damage?.style.left},${damage?.style.top}`).not.toBe(`${heal?.style.left},${heal?.style.top}`)
+		expect(vectorOf(damage)).not.toBe(vectorOf(heal))
 		expect(document.querySelector('[aria-label="Damage 28"]')).toBeTruthy()
 		expect(document.querySelector('[aria-label="Healing 12"]')).toBeTruthy()
 	})
 
-	it('keeps a dense burst of floating numbers in distinct positions', () => {
+	it('scatters a dense burst above the hit, each number still flying straight up', () => {
 		const feedback = Array.from({ length: 18 }, (_, key) => ({
 			key,
 			type: key % 2 === 0 ? ('damage' as const) : ('heal' as const),
@@ -110,10 +133,17 @@ describe('the avatar frame', () => {
 		}))
 		render(<AvatarCard side="enemy" name="Yêu Thú" emoji="👹" feedback={feedback} />)
 
-		const floaters = [...holder().querySelectorAll<HTMLElement>('[data-combat-feedback]')]
-		const positions = floaters.map((floater) => `${floater.style.left},${floater.style.top}`)
+		const floaters = [...card('enemy').querySelectorAll<HTMLElement>('[data-combat-feedback]')]
 		expect(floaters).toHaveLength(feedback.length)
-		expect(new Set(positions).size).toBe(feedback.length)
+		// Birth spots scatter (a burst covers a band, not one pixel)…
+		const births = floaters.map((floater) => `${floater.style.left},${floater.style.top}`)
+		expect(new Set(births).size).toBeGreaterThan(3)
+		// …but every one of them leaves **straight up**: 12 o'clock, no sideways component.
+		for (const floater of floaters) {
+			const inner = floater.firstElementChild as HTMLElement | null
+			expect(inner?.style.getPropertyValue('--floater-dx'), 'no sideways travel').toBe('0px')
+			expect(Number.parseFloat(inner?.style.getPropertyValue('--floater-dy') ?? '0')).toBeLessThan(0)
+		}
 	})
 
 	it('marks a critical hit by making the number itself bigger and blazing', () => {
@@ -130,21 +160,21 @@ describe('the avatar frame', () => {
 			/>,
 		)
 
-		const critical = holder().querySelector<HTMLElement>('[data-combat-feedback-key="1"]')
-		const normal = holder().querySelector<HTMLElement>('[data-combat-feedback-key="2"]')
+		const critical = card('enemy').querySelector<HTMLElement>('[data-combat-feedback-key="1"]')
+		const normal = card('enemy').querySelector<HTMLElement>('[data-combat-feedback-key="2"]')
 		expect(critical?.hasAttribute('data-combat-critical-hit'), 'flagged for tests and CSS').toBe(true)
 		// Only the number changes: one step bigger, fire-gold, punched in. ❌ No `CRITICAL` lettering.
 		expect(critical?.textContent).toBe('−120')
 		expect(critical?.querySelector('[data-combat-critical-label]'), 'no extra word').toBeNull()
-		expect(critical?.firstElementChild?.className).toContain('text-[34px]')
+		expect(critical?.firstElementChild?.className).toContain('text-[26px]')
 		expect(critical?.firstElementChild?.className).toContain('text-[#ffd45c]')
 		expect(critical?.querySelector('.animate-critical-pop')).toBeTruthy()
-		expect(normal?.firstElementChild?.className, 'normal stays 27px').toContain('text-[27px]')
+		expect(normal?.firstElementChild?.className, 'a normal number is smaller still').toContain('text-[20px]')
 		expect(normal?.hasAttribute('data-combat-critical-hit')).toBe(false)
 		expect(normal?.textContent).toBe('−30')
 	})
 
-	it('floats every number above the fighter, knocked back behind the one who took the hit', () => {
+	it('shoots every number straight up (12 o’clock) out of the impact point', () => {
 		render(
 			<>
 				<AvatarCard
@@ -161,34 +191,44 @@ describe('the avatar frame', () => {
 				/>
 			</>,
 		)
-		const onPlayer = document
-			.querySelector('[data-avatar-card="player"]')!
-			.querySelector<HTMLElement>('[data-combat-feedback-key="1"]')
-		const onEnemy = document
-			.querySelector('[data-avatar-card="enemy"]')!
-			.querySelector<HTMLElement>('[data-combat-feedback-key="1"]')
-		// The band sits above the portrait's centre — near the hit, not floating above the head.
-		for (const floater of [onPlayer, onEnemy]) {
-			const top = Number.parseFloat(floater?.style.top ?? '100')
-			expect(top).toBeGreaterThanOrEqual(14)
-			expect(top).toBeLessThanOrEqual(48)
+		const find = (side: 'player' | 'enemy') =>
+			document
+				.querySelector(`[data-avatar-card="${side}"]`)!
+				.querySelector<HTMLElement>('[data-combat-feedback-key="1"]')
+		const onPlayer = find('player')
+		const onEnemy = find('enemy')
+		const inner = (node: HTMLElement | null) => node?.firstElementChild as HTMLElement | null
+		const vectorOf = (node: HTMLElement | null) => {
+			const element = inner(node)
+			return {
+				dx: Number.parseFloat(element?.style.getPropertyValue('--floater-dx') ?? '0'),
+				dy: Number.parseFloat(element?.style.getPropertyValue('--floater-dy') ?? '0'),
+			}
 		}
-		// …and it pops on the **back half** of the card, never in front of the fighter: the player is hit
-		// from the right (so the number starts left of centre), the enemy from the left (right of centre).
-		expect(Number.parseFloat(onPlayer?.style.left ?? '0')).toBeLessThanOrEqual(44)
-		expect(Number.parseFloat(onEnemy?.style.left ?? '0')).toBeGreaterThanOrEqual(56)
-		// The blow comes from the right, so the number is knocked back to the **left**, behind the fighter.
-		expect(
-			(onPlayer?.firstElementChild as HTMLElement | null)?.style.getPropertyValue('--floater-drift'),
-		).toBe('-18px')
-		expect(
-			(onEnemy?.firstElementChild as HTMLElement | null)?.style.getPropertyValue('--floater-drift'),
-		).toBe('18px')
+		// Born **above the hit**, in the upper middle of the card so the nameplate never covers it.
+		for (const floater of [onPlayer, onEnemy]) {
+			const left = Number.parseFloat(floater?.style.left ?? '0')
+			const top = Number.parseFloat(floater?.style.top ?? '100')
+			expect(left).toBeGreaterThanOrEqual(38)
+			expect(left).toBeLessThanOrEqual(62)
+			expect(top).toBeGreaterThanOrEqual(24)
+			expect(top).toBeLessThanOrEqual(36)
+		}
+		// 🔴 Straight up on **both** cards: no sideways travel, and a flight short enough that the highest
+		// birth row (24 % of a 492 px card) still clears the nameplate.
+		for (const vector of [vectorOf(onPlayer), vectorOf(onEnemy)]) {
+			expect(vector.dx, '12 o’clock has no sideways component').toBe(0)
+			expect(vector.dy, 'always rises').toBeLessThan(-60)
+			expect(vector.dy).toBeGreaterThanOrEqual(-95)
+		}
+		expect(vectorOf(onPlayer)).toEqual(vectorOf(onEnemy))
 	})
 
-	it('keeps a number in its own spot while the others come and go', () => {		const spotOf = (key: number) => {
-			const floater = holder().querySelector<HTMLElement>(`[data-combat-feedback-key="${key}"]`)
-			return `${floater?.style.left},${floater?.style.top}`
+	it('keeps a number on its own spot and path while the others come and go', () => {
+		const spotOf = (key: number) => {
+			const floater = card().querySelector<HTMLElement>(`[data-combat-feedback-key="${key}"]`)
+			const inner = floater?.firstElementChild as HTMLElement | null
+			return `${floater?.style.left},${floater?.style.top}|${inner?.style.getPropertyValue('--floater-dx')},${inner?.style.getPropertyValue('--floater-dy')}`
 		}
 		const { rerender } = render(
 			<AvatarCard

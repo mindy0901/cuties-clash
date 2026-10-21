@@ -54,6 +54,10 @@ const ON_HIT_KIT_IDS = [
 	'lifesteal-on-hit',
 	'shield-on-hit',
 	'sword-energy-on-hit',
+	'brittle-on-hit',
+	'wound-on-hit',
+	'weaken-on-hit',
+	'shock-on-hit',
 ] as const
 /** Option kits that sit beside the main kit — `parry` (Chấn Đao) is one of them now. */
 const OPTION_KIT_IDS = [
@@ -78,6 +82,9 @@ const OPTION_KIT_IDS = [
 	'block-chance',
 	'debuff-heal',
 	'block-charged',
+	'shield-when-hit',
+	'cleanse',
+	'overcharge',
 ] as const
 const ITEM_KIT_IDS = [...ATTACK_KIT_IDS, ...OPTION_KIT_IDS] as const
 /**

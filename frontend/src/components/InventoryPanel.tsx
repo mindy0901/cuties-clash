@@ -17,6 +17,8 @@ interface InventoryPanelProps {
 	held: HeldItem | null
 	/** Clicking an inventory item → opens the detail dialog. */
 	onItemClick: (item: ItemInstance) => void
+	/** Pointer over a tile → the hover card (`useItemHoverCard`). */
+	onItemHover?: (item: ItemInstance, node: HTMLElement | null) => void
 	/** Starts holding an item (beginning of the drag). */
 	onDragStart?: (item: ItemInstance) => void
 	/** Pointer release: `moved` tells whether it was dragged or merely clicked. */
@@ -36,6 +38,7 @@ export function InventoryPanel({
 	onRef,
 	held,
 	onItemClick,
+	onItemHover,
 	onDragStart,
 	onDragEnd,
 	onAnchorSlot,
@@ -66,6 +69,7 @@ export function InventoryPanel({
 				items={run.inventory}
 				held={held}
 				onItemClick={onItemClick}
+				onItemHover={onItemHover}
 				onDragStart={onDragStart}
 				onDragEnd={onDragEnd}
 				onAnchorSlot={onAnchorSlot}

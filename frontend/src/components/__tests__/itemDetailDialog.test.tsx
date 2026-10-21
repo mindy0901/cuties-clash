@@ -52,11 +52,13 @@ describe('ItemDetailDialog', () => {
 		expect(screen.getByText('Hồn Ngọc Phẫn Nộ')).toBeTruthy()
 	})
 
-	it('shows the damage, Cooldown Time and resale value per star, and no description line', () => {
+	it('shows the damage multiplier, Cooldown Time and resale value per star, and no description line', () => {
 		reset([], [item('spear', 'fire-spear', 2, 8)])
 		render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
 
-		expect(screen.getByText('Sát thương mỗi đòn')).toBeTruthy()
+		// The multiplier, not the resulting damage: the hit depends on the Cutie.
+		expect(screen.getByText('Hệ số sát thương')).toBeTruthy()
+		expect(screen.queryByText('Sát thương mỗi đòn')).toBeNull()
 		// The rank is drawn on the tile, the same way the bag draws it — no separate "2★" label.
 		expect(document.querySelector('[data-item-quality] [data-item-stars="2"]')).toBeTruthy()
 		// One rhythm row, in the unit the admin page edits: seconds between two swings. The 2★ rank
@@ -122,30 +124,38 @@ describe('ItemDetailDialog', () => {
 		render(<ItemDetailDialog uid="gem" onClose={() => {}} />)
 
 		expect(screen.getByText('Hỗ trợ Băng · Giảm hồi chiêu')).toBeTruthy()
-		// The gem's reduction is temporary — the label says so.
-		expect(screen.getByText('Giảm hồi chiêu tạm thời (Temporary cooldown reduction, %)')).toBeTruthy()
-		expect(screen.getByText('50')).toBeTruthy()
-		expect(screen.getByText('Thời gian buff (giây)')).toBeTruthy()
+		// The gem's reduction is temporary — the label says so (the admin's "(% )" suffix is dropped:
+		// the value already carries the sign).
+		expect(screen.getByText('Giảm hồi chiêu tạm thời')).toBeTruthy()
+		expect(screen.getByText('50%')).toBeTruthy()
+		expect(screen.getByText('Thời gian buff')).toBeTruthy()
 		expect(screen.getByText('4s')).toBeTruthy()
 		expect(screen.getByText('Hồi máu theo giây')).toBeTruthy()
-		expect(screen.getByText('0.6')).toBeTruthy()
+		expect(screen.getByText('0.6%')).toBeTruthy()
 	})
 
 	it('lists the on-hit effects and the adjacency aura the admin attached', () => {
 		// Thương Lửa carries a burn; the war drum buffs a neighbouring weapon.
 		reset([], [item('spear', 'fire-spear'), item('drum', 'war-drum')])
 		const { unmount } = render(<ItemDetailDialog uid="spear" onClose={() => {}} />)
-		// The effect sits under the kit it was attached to, not in a merged list.
+		// 🔴 Every kit is its own block, and every parameter of it is a row of its own.
 		expect(screen.getByText('Đòn đánh cơ bản')).toBeTruthy()
-		expect(screen.getByText('Cháy khi trúng đòn · 25%')).toBeTruthy()
-		// 14 damage/second for 3s at 1★, a fixed number.
-		expect(screen.getByText('14%/s × ATK · 3s')).toBeTruthy()
+		expect(screen.getByText('Cháy khi trúng đòn')).toBeTruthy()
+		expect(screen.getByText('Tỉ lệ kích hoạt')).toBeTruthy()
+		expect(screen.getByText('25%')).toBeTruthy()
+		expect(screen.getByText('Thời gian')).toBeTruthy()
+		expect(screen.getByText('3s')).toBeTruthy()
+		// A burn drains 14 % of the owner's attack per second at 1★.
+		expect(screen.getByText('14%')).toBeTruthy()
 		unmount()
 
 		render(<ItemDetailDialog uid="drum" onClose={() => {}} />)
 		expect(screen.getByText('Hào khí liền kề')).toBeTruthy()
+		// The aura's own parameters: what it applies to, and each stat it moves.
+		expect(screen.getByText('Áp dụng cho')).toBeTruthy()
 		expect(screen.getByText('Cần một vũ khí liền kề')).toBeTruthy()
-		expect(screen.getByText(/Sát thương \+10%/)).toBeTruthy()
+		expect(screen.getByText('Sát thương')).toBeTruthy()
+		expect(screen.getByText('+10%')).toBeTruthy()
 	})
 
 	it('writes a shield and a scaled effect out with their real numbers', () => {
@@ -181,14 +191,14 @@ describe('ItemDetailDialog', () => {
 		})
 		render(<ItemDetailDialog uid="blade" onClose={() => {}} />)
 
-		expect(screen.getByText('Tạo khiên khi trúng đòn · 30%')).toBeTruthy()
-		// 3★ amount 30, always read as 30% of the owner's max HP.
-		expect(screen.getByText('+30% máu tối đa')).toBeTruthy()
-		expect(screen.getByText('Cháy khi trúng đòn · 25%')).toBeTruthy()
-		expect(screen.getByText('10%/s × ATK · 3s')).toBeTruthy()
+		// Each on-hit kit is a block with its own parameters: 3★ shield = 30 % of max HP.
+		expect(screen.getByText('Tạo khiên khi trúng đòn')).toBeTruthy()
+		expect(screen.getAllByText('30%').length, 'the chance and the amount are two rows').toBeGreaterThan(1)
+		expect(screen.getByText('Cháy khi trúng đòn')).toBeTruthy()
+		expect(screen.getAllByText('10%').length).toBeGreaterThan(0)
 	})
 
-	it('shows the charged attack inside its basic attack, not as a second block', () => {
+	it('lists the charged attack as a kit of its own, with its own parameters', () => {
 		reset([], [item('charger', 'wooden-blade')])
 		// No code weapon carries a charged variant yet, so the numbers come from a stored override.
 		applyContentOverrides({
@@ -206,21 +216,23 @@ describe('ItemDetailDialog', () => {
 		})
 		render(<ItemDetailDialog uid="charger" onClose={() => {}} />)
 
-		// One heading only: the charged attack is part of the basic attack.
+		// Two blocks: the swing and the charged hit, each with its own parameter rows.
 		expect(screen.getByText('Đòn đánh cơ bản')).toBeTruthy()
-		expect(screen.queryByText('Trọng kích nạp')).toBeNull()
+		expect(screen.getByText('Trọng kích nạp')).toBeTruthy()
 		// The plain swing keeps its own numbers…
 		expect(screen.getByText('Hồi chiêu')).toBeTruthy()
 		// The basic attack's own 1.6 s Cooldown Time.
 		expect(screen.getByText('1.6s')).toBeTruthy()
-		// …and the charged variant adds its threshold, multiplier and its own damage: 14 × 2.2 → 31.
-		// There is no cooldown row any more: the next basic attack is the charged one.
+		// …and the charged kit shows its threshold and its multiplier — its damage is not printed: it
+		// depends on the Cutie, and the multiplier already says everything.
 		expect(screen.getByText('Kiếm Thế cần')).toBeTruthy()
+		// Energy is **absolute points**, so the row is a plain number (100 Energy), never `100%`.
 		expect(screen.getByText('100')).toBeTruthy()
-		expect(screen.getByText('Hệ số đòn nạp')).toBeTruthy()
+		expect(screen.queryByText('100%')).toBeNull()
+		// One term for one number: the charged hit's multiplier is a plain `Hệ số sát thương` too.
+		expect(screen.getAllByText('Hệ số sát thương')).toHaveLength(2)
 		expect(screen.getByText('×2.2')).toBeTruthy()
-		expect(screen.getByText('Sát thương đòn nạp')).toBeTruthy()
-		expect(screen.getByText('31')).toBeTruthy()
+		expect(screen.queryByText('Sát thương đòn nạp')).toBeNull()
 		expect(screen.queryByText('Hồi đòn')).toBeNull()
 	})
 

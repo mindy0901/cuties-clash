@@ -14,6 +14,8 @@ installRetiredItems()
 import { afterEach, describe, expect, it } from 'vitest'
 import { useGameStore } from '../../store/gameStore'
 import { useBattleSettingsStore } from '../../store/battleSettingsStore'
+import { useUiStore } from '../../store/uiStore'
+import { createItemInstance } from '../../game/bag'
 import { renderApp } from '../../test/router'
 
 function freshRun() {
@@ -32,7 +34,8 @@ describe('the application shell renders', () => {
 		expect(screen.getByRole('heading', { name: 'Trang bị' })).toBeTruthy()
 		expect(screen.getByRole('heading', { name: 'Kho đồ' })).toBeTruthy()
 		expect(screen.getAllByText(/Mua Vật Phẩm/).length).toBeGreaterThan(0)
-		expect(screen.getByText(/Đấu Cutie/)).toBeTruthy()
+		// The fight button and the progress bar live in the Adventure dialog now.
+		expect(screen.queryByText(/Đấu Cutie/)).toBeNull()
 	})
 
 	it('shows the battle screen while fighting', async () => {
@@ -47,18 +50,38 @@ describe('the application shell renders', () => {
 		expect(screen.getAllByText(/Bỏ qua/).length).toBeGreaterThan(0)
 	})
 
+	it('the Adventure dialog owns the progress bar and the fight button', async () => {
+		freshRun()
+		useGameStore.setState((state) => ({
+			run: { ...state.run, equipped: [createItemInstance('jade-fury', 1, 'a', 0)] },
+		}))
+		await renderApp('/')
+
+		// ❌ The footer no longer carries the fight button or the progress bar.
+		expect(screen.queryByText(/Đấu Cutie/)).toBeNull()
+		expect(screen.queryByText(/Tiến trình màn/)).toBeNull()
+
+		fireEvent.click(screen.getByText('Phiêu Lưu'))
+
+		expect(screen.getByText(/Tiến trình màn 0\/60/)).toBeTruthy()
+		const fight = document.querySelector<HTMLButtonElement>('[data-fight-stage]')!
+		expect(fight.textContent).toContain('Đấu Cutie')
+
+		fireEvent.click(fight)
+		expect(useGameStore.getState().battle?.mode, 'the dialog starts the stage fight itself').toBe('stage')
+		expect(useUiStore.getState().mapOpen, 'and closes the map').toBe(false)
+		useGameStore.getState().leaveBattle()
+	})
+
 	it('starts the training room with the dummy standing still or striking back', async () => {
 		freshRun()
-		useBattleSettingsStore.setState({ trainingAttacks: true })
+		// The switch lives **inside** the practice fight; the footer button only repeats the setting.
+		useBattleSettingsStore.setState({ trainingAttacks: false })
 		useGameStore.setState((state) => ({ run: { ...state.run, gold: 40 } }))
 		useGameStore.getState().buyOffer(0)
 		await renderApp('/')
 
-		const toggle = document.querySelector<HTMLInputElement>('[data-training-attacks]')!
-		expect(toggle.checked).toBe(true)
-		// The toggle is the only thing that decides whether its one weapon swings.
-		fireEvent.click(toggle)
-		expect(useBattleSettingsStore.getState().trainingAttacks).toBe(false)
+		expect(document.querySelector('[data-training-attacks]')).toBeNull()
 
 		fireEvent.click(document.querySelector('[data-training-start]')!)
 		const battle = useGameStore.getState().battle

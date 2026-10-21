@@ -1,12 +1,12 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { templateFootprint, mergeUpStar, sellValue } from '../game/bag'
 import { estimatePower } from '../game/build'
 import { REROLL_COST, STAR_TWO_FROM_CLEARED, shopQualityOdds, shopStarOdds } from '../game/economy'
 import { QUALITY_LABELS, getTemplate, itemCatalogue, itemTemplatesUpToTier } from '../game/items'
 import { FINAL_STAGE, getStage, stageTier } from '../game/stages'
 import type { Quality } from '../game/types'
-import { GRID_WIDTH, MAX_CUTIE_LEVEL, getCutie, cutieBag, cutieOwnerStats } from '../game/cuties'
+import { GRID_WIDTH, MAX_CUTIE_LEVEL, getCutie, cutieBag } from '../game/cuties'
 import { playerCombatantFor, useGameStore } from '../store/gameStore'
 import { useUiStore } from '../store/uiStore'
 import { ItemGridPreview } from './ArtPreview'
@@ -15,7 +15,8 @@ import { GoldPill } from './GoldPill'
 import { HeldGhost } from './HeldGhost'
 import { LoadoutGrid } from './LoadoutGrid'
 import { CutiePortrait } from './CutiePortrait'
-import { ShopOfferCard } from './ShopOfferCard'
+import { ItemHoverCard } from './ItemHoverCard'
+import { useItemHoverCard } from './useItemHover'
 import { ArrowUp, ChevronLeft, Dices, Gold, Grid2x2, Info, Recycle, Star, StarRow } from './icons'
 import { useHeldItem } from './useHeldItem'
 import { Badge } from './ui/badge'
@@ -110,69 +111,36 @@ export function ShopScreen() {
 	 * With the tile as anchor the panel opens **to the right of the item** (the reference's side), 10 px
 	 * away, and never covers the item being inspected.
 	 *
-	 * ⚠️ `position: fixed` with a rect measured on enter: the board is `overflow-hidden` and scrolls,
-	 * so the card is dropped on scroll instead of being laid out inside a cell.
+	 * ⚠️ `position: fixed` with a rect measured on enter, and the **delay / cancel / replace** traps:
+	 * all of it lives in `useItemHoverCard`, shared with the bag and the arena.
 	 */
-	const [hovered, setHovered] = useState<{
-		index: number
-		left: number
-		top: number
-		maxHeight: number
-	} | null>(null)
+	const { hovered, show, queue, hide } = useItemHoverCard()
+	/** Which offer the open card belongs to (the shop needs its `sold` state to close it). */
+	const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 	/** Pointer is over the sell zone while an item is being dragged. */
 	const [overSell, setOverSell] = useState(false)
 
-	/** Width of the hover card, in px — kept here because the placement maths needs it. */
-	const CARD_WIDTH = 258
-
-	/**
-	 * Hover intent: the card waits before it opens.
-	 *
-	 * The pointer crosses a cell on its way anywhere else on the board, and a card that appears on the
-	 * first pixel of contact flickers over the neighbouring items on every pass. A short wait makes the
-	 * panel answer a **deliberate** stop instead.
-	 */
-	const HOVER_DELAY_MS = 350
-	const hoverTimerRef = useRef<number | null>(null)
-
-	useEffect(
-		() => () => {
-			if (hoverTimerRef.current !== null) window.clearTimeout(hoverTimerRef.current)
-		},
-		[],
-	)
+	const anchorTile = (node: HTMLElement) => node.querySelector<HTMLElement>('[data-shop-tile]') ?? node
 
 	const showCard = (index: number, node: HTMLElement) => {
-		const tile = node.querySelector<HTMLElement>('[data-shop-tile]') ?? node
-		const tileRect = tile.getBoundingClientRect()
-		const gap = 10
-		// **Right side first**, like the reference — the card must never cover the tile it describes,
-		// and covering a neighbouring item is accepted. It only flips to the left of the tile when the
-		// right side would run off the window.
-		const right = tileRect.right + gap
-		const left = right + CARD_WIDTH <= window.innerWidth - 8 ? right : Math.max(8, tileRect.left - gap - CARD_WIDTH)
-		const top = Math.max(8, Math.min(tileRect.top, window.innerHeight - 120))
-		setHovered({ index, left, top, maxHeight: Math.max(140, window.innerHeight - top - 16) })
+		const offer = run.shop[index]
+		if (!offer) return
+		setHoveredIndex(index)
+		show(offer.templateId, offer.star, anchorTile(node))
 	}
 
 	/** Drops the card and any pending open — used on leave, blur, scroll and after a purchase. */
 	const hideCard = () => {
-		if (hoverTimerRef.current !== null) {
-			window.clearTimeout(hoverTimerRef.current)
-			hoverTimerRef.current = null
-		}
-		setHovered(null)
+		setHoveredIndex(null)
+		hide()
 	}
 
 	/** Arms the card for `index`, cancelled by `hideCard` if the pointer moves on first. */
 	const queueCard = (index: number, node: HTMLElement) => {
-		hideCard()
-		hoverTimerRef.current = window.setTimeout(() => {
-			hoverTimerRef.current = null
-			// The cell may have been bought (replaced by the sold placeholder) while the timer ran.
-			if (!node.isConnected) return
-			showCard(index, node)
-		}, HOVER_DELAY_MS)
+		const offer = run.shop[index]
+		if (!offer) return
+		setHoveredIndex(index)
+		queue(offer.templateId, offer.star, anchorTile(node))
 	}
 
 	const onDragEnd = (moved: boolean, releasePosition: PointerPosition | null) => {
@@ -206,9 +174,6 @@ export function ShopScreen() {
 	}
 
 	const cutie = getCutie(run.cutieId)
-	// Every item number on this page is a multiplier of the cutie's own attack; an item's cadence
-	// is its own Cooldown Time.
-	const owner = cutieOwnerStats(cutie, run.cuties[run.cutieId] ?? 1)
 	const level = run.cuties[run.cutieId] ?? 1
 	const bag = cutieBag(level)
 	const combatant = playerCombatantFor(run)
@@ -626,11 +591,10 @@ export function ShopScreen() {
 			    way the reference shows it. It only reads; the cell below it still owns the click.
 			    ⚠️ `!sold` is part of the guard, not only a nicety: a bought offer must never keep a card
 			    on screen (its cell is replaced, so no pointer-leave fires there). */}
-			{hovered && run.shop[hovered.index] && !run.shop[hovered.index].sold ? (
-				<ShopOfferCard
-					templateId={run.shop[hovered.index].templateId}
-					star={run.shop[hovered.index].star}
-					owner={owner}
+			{hovered && hoveredIndex !== null && run.shop[hoveredIndex] && !run.shop[hoveredIndex].sold ? (
+				<ItemHoverCard
+					templateId={hovered.templateId}
+					star={hovered.star}
 					left={hovered.left}
 					top={hovered.top}
 					maxHeight={hovered.maxHeight}

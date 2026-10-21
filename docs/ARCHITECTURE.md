@@ -80,8 +80,12 @@ feature.
 
 🔴 **Attack exists only on the Cutie.** `ItemTemplate` has no `attack` field: an item's damage is a
 **multiplier of the owner** — `basic-attack.multiplier` × the Cutie's attack, a burn/poison a share of
-its attack per second, shields and heals a share of its max HP,
-Sword Energy amounts a share of its max bar. `stats` / `aura` tables are the opposite case: their numbers
+its attack per second, shields and heals a share of its max HP.
+🔴 **Energy is the exception, and it is absolute**: `seNeed` (charged hit), `parry.cost`,
+`block-charged.seCost`, `sword-energy-on-hit.amount` and the Energy-drain amount are **points on the
+bar**, and `sword-energy.regen` adds **points per second** — `build.ts` (`energyPoints`) only rounds
+them, it never scales them by `maxSe`. So `seNeed: 100` costs 100 of the Cutie's 300 Energy, not a
+third of whatever the bar happens to be. `stats` / `aura` tables are the other flat case: their numbers
 are **flat amounts added straight to the owner** (`atk: 30` = +30 attack, `addItemMods` in `build.ts`),
 because a designer types the number the Cutie gains. 🔴 **The rhythm is the opposite of both: it is
 absolute.** Every kit with `kind: 'attack'` carries its own **`cooldown`** (seconds, one value per star
@@ -137,14 +141,16 @@ open the game
   └─ zustand persist reads localStorage ──► sanitizeRun()  (anti blank page)
   └─ TanStack Query calls GET /api/auth/session
         ├─ error  ──► play anonymously, blocking NOTHING
-        └─ ok & signed in
-              └─ machine has NO progress yet?  ──► pullRun(): GET /api/me/save
-                    • write the revision into the cache FIRST
-                    • write localStorage + rehydrate
-              └─ machine ALREADY has progress ──► keep the player's own (localStorage wins)
+        └─ ok & signed in ──► whose run is this?   (tag `martial-cutie-save-owner` = `u:<id>`)
+              ├─ NO progress on this machine ──► pullRun(): GET /api/me/save
+              │        • write the revision into the cache FIRST
+              │        • write localStorage + rehydrate, tag the account
+              ├─ tag = ANOTHER account ──► pullRun(): the account's own copy wins
+              │        • no save on the server ⇒ newRun() (the foreign run is never uploaded)
+              └─ tag = this account, or NO tag (anonymous play) ──► localStorage wins
 
 the player changes Trang bị
-  └─ gameStore changes  ──► AuthSync: 1.5 s debounce
+  └─ gameStore changes  ──► AuthSync: 1.5 s debounce (only once the run belongs to the account)
         └─ pushedRef compares JSON.stringify(run)  (❌ no guard ⇒ infinite PUT loop)
               └─ pushRun(): PUT /api/me/save with the known revision
                     ├─ 400 revision_conflict ──► GET the new revision ──► PUT MY OWN DATA again
@@ -159,6 +165,17 @@ Rule details and the traps: `AGENTS.md` §4.4. Lessons that were paid for:
 - **Overwriting on conflict** — loses the change just made *and* causes a conflict on the next push.
 - **Writing the revision after writing localStorage** — the push immediately after uses the old
   revision ⇒ conflict straight away.
+- 🔴 **A second account inheriting the browser's run** — `localStorage` belongs to the browser, not to
+  the account, and signing out deliberately keeps the run. Without an owner tag the sync effect pushed
+  that run into whoever signed in next and overwrote *their* save (the retry after
+  `revision_conflict` sends **our** data, which is right for one account and fatal across two). The
+  API log showed it plainly: `PUT` 14 ms after the session, `GET`, `PUT`. That is why the run now
+  carries `martial-cutie-save-owner` (`u:<users.id>`, absent for anonymous play) and the push waits
+  until the run on screen belongs to the account.
+- 🔴 **The v1 migration wiping a pulled save** — `writeLocalRun` used to write `version: 1` when the
+  machine had no save yet (exactly the "continue on a new device" case), so zustand ran
+  `migrateV1ToV2` over a **current** run and emptied Trang bị + Kho đồ. It now writes
+  `GAME_SAVE_VERSION` (one constant, shared with the store).
 - 🔴 **Overwriting a real save while verifying** — opening `localhost:5190` in a separate browser
   profile while `AUTO_LOGIN=true`: a fresh profile has no save ⇒ the app auto-signs in to the user's
   account ⇒ loading the server save fails ⇒ **pushes an empty run up**. This really happened. Safe ways
@@ -340,6 +357,14 @@ were written:
   animation, a repeated shape) becomes an `@utility` or a token **in `styles/app.css`**, next to the
   existing `stripes` / `surface-panel` / `surface-item` / `surface-board` / `surface-brand`
   (`--animate-*` for anything that moves — ❌ do not animate with a one-off `style`).
+- 🔴 **CSS lives in two files, by scope.** `styles/app.css` is the design system — `@theme` tokens, the
+  `@layer base` rules and every shared `@utility`. `styles/battle.css` (imported at the top of `app.css`)
+  holds what **only** the arena uses: the portrait card, its nameplate and skill seals, and the floating
+  combat number (`combatRise` / `combatPop`). A pattern two screens share stays in `app.css`; a fixed value
+  (a colour, radius, shadow, duration) belongs in `@theme`, ❌ not as a literal in either file.
+  ⚠️ An animation that reads a **per-element** `--*` variable must be declared as an `@utility`, ❌ never as
+  a `--animate-*` theme token — the token is emitted on `:root`, the variable is not there, and the
+  animation silently runs its fallback (that bug made a combat number finish early and stand still).
 - ❌ **Do not build class names dynamically** (`` `bg-cls-${value}` ``): Tailwind only emits classes it
   can read in the source. Map the value to a **full** class string (`ITEM_BORDER_BY_CLASS`).
 - ✅ A `data-*` hook for tests (`data-admin-kit`, `data-confirm-accept`), ❌ a **styling class** as the
@@ -424,20 +449,64 @@ were written:
   (→ anchor cell + blocked flag). The shop page learned this the hard way: its equipment column was
   rendered read-only, so clicking and dragging did nothing. Read-only grids are for the **opponent**
   (`AvatarCard`) only.
-- 🔴 **An item's numbers live in one place: `components/itemFacts.ts`.** `itemFacts(template, star)`
-  plus `kitParamText()` / `onHitText()` are read by the click-to-open dialog **and** the shop's hover
-  card (`ShopOfferCard`). ❌ Never re-derive a kit's numbers in a second view: two copies will drift and
-  the game will describe one weapon two ways. Anything *economy* (price, paid, resale) stays in the
-  dialog — the hover card answers "should I buy this?", it is not a second details screen.
+- 🔴 **An item's numbers live in one place: `components/itemFacts.ts`.** `itemFacts(template, star)` and
+  **`itemKitBlocks(template, star)`** are read by the click-to-open dialog **and** by the hover card
+  (`ItemHoverCard`) — the same component everywhere an item sits on a board: shop offers, Trang bị /
+  Kho đồ in the preparation room, and both sides' grids in the arena. ❌ Never re-derive a kit's numbers
+  in a second view: two copies will drift and the game will describe one weapon two ways.
+  - `itemKitBlocks` returns **one block per kit the item carries**, in the item's own order, and each
+    block is drawn in its **own bordered frame**: `Basic attack` → `Charged attack` → every on-hit kit →
+    the option kits (`stats` one row per stat, `aura` its target + each stat, the rest their own
+    parameters). 🔴 **The charged hit and the on-hit effects are blocks of their own**, exactly like the
+    admin page draws them — the engine stores them inside the swing (`kit.charge` / `kit.onHit`), the
+    reader still sees one card per kit. A kit with nothing to report (an empty stat table) is left out,
+    never drawn empty.
+  - 🔴 **An attached kit is drawn under its attack, joined by an elbow** (`KitBlock.attached` → a
+    `CornerDownRight` icon plus a hairline, and the box indented): a charged hit or an on-hit effect is
+    **dead without a basic attack** (the admin page disables both until one exists), so the card shows
+    which swing carries it instead of listing it as a sibling.
+  - ⚠️ A **stat-only kit has no title** (`label: ''`): the rows are the item's own numbers, so
+    `Chỉ số cộng thêm` / "Bonus stats" over them only repeated them.
+  - 🔴 **Every parameter is one row** (`multiplier`, `cooldown`, `chance`, `duration`, `value`…) with its
+    own unit — `×1.2`, `2.75s`, `18%`, `100` Energy points. ❌ No merged sentence that hides numbers: the
+    point of the list is that a kit's numbers can be read one by one.
+  - 🔴 **`target` / `directions` are hidden** (`HIDDEN_PARAM_KEYS`): the buff area is drawn as arrows on
+    the tile in the bag, so `Chọn mục tiêu buff · Theo hướng liền kề` / `Hướng buff · Up · Down · Left ·
+    Right` in a card told the player nothing they could act on (asked for: "ẩn choose the buff target và
+    direction"). An `aura` kit's own `Áp dụng cho` row is a real answer and stays.
+  - 🔴 **The resulting damage is not printed** (`Sát thương mỗi đòn` / `mỗi giây` / `đòn nạp` were
+    removed on request: "chỉ cần hiển thị dmg multiplier ko cần hiển thị damage"). The absolute hit is
+    the **Cutie's** attack times the multiplier, so it says more about the current Cutie than about the
+    item; the multiplier is the number two items can be compared by. `itemKitBlocks(template, star)`
+    therefore does not need the owner at all.
+  - ⚠️ Labels are the **admin's**, shortened by `shortLabel()` (the parenthetical — a unit, a second
+    spelling — is dropped because the value carries it: `Hồi chiêu (giây, Cooldown Time)` → `Hồi chiêu`).
+    A new short label needs its EN pair, or an English player reads Vietnamese.
+  - ⚠️ Percent parameters print the sign (`18%`) — a bare `18` next to "Parry chance" reads as a count.
+    Timings print **the stored number** (`seconds()` keeps two decimals: `2.75s`, not `2.8s`).
+  - The card is **`HOVER_CARD_WIDTH` = 320 px** (`useItemHover.ts`), and its name **wraps** instead of
+    being truncated: `Beginer's Sw…` hid the word that identifies the item (asked for: "header đang quá
+    hẹp").
+  - Anything *economy* (price, paid, resale) stays in the dialog — the hover card answers "what is
+    this?", it is not a second details screen.
 - ⚠️ **Hover handlers need `aria-disabled`, not `disabled`.** A disabled `<button>` fires no pointer
   events, so an unaffordable-but-inspectable cell would never show its card. Guard the action in
   `onClick` and keep the button focusable.
-- ⚠️ **The shop card waits for hover intent (`HOVER_DELAY_MS = 350`) and dies with its offer.** The
-  pointer crosses cells on the way anywhere else, so opening on the first pixel of contact made the
-  panel flash over the neighbours. And a bought cell is **replaced** by the sold placeholder, so the
-  old button never fires `pointerleave`: without an explicit `hideCard()` on the click (plus
-  `!offer.sold` in the render guard) the card stayed on screen over an offer that no longer existed.
-  One `hoverTimerRef` serves both the delay and the cancel — ❌ no second timer.
+- 🔴 **A tile that shows the card must not carry a `title`.** The native tooltip (`Beginer's Sword 1×3`)
+  drew a **second** popup beside the card. `LoadoutGrid` / `InventoryGrid` keep the name in
+  `aria-label` and only set `title` when they have no `onItemHover` to show one.
+- ⚠️ **Every hover card waits for hover intent (`HOVER_DELAY_MS = 350`) and dies with its tile.**
+  The pointer crosses cells on the way anywhere else, so opening on the first pixel of contact made the
+  panel flash over the neighbours. A bought offer is **replaced** by the sold placeholder, so the old
+  button never fires `pointerleave`: without an explicit `hideCard()` on the click (plus `!offer.sold`
+  in the render guard) the card stayed on screen over an offer that no longer existed. All of that, the
+  placement maths included, lives in **`components/useItemHover.ts`** (`useItemHoverCard`) — ❌ no second
+  timer, and ❌ do not copy the logic into another screen:
+  - the bag and the arena pass the **tile element** as the anchor (a board cell is much wider than the
+    item, and anchoring to it pushed the card over the next item);
+  - the card is **not** armed while an item is being dragged (`held !== null`), because the cursor
+    passes over every neighbour on the way, and a drag clears a card already open;
+  - `data-item-hover-card` is the one test hook for all three screens.
 - ❌ **Do not** use `requestAnimationFrame` for battle playback — background tabs get throttled. Use
   `setInterval` with `TICK_MS = 60`.
 - ✅ Playback follows `elapsedRef` (simulated time) and looks up `events[next].t <= elapsed`;
@@ -456,14 +525,18 @@ were written:
   lives there (under the three panels — *not* inside a panel except Shop / Tháo hết):
   - **panel 1** (`data-action-bar-panel="modes"`) — the four modes, one equal column each
     (`xl:grid-cols-4`, so they split its width at any window size): `Đấu Trường` (a `pvp` duel against a
-    rival, the only entry point for that mode) · `Phiêu Lưu` (opens the journey map) · `Phòng tập` (+ the
-    **enemy fights back** chip inside its own cell) · `Bảng Xếp Hạng` (**disabled** — no feature yet,
-    `title` says so).
-  - **panel 2** (`data-action-bar-panel="journey"`) — the journey/next action in a 3-column grid at `xl`
-    (`1fr · auto · 1fr`): `Nhiệm Vụ · Bộ Sưu Tập · Bản đồ` | `Đấu Cutie` **exactly in the middle** |
-    tiến trình. The fight button stays centred even though the two sides carry different numbers of
-    controls; a plain `flex` row only *looked* centred while both sides happened to add up. ❌ Do not put
-    the fight button back at the end.
+    rival, the only entry point for that mode) · `Phiêu Lưu` (opens the journey map) · `Phòng tập` ·
+    `Bảng Xếp Hạng` (**disabled** — no feature yet, `title` says so).
+  - **panel 2** (`data-action-bar-panel="journey"`) — what is left of the journey actions:
+    `Nhiệm Vụ · Bộ Sưu Tập`, both **disabled** (no feature yet). 🔴 **The fight button
+    (`Đấu Cutie · Màn N`) and the stage progress bar are NOT here** — they moved into the Adventure
+    dialog (`StageMapDialog`, `data-fight-stage` at the end of its footer, the bar beside it), because
+    the map is where the stage is chosen (asked for: "xóa 2 button này, đặt vào trong adventure popup
+    map"). The dialog's button **selects the stage picked on the map and starts it**
+    (`selectStage()` → `startBattle('stage')` → `onClose()`), so "pick a stage" and "fight it" are one
+    action; `Vào màn` in the aside stays for "pick it and go back to prepare". ⚠️ There is no `Bản đồ`
+    button here or in the top bar either: `Phiêu Lưu` is the only entry point for the map (asked for:
+    "xóa map vì trùng với adventure button").
   - Each panel carries its own `rounded-panel border border-line bg-ink-800/80 p-2.5`; the `<footer>`
     itself is a transparent `flex flex-col gap-2.5` (`data-action-bar`).
   - 🔴 **The footer is a sibling of the main content, not a child of it**: `PrepScreen` returns the panels
@@ -487,13 +560,13 @@ were written:
 - 🔴 **The footer is the page footer and rides the bottom edge.** `PrepScreen` keeps the panels block
   `flex-1` inside the `min-h-screen` column and renders `<ActionBar/>` right after it, so the footer sits
   against the bottom of the viewport (14 px breathing gap, `pb-3.5`) instead of stopping wherever the
-  panels end (asked for: "footer nằm sát xuống phía dưới"). ⚠️ The training chip in the modes panel has
-  **no text label** — it is a square chip beside the full-size **Phòng tập** button, and its words live in
-  the `title` + `aria-label`, so the button keeps the panel's height (asked for: "sửa lại button training
-  room giống button battle và shop"). ⚠️ The **same switch exists inside the practice fight**
-  (`data-battle-training-attacks` in `BattleScreen`'s training bar, labelled in full there): a battle is
-  simulated up front, so flipping it calls `startBattle('training', { attacks })` again — a fresh session,
-  exactly like **Tập lại** — ❌ never try to patch the running log.
+  panels end (asked for: "footer nằm sát xuống phía dưới"). ⚠️ **`Phòng tập` is one plain button** —
+  there is no "enemy fights back" chip beside it: the **only** switch is inside the practice fight
+  (`data-battle-training-attacks` in `BattleScreen`'s training bar, labelled in full there), because the
+  footer would duplicate it (asked for: "xóa label thừa vì đã có chức năng này ở trong battle"). The
+  button still starts the session with the **remembered** `trainingAttacks` value. A battle is simulated
+  up front, so flipping the switch inside the arena calls `startBattle('training', { attacks })` again —
+  a fresh session, exactly like **Tập lại** — ❌ never try to patch the running log.
 - 🔴 **A Cutie stat row is one full-width row: the total, then `base + gear` in brackets.** Like the
   Sword Energy row (label left, number right), each stat shows the **sum** the Cutie actually fights
   with, in **`text-gold-soft`** on `font-semibold`, and — when Trang bị adds anything — a quiet
@@ -605,13 +678,51 @@ readable at every playback speed (×0.5 … ×3).
 - **A Cutie's own swing leaves from its portrait centre**; a weapon's leaves from its loadout tile.
   Weapon tiles are found through the `#<kitId>`-suffixed uid `combatItemUid` builds, not the template id.
 - **Damage numbers: one per hit, and never added together.** Two copies of one weapon share a cadence
-  and fire on the same tick — that is **two** numbers (in different spots), not one summed number. They
-  only live in the **upper part** of the card (`feedbackPosition` rows 14–64 %): a number at the bottom
-  edge or under the nameplate reads like a bug. Each one also drifts up while leaning **away from the
-  attacker** (`--floater-drift` — player card left, enemy card right). Each number sits at a position
-  derived from its own key (`feedbackPosition`) so it never moves when another appears or expires, lives
-  `FEEDBACK_LIFE_MS` simulated ms (`/ speed`, floor `FEEDBACK_MIN_LIFE_MS`), and past
-  `FEEDBACK_MAX_LIVE` numbers on one side the oldest makes room.
+  and fire on the same tick — that is **two** numbers (on different flight paths), not one summed number.
+- 🔴 **A number is born well above the hit and travels *straight up* (12 o'clock).** `birthOf(key)` picks the
+  spot from a band over the impact — 38–62 % across, 24–36 % down, i.e. **clearly above** the point that
+  took the hit — so a burst scatters instead of printing on one pixel; `flightOf(key)` adds only the
+  vertical vector (`--floater-dy`, −48 … −70 px, cycled by the key) and `--floater-dx` stays `0`, so ❌
+  nothing travels sideways (asked for: "vị trí dmg bay lên random phía trên vị trí get hit … nhưng vẫn bay
+  thẳng theo hướng 12h"). Both are **pure functions of the key**, so a number never jumps when another
+  appears or expires.
+- 🔴 **The glide is spread over the whole animation.** `combatFloater` interpolates the vector at *every*
+  keyframe (`0.16 · dy`, `0.42 · dy`, `0.58 · dy`, `dy`), so the number rises at the same gentle pace it
+  always had. A distance that only played out in the closing frames read as a jump (asked for: "tốc độ bay
+  lên giữ lại như cũ").
+- 🔴 **The path never leaves its card.** The layer is `absolute`, so a number poking past the edge widens
+  the arena's scroll container and the battle grows a **horizontal scrollbar**. −70 px is the ceiling
+  because the highest birth row is 24 % of a 492 px card (~118 px) and the nameplate occupies its top.
+  Verify with `getBoundingClientRect()` against the card, ❌ never by eye.
+- 🔴 **A number pops to 150 % and settles back to 100 %, while it flies up — as *two* animations.** The rise
+  and the pop must not share a timeline: `combatRise` moves the `translate` property, `combatPop` changes
+  only `scale` (`1 → 1.5` by 22 %, back to `1` by 55 %). ❌ Putting both in one `transform` keyframe list
+  forced the size to pause at each keyframe so the position could be interpolated — that is the stutter the
+  player kept reporting ("không giống đang bay lên mà như bị đẩy lên từ từ … không mượt như 10fps").
+  ❌ And the settle must not ease in (`cubic-bezier(0.33, 0, …)` starts at zero velocity = a freeze at the
+  peak).
+- 🔴 **The flight keeps a constant speed until the number disappears** (`combatRise` runs `linear`). It is
+  still travelling on the frame it is removed — ❌ no deceleration into a stall, which looked like the
+  number stopping and then vanishing (asked for: "tiếp tục bay cho đến khi biến mất").
+- 🔴 **`animate-combat-floater` is an `@utility`, ❌ not a `--animate-*` theme token.** A theme token is
+  emitted on `:root`, so its `var(--floater-life)` resolves **there** and the animation silently ran the
+  0.6 s fallback while React kept the number for its real life (up to 1.12 s at ×0.5): the animation ended
+  first and the number **sat still until it was removed** — the reported "text dừng lại trước khi biến
+  mất". Declared as a utility, the variable resolves on the element, so the flight lasts exactly as long as
+  the number. Any animation that reads a per-element `--*` variable has the same trap.
+  ⚠️ The centring `-translate-x-1/2` stays on the **parent** span: with `scale` in the mix it would
+  otherwise shift the number sideways as it grows.
+- 🔴 **The number needs its own composited layer** (`[will-change:transform]` +
+  `[backface-visibility:hidden]` on the animated span). Without it the browser re-rasterises the glyphs and
+  the `text-shadow` on every frame of the scale, which stutters no matter how the curves are shaped.
+  🔴 There is **no opacity fade** — it is fully opaque for its whole life and disappears when it expires,
+  because the fade left it washed out at exactly the moment it should read (asked for: "xóa làm mờ do quá
+  mờ"). The life stays short (`FEEDBACK_LIFE_MS = 560`, floor 360 — "tăng tốc độ"), and the type is small
+  (`text-[20px]`, critical `text-[26px]`) so a burst does not cover the fighter.
+- 🔴 **The floaters are a layer of the card, not of the portrait.** `AvatarCard` renders them in an
+  absolutely positioned overlay **beside** `[data-avatar-holder]`, because the portrait clips to its
+  rounded frame (`overflow-hidden` also comes from `.battle-cutie-portrait`) and a number near the card's
+  edge was cut in half by that frame.
 - 🔴 **Everything pops on the same frame.** The health, armour and Sword Energy read-outs, the bars and
   every floating number of one replay tick all change together: no stagger on the numbers
   (`--floater-delay` is always `0s`) and the bars use a **short tween** (`BAR_TRANSITION`), ❌ not a
@@ -619,6 +730,16 @@ readable at every playback speed (×0.5 … ×3).
   was still on the way. A stagger read as "the bar dropped, then the numbers arrived".
 - **Armour gains get a number too** (`type: 'shield'`), in Sword-Energy blue: the badge would otherwise
   move with nothing to explain it.
+- 🔴 **A jade item's tile flashes when its kit fires.** `BattleEvent.triggerUid` names **the item whose kit
+  caused the event** — a support gem's retaliate freeze, a gem's shield / heal / cooldown buff — which
+  `sourceUid` cannot express (it points at the swing, or at the *victim's* weapon for a freeze). The finish
+  is set in `build.ts` (`reactions.*.uid`, `CooldownBuff.uid`, `fireEffect`'s `item.uid`), so a new reaction
+  has to carry it too or its gem stays dark. `BattleScreen` collects the uids of the crossed events, keeps
+  `uid → flash key` in state for `JADE_FLASH_MS`, and `LoadoutGrid` draws `data-jade-trigger` keyed by that
+  counter — a second trigger remounts the overlay so the CSS animation restarts.
+  ⚠️ `animate-jade-trigger` keeps its gradient **on the utility**, ❌ never in the keyframes: `background` is
+  not animatable, so a gradient declared inside `@keyframes` is dropped and the flash renders as a bare
+  ring with nothing inside.
 - 🔴 **Floaters use a CSS keyframe** (`animate-combat-floater` + `--floater-life` / `--floater-delay`)
   and the avatar holder is **not keyed by the hit**. A `motion` component restarts its keyframes on
   re-render, and a holder keyed by `hitKey` remounts every number inside it — either one makes all the

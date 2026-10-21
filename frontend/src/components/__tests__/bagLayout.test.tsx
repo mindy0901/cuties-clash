@@ -228,8 +228,11 @@ describe('Loadout — carried items', () => {
 		}))
 		renderPrep()
 
+		// ❌ No second "Maps" button anywhere: Adventure is the only entry point.
+		expect(screen.queryByRole('button', { name: /^Bản đồ$/ })).toBeNull()
+
 		fireEvent.click(screen.getByText('Phiêu Lưu'))
-		expect(useUiStore.getState().mapOpen, 'Adventure opens the same map dialog Maps does').toBe(true)
+		expect(useUiStore.getState().mapOpen, 'Adventure opens the journey map').toBe(true)
 		useUiStore.getState().closeMap()
 
 		fireEvent.click(screen.getByText('Đấu Trường'))
